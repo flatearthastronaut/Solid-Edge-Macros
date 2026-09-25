@@ -1,0 +1,6 @@
+# Tests generate disposable harness binaries/logs, not release artifacts.
+tests/*.exe
+tests/*.txt
+tests/*.pdb
+# User-specific runtime logs/settings must not become future accidental commits.
+Compiled Executables/SketchToModels-*.txt
