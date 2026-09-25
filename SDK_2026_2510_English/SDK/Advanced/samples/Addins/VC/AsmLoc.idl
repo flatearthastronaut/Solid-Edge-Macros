@@ -1,0 +1,164 @@
+// AsmLoc.idl : IDL source for DA.dll
+//
+
+// Note: 
+//       The Wizard took his best shot at building a path to your
+//       Solid Edge Sdk include file directory. If after adding
+//       the above project settings, the project fails to build
+//       due to missing include files, add the necessary include
+//       paths to the c++ (preprocessor) project settings under
+//       the addtional include file paths field.
+//        
+
+// This file will be processed by the MIDL tool to
+// produce the type library (AsmLoc.tlb) and marshalling code.
+
+import "oaidl.idl";
+import "ocidl.idl";
+
+[
+	uuid(6D4144EB-2FC2-11D3-9276-00C04F79BE98),
+	version(1.0),
+	helpstring("AsmLoc 1.0 Type Library")
+]
+library AsmLocLib
+{
+	importlib("stdole32.tlb");
+	importlib("stdole2.tlb");
+	// import Solid Edge types
+	importlib("framewrk.tlb");
+
+	[ hidden, uuid(B813D259-4844-49E7-A3B2-7B359CC3A78A) ]
+	
+	coclass ASMLOCAddInEventsEx2
+	{
+		[default] interface ISEAddInEventsEx2;
+	}
+
+	[ hidden, uuid(35F69A4E-1681-4745-B192-0A55B2843D0F) ]
+	
+	coclass ASMLOCAddInEventsEx
+	{
+		[default] interface ISEAddInEventsEx;
+	}
+
+	[ hidden, uuid(6D4144F3-2FC2-11D3-9276-00C04F79BE98) ]
+	
+	coclass ASMLOCAddInEvents
+	{
+		[default] interface ISEAddInEvents;
+	}
+
+	[ hidden, uuid(104A396A-DE35-46b6-8806-754A7A4CCCB8) ]
+	coclass ASMLOCApplicationEvents
+	{
+		[default] interface IUnknown;
+	}
+
+	[ hidden, uuid(82C7A5E4-C5BA-4664-B77C-E9188F5908E6) ]
+	coclass ASMLOCApplicationEventsEx
+	{
+		[default] interface IUnknown;
+	}
+	
+	[ hidden, uuid(770A56FF-3A56-4997-AA5C-3A057D2A5DB7) ]
+	coclass ASMLOCApplicationEventsEx2
+	{
+		[default] interface IUnknown;
+	}
+
+	[ hidden, uuid(DFA7FBE0-EA00-4206-9E3C-04EE2A58387C) ]
+	coclass ASMLOCApplicationFrameSwitchingEvents
+	{
+		[default] interface IUnknown;
+	}
+
+	[hidden, uuid(C2516333-0B1D-43E0-B3F4-F42B0990DDF9)]
+	coclass ASMLOCApplicationLicenseEvents
+	{
+		[default] interface IUnknown;
+	}
+	
+	[hidden, uuid(3B9F8630-EE22-4C34-AA0A-1123A0C0ECB1)]
+	coclass ASMLOCApplicationDocumentLoadingEvents
+	{
+		[default] interface IUnknown;
+	}
+
+	[ hidden, uuid(D3DEF212-1809-4aeb-8C93-9745AA28ACF8) ]
+	
+	coclass ASMLOCAddInEdgeBarEvents
+	{
+		[default] interface ISEAddInEdgeBarEvents;
+	}
+
+	[ hidden, uuid(6D4144EC-2FC2-11D3-9276-00C04F79BE98) ]
+	
+	coclass Commands
+	{
+		[default] interface IUnknown;
+	}
+
+	[ hidden, uuid(6D4144ED-2FC2-11D3-9276-00C04F79BE98) ]
+	
+	coclass ASMLOCCommand
+	{
+		[default] interface IUnknown;
+	}
+
+	[ hidden, uuid(6D4144F0-2FC2-11D3-9276-00C04F79BE98) ]
+	
+	coclass CommandEvents
+	{
+		[default] interface ISECommandEvents;
+	}
+
+	[ hidden, uuid(6D4144F1-2FC2-11D3-9276-00C04F79BE98) ]
+	
+	coclass MouseEvents
+	{
+		[default] interface ISEMouseEvents;
+	}
+
+	[hidden, uuid(D0BE7F5A-F2C5-4a30-94C8-C96FED316DEF) ]
+	
+	coclass LocateFilterEvents
+	{
+		[default] interface ISELocateFilterEvents;
+	}
+
+	[ hidden, uuid(6D4144F2-2FC2-11D3-9276-00C04F79BE98) ]
+	
+	coclass CommandWindowEvents
+	{
+		[default] interface ISECommandWindowEvents;
+	}
+
+	[ hidden, uuid(6347FC9F-8E34-4f07-80C4-9FD9DF23CAA7) ]
+	
+	coclass ADDINDocument
+	{
+		[default] interface IUnknown;
+	}
+
+	[ hidden, uuid(1E6DA6E8-090A-4580-A807-F8BF783786E8) ]
+	
+	coclass ADDINDocumentEvents
+	{
+		[default] interface ISEDocumentEvents;
+	}
+	
+	[ hidden, uuid(A3C84CA3-BAB2-4C1A-A244-F99B01521A07) ]
+
+	coclass ADDINShortCutMenuEvents
+	{
+		[default] interface ISEShortCutMenuEvents;
+	}
+	
+	[ hidden, uuid(0BC20255-57FC-4BF0-BEE4-C88473F9EF8F) ]
+
+	coclass ADDINSaveAsTranslatorEvents
+	{
+		[default] interface ISEAddInSaveAsTranslatorEvents;
+	}
+};

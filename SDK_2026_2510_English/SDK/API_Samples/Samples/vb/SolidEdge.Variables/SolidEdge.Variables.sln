@@ -1,0 +1,20 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "SolidEdge.Variables", "SolidEdge.Variables\SolidEdge.Variables.vbproj", "{E7E7E451-398A-4004-A24C-2550C907B13D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E7E7E451-398A-4004-A24C-2550C907B13D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E7E7E451-398A-4004-A24C-2550C907B13D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E7E7E451-398A-4004-A24C-2550C907B13D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E7E7E451-398A-4004-A24C-2550C907B13D}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

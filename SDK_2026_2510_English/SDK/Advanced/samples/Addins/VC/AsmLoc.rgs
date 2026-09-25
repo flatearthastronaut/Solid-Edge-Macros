@@ -1,0 +1,42 @@
+HKCR
+{
+	AsmLoc.SEAddin.1 = s 'Solid Edge Addin Class'
+	{
+		CLSID = s '{6D4144EA-2FC2-11D3-9276-00C04F79BE98}'
+	}
+	AsmLoc.SEAddin = s 'Solid Edge Addin Class'
+	{
+		CurVer = s 'AsmLoc.Solid Edge Addin.1'
+	}
+	NoRemove CLSID
+	{
+		ForceRemove {6D4144EA-2FC2-11D3-9276-00C04F79BE98} = s 'Solid Edge Addin Class'
+		{
+			ProgID = s 'AsmLoc.Solid Edge Addin.1'
+			VersionIndependentProgID = s 'AsmLoc.Solid Edge Addin'
+			ForceRemove 'Programmable'
+			InprocServer32 = s '%MODULE%'
+			{
+				val ThreadingModel = s 'Apartment'
+			}
+		}
+	}
+}
+
+HKLM
+{
+	SOFTWARE
+	{
+		Microsoft
+		{
+			Windows
+			{
+				Help
+				{
+					val 'AsmLoc.cnt' = s 'C:\WINNT\Help'
+					val 'AsmLoc.hlp' = s 'C:\WINNT\Help'
+				}
+			}
+		}
+	}				 
+}

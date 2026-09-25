@@ -1,0 +1,381 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "afxres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// English (United States) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#include ""afxres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "1 TYPELIB ""AsmLoc.tlb""\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 226,0,0,106
+ PRODUCTVERSION 226,0,0,106
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x4L
+ FILETYPE 0x2L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "FileDescription", "AsmLoc Module"
+            VALUE "FileVersion", "226.00.00.106"
+            VALUE "InternalName", "AsmLoc"
+            VALUE "LegalCopyright", "Copyright © 2020 Siemens Digital Industries Software.  All Rights Reserved."
+            VALUE "OriginalFilename", "AsmLoc.DLL"
+            VALUE "ProductName", "Solid Edge"
+            VALUE "ProductVersion", "226.00.00.106"
+            VALUE "CompanyName", "Siemens Digital Industries Software"
+            VALUE "LegalTrademarks", "Solid Edge® is a registered trademark of Siemens Digital Industries Software."
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// REGISTRY
+//
+
+IDR_ASMLOC              REGISTRY                "AsmLoc.rgs"
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Bitmap
+//
+
+IDR_TOOLBAR_LARGE       BITMAP                  "res\\TBarLrge.bmp"
+
+IDR_TOOLBAR_MEDIUM      BITMAP                  "res\\TBarMedm.bmp"
+
+IDR_TOOLBAR_LARGEMONOCHROME BITMAP                  "res\\toolbar_.bmp"
+
+IDR_TOOLBAR_MEDIUMMONOCHROME BITMAP                  "res\\bmp00001.bmp"
+
+IDB_EDGEBAR             BITMAP                  "res\\bitmap1.bmp"
+
+IDB_BITMAP1             BITMAP                  "res\\bmp00002.bmp"
+
+IDB_BITMAP2             BITMAP                  "res\\bitmap2.bmp"
+
+IDB_CHECK               BITMAP                  "res\\CHECK.BMP"
+
+IDB_X                   BITMAP                  "res\\X.BMP"
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_EDGEBARDIALOG DIALOGEX 0, 0, 186, 95
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_SYSMENU
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,118,12,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,118,31,50,14
+END
+
+IDD_DIALOG1 DIALOGEX 0, 0, 730, 21
+STYLE DS_SETFONT | WS_CHILD
+FONT 8, "MS Sans Serif", 0, 0, 0x1
+BEGIN
+    PUSHBUTTON      "OK",IDS_OK,7,1,32,18,BS_CENTER | BS_VCENTER,WS_EX_STATICEDGE
+    PUSHBUTTON      "Finish",IDS_CANCEL,42,1,32,18,BS_CENTER | BS_VCENTER | BS_MULTILINE
+    PUSHBUTTON      "Button1",IDS_BUTTON1,77,1,32,18,0,WS_EX_RTLREADING
+    LISTBOX         IDS_LIST1,141,2,60,18,LBS_SORT | WS_VSCROLL | WS_TABSTOP,WS_EX_STATICEDGE
+    EDITTEXT        IDS_ANGLE,247,4,60,12,ES_AUTOHSCROLL
+    EDITTEXT        IDS_LENGTH,357,3,60,12,ES_AUTOHSCROLL
+    COMBOBOX        IDS_COMBO1,440,4,68,45,CBS_DROPDOWN | CBS_SORT | WS_VSCROLL | WS_TABSTOP
+    CONTROL         "",IDC_STATIC,"Static",SS_GRAYFRAME,130,2,3,16,WS_EX_DLGMODALFRAME
+    CONTROL         "",IDC_STATIC,"Static",SS_GRAYFRAME,429,2,3,16,WS_EX_DLGMODALFRAME
+    LTEXT           " Length:",IDC_STATIC,324,4,29,10
+    LTEXT           " Angle:",IDC_STATIC,217,5,26,10
+    CONTROL         "",IDC_STATIC,"Static",SS_GRAYFRAME,207,1,3,16,WS_EX_DLGMODALFRAME
+    LTEXT           "",IDC_STATIC,187,2,8,8
+    LTEXT           "",IDC_STATIC,421,6,8,8
+    LTEXT           "",IDC_STATIC,433,7,8,8
+    LTEXT           "",IDC_STATIC,135,6,8,8
+    LTEXT           "",IDC_STATIC,310,7,8,8
+    LTEXT           "",IDC_STATIC,123,6,8,8
+    LTEXT           "",IDC_STATIC,211,7,8,8
+    CONTROL         "Slider1",IDC_SLIDER1,"msctls_trackbar32",TBS_BOTH | TBS_NOTICKS | WS_TABSTOP,516,1,56,18,WS_EX_TRANSPARENT
+    CONTROL         "Radio1",IDC_RADIO1,"Button",BS_AUTORADIOBUTTON,579,1,42,18,WS_EX_TRANSPARENT
+    CONTROL         "Check1",IDC_CHECK1,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,623,7,40,12,WS_EX_TRANSPARENT
+    LTEXT           "Static",IDC_STATIC13,664,11,29,8
+END
+
+IDD_DIALOG2 DIALOGEX 0, 0, 186, 90
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Dialog"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,129,7,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,129,24,50,14
+    EDITTEXT        IDC_EDIT1,15,38,70,14,ES_AUTOHSCROLL
+    LTEXT           "sample static text",IDC_STATIC,18,62,75,8
+END
+
+IDD_DIALOG3 DIALOGEX 0, 0, 186, 161
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_POPUP | WS_SYSMENU
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    PUSHBUTTON      "OK",IDS_OK,7,7,38,20
+    PUSHBUTTON      "IDB_X",IDC_X,7,36,38,18
+    CONTROL         "Check1",IDC_CHECK1,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,74,7,47,20
+    LISTBOX         IDS_LIST1,75,34,48,11,LBS_SORT | LBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Angle:",IDC_STATIC,7,92,26,12
+    EDITTEXT        IDS_ANGLE,45,93,44,12,ES_AUTOHSCROLL
+    LTEXT           "Length:",IDC_STATIC,7,112,29,8
+    EDITTEXT        IDS_LENGTH,45,112,44,12,ES_AUTOHSCROLL
+    COMBOBOX        IDS_COMBO1,7,135,73,14,CBS_DROPDOWN | CBS_SORT | WS_VSCROLL | WS_TABSTOP
+    CONTROL         "Radio1",IDC_RADIO1,"Button",BS_AUTORADIOBUTTON,127,15,38,10
+    PUSHBUTTON      "Cancel",IDS_CANCEL,129,136,42,14
+    PUSHBUTTON      "Accept",IDC_CHECK,7,65,48,14
+END
+
+IDD_DIALOG4 DIALOGEX 0, 0, 186, 90
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_POPUP | WS_SYSMENU
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    CONTROL         "My check",IDC_CHECK1,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,7,53,19
+    EDITTEXT        IDC_EDIT1,7,41,45,12,ES_AUTOHSCROLL
+    DEFPUSHBUTTON   "Test",IDC_BUTTON1,7,62,44,13
+END
+
+IDD_DIALOG5 DIALOGEX 0, 0, 186, 90
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Dialog"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    PUSHBUTTON      "Cancel",IDCANCEL,129,24,50,14
+    DEFPUSHBUTTON   "OK",IDOK,129,7,50,14
+    LTEXT           "Do It:",IDC_STATIC,7,45,24,12
+    EDITTEXT        IDC_EDIT1,41,42,55,14,ES_AUTOHSCROLL
+    LTEXT           "Options:",IDC_STATIC,7,68,27,15
+    EDITTEXT        IDC_EDIT2,41,66,53,14,ES_AUTOHSCROLL
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO
+BEGIN
+    IDD_EDGEBARDIALOG, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 179
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 88
+    END
+
+    IDD_DIALOG1, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        TOPMARGIN, 1
+        BOTTOMMARGIN, 19
+    END
+
+    IDD_DIALOG2, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 179
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 83
+    END
+
+    IDD_DIALOG3, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 179
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 154
+    END
+
+    IDD_DIALOG4, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 179
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 83
+    END
+
+    IDD_DIALOG5, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 179
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 83
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// PNG
+//
+
+IDB_PNG1                PNG                     "res\\AddIn_32.png"
+
+IDB_PNG2                PNG                     "res\\AddIn_16.png"
+
+IDB_PNG3                PNG                     "res\\AddIn_40.png"
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// SVG
+//
+
+IDR_EDGEBAR_SVG         SVG                     "res\\bitmap1.svg"
+
+IDR_ADDIN_SVG           SVG                     "res\\AddIn_32.svg"
+
+IDR_TOOLBAR_LARGE_SVG   SVG                     "res\\TBarLrge.svg"
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE
+BEGIN
+    IDS_NAME                "\nGandolf Inc. AsmLoc"
+    IDS_CMD_STRING1         "\nAsmLoc Sample Command1\nDisplays a message box\nAsmLoc Command1"
+    IDS_CMD_STRING2         "\nAsmLoc Sample Command2\nDisplays a message box\nAsmLoc Command2"
+    IDS_CATEGORY_STRING1    "AsmLoc AddIn Set1"
+    IDS_DESCRIPTION         "Wizard generated Solid Edge AddIn"
+    IDS_SAMPLECMD_STRING    "AsmLoc Sample Command Invoked!!!"
+    IDS_CMD_STRING3         "\nAsmLoc Sample Command3\nDemos a radio button\nAsmLoc Command3"
+    IDS_CMD_STRING4         "\nAsmLoc Sample Command4\nDemos a check button\nAsmLoc Command4"
+    IDS_CATEGORY_STRING2    "AsmLoc AddIn Set2"
+    IDS_COMMANDBAR_NAME1    "AsmLoc AddIn Set1\nAsmLoc Addin Set1 Group1"
+    IDS_COMMANDBAR_NAME2    "AsmLoc AddIn Set2\nAsmLoc Addin Set2 Group1"
+END
+
+STRINGTABLE
+BEGIN
+    IDS_CMD_STRING5         "\nAsmLoc Sample Command5\nLook at my big alpha bitmap\nAsmLoc Command5"
+    IDS_CMD_STRING6         "\nAsmLoc Sample Command6\nSample command showing multiple group UI\nAsmLoc Command6"
+    IDS_CMD_STRING7         "\nAsmLoc Sample Command7\nSample command showing multiple group UI\nAsmLoc Command7"
+    IDS_COMMANDBAR_NAME3    "AsmLoc AddIn Set1\nAsmLoc Addin Set1 Group 2"
+    IDS_EDGEBAR             "AsmLoc Addin edge bar"
+    IDS_TITLE1              "Step 1"
+    IDS_TITLE2              "Step 2"
+    IDS_E_BAD_INTERNET_EXPLORER_VERSION 
+                            "The installed Internet Explorer is not compatible with HtmlHelp. \nInstall Internet Explorer 4.01 SP2 or later to correct this problem."
+    IDS_HELPFILENAME        "asmloc.chm"
+    IDS_SUMMARY             "This Solid Edge add-in enhances Solid Edge with absolutely astounding features created by some of the worlds finest programmers."
+    IDS_SHORTCUT_CMD        "AsmLoc Shortcut Menu Command"
+    IDS_STRING123           "\nAsmLoc Sample Command5\nOur newest, most advanced tool ever - the big hammer! tooltipurl=%s\nAsmLoc Command5"
+    IDS_STRING124           "\nAsmLoc&& Sample Command1\nDisplays a message box tooltipURL=%s\nAsmLoc Command1"
+    IDS_BACKSTAGE_CATEGORY  "__SOLIDEDGE_BACKSTAGE__"
+    IDS_BACKSTAGE_CATEGORY_TAB "__SOLIDEDGE_BACKSTAGE__\nAsmLoc"
+    IDS_BACKSTAGE_TAB_COMMAND14 
+                            "\nAsmLoc Sample Backstage Command14\nDisplays a message box\nAsmLoc Command14"
+END
+
+STRINGTABLE
+BEGIN
+    IDS_OK                  "OK"
+    IDS_CANCEL              "Cancel"
+    IDS_BUTTON1             "Just another button"
+    IDS_LIST1               "Sample list control"
+    IDS_COMBO1              "Sample combo box control"
+    IDS_ANGLE               "Demonstrates UOM capability for angles"
+END
+
+STRINGTABLE
+BEGIN
+    IDS_LENGTH              "Demonstrates UOM capability for lengths"
+    IDC_SLIDER1             "Sample slider control"
+    IDC_RADIO1              "Sample radio box control"
+    IDC_CHECK1              "Sample check box control"
+    IDC_EDIT1               "Sample edit control"
+    IDC_X                   "Edge automatically used the button text to load the like named bitmap because the text has ""IDB_"" in it"
+    IDC_CHECK               "Demos the command bar's AddBitmapToButton method used to add a bitmap to a button"
+END
+
+STRINGTABLE
+BEGIN
+    IDS_BACKSTAGE_TAB_COMMAND13 
+                            "\nAsmLoc Sample Backstage Command13\nDisplays a message box\nAsmLoc Command13"
+    IDS_BACKSTAGE_TAB_COMMAND_ENHANCED_TIP 
+                            "\nAsmLoc Sample Backstage Command13\nDisplays a message box tooltipURL=%s\nAsmLoc Command13"
+END
+
+#endif    // English (United States) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+1 TYPELIB "AsmLoc.tlb"
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

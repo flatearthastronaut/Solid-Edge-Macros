@@ -1,0 +1,9 @@
+; AsmLoc.def : Declares the module parameters.
+
+LIBRARY      "ASMLOC.DLL"
+
+EXPORTS
+	DllCanUnloadNow     PRIVATE
+	DllGetClassObject   PRIVATE
+	DllRegisterServer   PRIVATE
+	DllUnregisterServer	PRIVATE
