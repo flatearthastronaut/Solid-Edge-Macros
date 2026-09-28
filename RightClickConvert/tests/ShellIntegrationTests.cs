@@ -20,13 +20,14 @@ internal static class ShellIntegrationTests
             if (args.Length != 2) throw new ArgumentException("Pass generated .par and .dft fixture paths.");
             Exercise(args[0], ".stp", "STEP (.stp)");
             Exercise(args[1], ".pdf", "PDF (.pdf)");
-            Console.WriteLine("PASS actual Shell multi-selection menus: three STEP files and three PDFs, source hashes preserved.");
+            Exercise(args[1], ".pdf", "PDF with Date", true);
+            Console.WriteLine("PASS actual Shell multi-selection menus: STEP, PDF, and dated PDF; all nine source hashes preserved.");
             return 0;
         }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
     }
 
-    private static void Exercise(string fixture, string outputExtension, string label)
+    private static void Exercise(string fixture, string outputExtension, string label, bool dated = false)
     {
         string folder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "work", "selection-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
@@ -38,18 +39,20 @@ internal static class ShellIntegrationTests
             File.Copy(fixture, paths[i]); hashes[i] = Hash(paths[i]);
         }
         Console.WriteLine("Invoking " + label + " on " + paths.Length + " files through IContextMenu.");
+        string dateSuffix = dated ? " " + DateTime.Today.ToString("yyyyMMdd", System.Globalization.CultureInfo.InvariantCulture) : "";
+        Func<string, string> expectedOutput = path => Path.Combine(Path.GetDirectoryName(path), Path.GetFileNameWithoutExtension(path) + dateSuffix + outputExtension);
         InvokeMenu(paths, label);
         Stopwatch elapsed = Stopwatch.StartNew();
         while (elapsed.Elapsed.TotalSeconds < 90)
         {
             bool complete = true;
-            foreach (string path in paths) complete &= File.Exists(Path.ChangeExtension(path, outputExtension));
+            foreach (string path in paths) complete &= File.Exists(expectedOutput(path));
             if (complete) break;
             Thread.Sleep(200);
         }
         foreach (string path in paths)
         {
-            string output = Path.ChangeExtension(path, outputExtension);
+            string output = expectedOutput(path);
             if (!File.Exists(output)) throw new Exception("Shell selection did not convert " + path);
             string text = Encoding.ASCII.GetString(File.ReadAllBytes(output));
             if (outputExtension == ".pdf" ? !text.StartsWith("%PDF-") || !text.Contains("%%EOF") : !text.StartsWith("ISO-10303-21;") || !text.Contains("END-ISO-10303-21;"))

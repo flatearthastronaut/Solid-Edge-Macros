@@ -30,9 +30,12 @@ namespace SolidEdgeConvert
         // single-file transaction retains its own cleanup/translator restoration.
         // A bad file is recorded without discarding the rest of the selection.
         internal static List<BatchItem> Run(string[] sources, ConversionFormat format, ExistingOutput existing,
-            Func<IEdgeSession> connect, Action<int, int, string> progress)
+            Func<IEdgeSession> connect, Action<int, int, string> progress, DateTime? exportDate = null)
         {
             sources = UniquePaths(sources);
+            // One date for conflict checks, export paths, and the final results,
+            // even if a long conversion or overwrite prompt crosses midnight.
+            DateTime batchDate = exportDate ?? DateTime.Today;
             List<BatchItem> results = new List<BatchItem>();
             for (int index = 0; index < sources.Length; index++)
             {
@@ -40,7 +43,7 @@ namespace SolidEdgeConvert
                 results.Add(item);
                 try
                 {
-                    item.Output = Conversion.OutputPath(item.Source, format);
+                    item.Output = Conversion.OutputPath(item.Source, format, batchDate);
                     // Check immediately before each conversion, not only when
                     // the batch starts, so newly created outputs are protected.
                     if (File.Exists(item.Output) && existing == ExistingOutput.Skip)
@@ -51,7 +54,7 @@ namespace SolidEdgeConvert
                     }
                     int number = index + 1;
                     Conversion.Run(item.Source, existing == ExistingOutput.Replace, connect,
-                        delegate(string text) { progress(number, sources.Length, text); }, format);
+                        delegate(string text) { progress(number, sources.Length, text); }, format, batchDate);
                 }
                 catch (Exception error) { item.Error = ErrorText(error); }
             }

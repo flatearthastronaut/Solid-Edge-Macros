@@ -1,4 +1,4 @@
-# Solid Edge Convert 1.2
+# Solid Edge Convert 1.3
 
 A small Windows Explorer converter based on the Siemens Batch sample. Supports one or more parts (`.par`) to STEP (`.stp`), or one or more drafts (`.dft`) to PDF (`.pdf`). Select files of the same type for each conversion.
 
@@ -6,13 +6,15 @@ A small Windows Explorer converter based on the Siemens Batch sample. Supports o
 
 1. Keep `Compiled Executables\SolidEdgeConvert.exe` in a permanent folder and double-click it.
 2. Click **Install menus**. Installation applies only to your Windows account and does not require administrator rights. Run this again when upgrading an older installation to enable multiple selections.
-3. Select one or more `.par` files and choose **Convert > STEP (.stp)**, or one or more `.dft` files and choose **Convert > PDF (.pdf)**. On Windows 11, first select **Show more options** (or press Shift+F10).
+3. Select one or more `.par` files and choose **Convert > STEP (.stp)**, or one or more `.dft` files and choose **Convert > PDF (.pdf)** or **PDF with Date**. On Windows 11, first select **Show more options** (or press Shift+F10).
 4. Each result is saved alongside its original with the same base name: `Bracket.par` becomes `Bracket.stp`; `Drawing.dft` becomes `Drawing.pdf`.
 5. If outputs already exist, choose **Yes** to replace existing outputs, **No** to skip them, or **Cancel** to cancel the batch. Files convert sequentially in one window; the final list identifies every created, skipped, and failed file. A failed file does not stop the remaining files.
 
+**PDF with Date** uses the same PDF export and adds one space plus the local date before `.pdf`: `Drawing.dft` becomes `Drawing 20260928.pdf` on September 28, 2026. The date uses Gregorian `YYYYMMDD` regardless of regional settings and is captured once before the overwrite prompt, so every file in a batch uses the same date even across midnight. A same-day dated output uses the normal replace/skip prompt; the undated PDF is separate.
+
 Solid Edge must be installed and licensed. The converter connects to the running application or starts it if needed. Solid Edge remains running afterwards, as it does with Batch.
 
-Run the executable again and click **Remove menus** to uninstall both menus and their two COM registrations. If you move the executable, run it from the new location and click **Install menus** again. No file associations or other programs' menus are changed. Each menu applies to its supported source extension.
+Run the executable again and click **Remove menus** to uninstall both menus and their three COM registrations. If you move the executable, run it from the new location and click **Install menus** again. No file associations or other programs' menus are changed. Each menu applies to its supported source extension. Run **Install menus** after upgrading to add the new dated PDF option.
 
 Command-line alternatives (quote paths containing spaces):
 
@@ -23,6 +25,7 @@ SolidEdgeConvert.exe --step "C:\CAD\Bracket.par"
 SolidEdgeConvert.exe --pdf "C:\CAD\Drawing.dft"
 SolidEdgeConvert.exe --step "C:\CAD\Part1.par" "C:\CAD\Part2.par"
 SolidEdgeConvert.exe --pdf "C:\CAD\Drawing1.dft" "C:\CAD\Drawing2.dft"
+SolidEdgeConvert.exe --pdf-date "C:\CAD\Drawing1.dft" "C:\CAD\Drawing2.dft"
 ```
 
 The two installation commands complete silently on success. Conversion remains interactive and prompts before replacement. Direct command-line conversion returns 0 when no files failed (including skipped/cancelled work), and 1 when a file failed. Explorer launches a reusable local server; consult the results list for each batch's outcome.
@@ -42,8 +45,9 @@ The per-user cascading menus use `HKCU\Software\Classes\SystemFileAssociations\.
 Server class IDs under `HKCU\Software\Classes\CLSID`:
 - STEP: `{B84A6BE1-A4D2-4CD2-A1AE-60EAA476AD11}`
 - PDF: `{AF39D53D-3C70-4055-8197-442F4C5180B2}`
+- PDF with Date: `{D8F750C4-A88D-4F7A-BD12-590D6813B742}`
 
-The `LocalServer32` command is the quoted executable path followed by `--shell-server`. Registration and removal affect only those two classes and the converter's two menu keys. This internal server switch is not a user-facing conversion command.
+The `LocalServer32` command is the quoted executable path followed by `--shell-server`. Registration and removal affect only those three classes and the converter's two menu keys. This internal server switch is not a user-facing conversion command.
 
 References: [Microsoft ExecuteCommand sample](https://learn.microsoft.com/en-us/windows/win32/shell/samples-executecommandverb), [verb selection models](https://learn.microsoft.com/en-us/windows/win32/shell/how-to-employ-the-verb-selection-model), [cascading menus](https://learn.microsoft.com/en-us/windows/win32/shell/how-to-create-cascading-menus-with-the-extendedsubcommandskey-registry-entry), and [Windows 11 context menus](https://blogs.windows.com/blog/2021/07/19/extending-the-context-menu-and-share-dialog-in-windows-11/).
 
@@ -58,9 +62,9 @@ Optional integration checks:
 - `LiveTest.ps1` requires an open, idle Solid Edge session and the Solid Edge 2026 part interop library used by the existing SketchToModels build. It creates its own cylinder under `tests\work`, exports it, checks STEP solid records and the source's SHA-256 hash, repeats with the part already open, and retains the fixture for inspection. It never modifies existing user documents.
 - `LivePdfTest.ps1` requires an open, idle Solid Edge session. It creates a draft containing a rectangle and circle, exports a PDF, checks its header/end marker and the source's SHA-256 hash, and repeats with the draft already open and output already present. It also verifies the STEP setting is unchanged and retains the fixture under `tests\work` for inspection.
 - `TestMenu.ps1` runs the release executable's install/reinstall/uninstall commands, verifies both extensions' registry values, and leaves both menus installed at the current executable location.
-- `ShellTest.ps1` requires the generated fixtures from both live tests and installed menus. It invokes the actual Windows `IContextMenu` on three part copies and three draft copies, checks all six exports and source hashes, and closes only the converter's completed three-file results windows. This tests selection delivery and COM server activation as well as CAD conversion.
+- `ShellTest.ps1` requires the generated fixtures from both live tests and installed menus. It invokes the actual Windows `IContextMenu` on three files for each option (STEP, PDF, PDF with Date), checks all nine exports and source hashes, and closes only the converter's completed three-file results windows. This tests selection delivery, dated filenames, and COM server activation as well as CAD conversion.
 
-Validation: all 36 regression tests (including per-file failure continuation, duplicate selection removal, skip/replace policies, and native Shell selection handling), real three-part/three-draft context-menu conversions, source hashes, and menu/server installation/reinstallation/removal checks passed. The previous single-file live tests also covered replacement, open-document reuse, and translator restoration. Production drawing layout, sheet coverage, and CAD geometry fidelity still require the acceptance checks below.
+Validation: all 43 regression tests (including dated names, locale independence, fixed batch dates, per-file failure continuation, duplicate selection removal, skip/replace policies, and native Shell selection handling), real three-file context-menu conversions for all three formats, source hashes, and menu/server installation/reinstallation/removal checks passed. The previous single-file live tests also covered replacement, open-document reuse, and translator restoration. Production drawing layout, sheet coverage, and CAD geometry fidelity still require the acceptance checks below.
 
 Manual acceptance checks:
 

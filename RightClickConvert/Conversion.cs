@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 
 namespace SolidEdgeConvert
 {
-    internal enum ConversionFormat { Step, Pdf }
+    internal enum ConversionFormat { Step, Pdf, PdfWithDate }
 
     // These small boundaries let regression tests exercise failure cleanup without
     // starting CAD or touching a user's open documents.
@@ -29,11 +30,12 @@ namespace SolidEdgeConvert
             {
                 case ConversionFormat.Step: return "STEP";
                 case ConversionFormat.Pdf: return "PDF";
+                case ConversionFormat.PdfWithDate: return "PDF with Date";
                 default: throw new ArgumentOutOfRangeException("format");
             }
         }
 
-        internal static string OutputPath(string source, ConversionFormat format = ConversionFormat.Step)
+        internal static string OutputPath(string source, ConversionFormat format = ConversionFormat.Step, DateTime? exportDate = null)
         {
             string name = FormatName(format);
             string inputExtension = format == ConversionFormat.Step ? ".par" : ".dft";
@@ -44,13 +46,20 @@ namespace SolidEdgeConvert
                 throw new ArgumentException(name + " conversion requires a " + inputExtension + " file.");
             if (!File.Exists(fullPath))
                 throw new FileNotFoundException("The selected CAD file could not be found.", fullPath);
+            if (format == ConversionFormat.PdfWithDate)
+            {
+                // Use a Gregorian YYYYMMDD suffix regardless of Windows locale.
+                // The caller freezes the local date once for the whole batch.
+                return Path.Combine(Path.GetDirectoryName(fullPath), Path.GetFileNameWithoutExtension(fullPath)
+                    + " " + (exportDate ?? DateTime.Today).ToString("yyyyMMdd", CultureInfo.InvariantCulture) + ".pdf");
+            }
             return Path.ChangeExtension(fullPath, format == ConversionFormat.Step ? ".stp" : ".pdf");
         }
 
         internal static string Run(string source, bool replaceExisting,
-            Func<IEdgeSession> connect, Action<string> progress, ConversionFormat format = ConversionFormat.Step)
+            Func<IEdgeSession> connect, Action<string> progress, ConversionFormat format = ConversionFormat.Step, DateTime? exportDate = null)
         {
-            string output = OutputPath(source, format);
+            string output = OutputPath(source, format, exportDate);
             string formatName = FormatName(format);
             bool useStepAdapter = format == ConversionFormat.Step;
             source = Path.GetFullPath(source);

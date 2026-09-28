@@ -46,6 +46,10 @@ namespace SolidEdgeConvert
     public sealed class PdfSelectionCommand : SelectionCommand
     { public PdfSelectionCommand() : base(ConversionFormat.Pdf) { } }
 
+    [ComVisible(true), Guid(ShellMenu.DatedPdfClass), ClassInterface(ClassInterfaceType.None)]
+    public sealed class DatedPdfSelectionCommand : SelectionCommand
+    { public DatedPdfSelectionCommand() : base(ConversionFormat.PdfWithDate) { } }
+
     internal sealed class ShellServer : ApplicationContext
     {
         private static ShellServer current;
@@ -66,6 +70,7 @@ namespace SolidEdgeConvert
             {
                 cookies.Add(registration.RegisterTypeForComClients(typeof(StepSelectionCommand), RegistrationClassContext.LocalServer, RegistrationConnectionType.MultipleUse));
                 cookies.Add(registration.RegisterTypeForComClients(typeof(PdfSelectionCommand), RegistrationClassContext.LocalServer, RegistrationConnectionType.MultipleUse));
+                cookies.Add(registration.RegisterTypeForComClients(typeof(DatedPdfSelectionCommand), RegistrationClassContext.LocalServer, RegistrationConnectionType.MultipleUse));
                 // A small idle grace period lets Explorer finish using its proxy.
                 // No CAD work runs on this thread, and busy batches cannot expire.
                 idle.Interval = 1000;

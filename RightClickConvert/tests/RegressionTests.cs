@@ -241,6 +241,54 @@ internal static class RegressionTests
                 }
                 finally { System.Runtime.InteropServices.Marshal.ReleaseComObject(selection); }
             });
+            DateTime exportDate = new DateTime(2031, 2, 3);
+            string datedPdf = Path.Combine(folder, "Drawing & sheet 100% é 20310203.pdf");
+            Test("dated PDF appends exactly one space and an eight-digit date", delegate {
+                Equal(datedPdf, Conversion.OutputPath(draft, ConversionFormat.PdfWithDate, exportDate));
+                Equal(pdf, Conversion.OutputPath(draft, ConversionFormat.Pdf, exportDate));
+                ExpectFailure(delegate { Conversion.OutputPath(source, ConversionFormat.PdfWithDate, exportDate); });
+            });
+            Test("dated PDF uses Gregorian date regardless of system culture", delegate {
+                System.Globalization.CultureInfo previous = System.Threading.Thread.CurrentThread.CurrentCulture;
+                try {
+                    System.Threading.Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("ar-SA");
+                    Equal(datedPdf, Conversion.OutputPath(draft, ConversionFormat.PdfWithDate, exportDate));
+                }
+                finally { System.Threading.Thread.CurrentThread.CurrentCulture = previous; }
+            });
+            Test("dated PDF uses local today by default", delegate {
+                DateTime today = DateTime.Today;
+                Equal(Path.Combine(folder, "Drawing & sheet 100% é " + today.ToString("yyyyMMdd", System.Globalization.CultureInfo.InvariantCulture) + ".pdf"),
+                    Conversion.OutputPath(draft, ConversionFormat.PdfWithDate));
+            });
+            Test("dated PDF exports as PDF and leaves undated PDF unchanged", delegate {
+                File.WriteAllText(pdf, "undated output");
+                FakeSession session = new FakeSession(false) { RejectStepAccess = true };
+                string result = Conversion.Run(draft, false, delegate { return session; }, delegate { }, ConversionFormat.PdfWithDate, exportDate);
+                Equal(datedPdf, result); Equal(".pdf", session.SavedExtension);
+                Equal("PDF data", File.ReadAllText(datedPdf)); Equal("undated output", File.ReadAllText(pdf));
+            });
+            Test("dated batch freezes date for outputs, skips, replacements and results", delegate {
+                File.WriteAllText(datedPdf, "existing dated output");
+                List<BatchItem> skipped = BatchConversion.Run(new[] { draft }, ConversionFormat.PdfWithDate, ExistingOutput.Skip,
+                    delegate { throw new Exception("Existing dated PDF must be skipped"); }, delegate { }, exportDate);
+                Check(skipped[0].Skipped && skipped[0].Error == null, "Dated conflict check failed");
+                Equal(datedPdf, skipped[0].Output); Equal("existing dated output", File.ReadAllText(datedPdf));
+                List<BatchItem> replaced = BatchConversion.Run(new[] { draft, Path.Combine(folder, "Good draft.dft") }, ConversionFormat.PdfWithDate, ExistingOutput.Replace,
+                    delegate { return new FakeSession(false) { RejectStepAccess = true }; }, delegate { }, exportDate);
+                Check(replaced.TrueForAll(x => x.Error == null && x.Output.EndsWith(" 20310203.pdf")), "Batch dates drifted");
+                Equal("PDF data", File.ReadAllText(datedPdf));
+            });
+            Test("dated PDF failure protects existing export and source", delegate {
+                File.WriteAllText(datedPdf, "keep dated PDF");
+                ExpectFailure(delegate { Conversion.Run(draft, true, delegate { return new FakeSession(false) { FailSave = true, RejectStepAccess = true }; }, delegate { }, ConversionFormat.PdfWithDate, exportDate); });
+                Equal("keep dated PDF", File.ReadAllText(datedPdf));
+                Equal("draft must never change", File.ReadAllText(draft));
+                Equal(0, Directory.GetFiles(folder, ".*.pdf").Length);
+            });
+            Test("dated menu quotes paths and selects the dated PDF command", delegate {
+                Equal("\"C:\\Tools & CAD\\SolidEdgeConvert.exe\" --pdf-date \"%1\"", ShellMenu.Command(@"C:\Tools & CAD\SolidEdgeConvert.exe", ConversionFormat.PdfWithDate));
+            });
             Console.WriteLine("Passed " + passed + " regression tests.");
             return 0;
         }

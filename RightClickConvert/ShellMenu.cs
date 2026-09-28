@@ -13,6 +13,7 @@ namespace SolidEdgeConvert
         internal const string DraftMenuKey = @"Software\Classes\SystemFileAssociations\.dft\shell\SolidEdgeMacros.Convert";
         internal const string StepClass = "B84A6BE1-A4D2-4CD2-A1AE-60EAA476AD11";
         internal const string PdfClass = "AF39D53D-3C70-4055-8197-442F4C5180B2";
+        internal const string DatedPdfClass = "D8F750C4-A88D-4F7A-BD12-590D6813B742";
 
         internal static string Command(string executable, ConversionFormat format = ConversionFormat.Step)
         {
@@ -21,7 +22,8 @@ namespace SolidEdgeConvert
             // Explorer launches the executable directly, with both paths quoted.
             // Do not use a command shell: CAD names may contain &, %, or spaces.
             Conversion.FormatName(format); // reject unsupported formats before registry changes
-            return "\"" + executable + "\" " + (format == ConversionFormat.Step ? "--step" : "--pdf") + " \"%1\"";
+            string argument = format == ConversionFormat.Step ? "--step" : format == ConversionFormat.Pdf ? "--pdf" : "--pdf-date";
+            return "\"" + executable + "\" " + argument + " \"%1\"";
         }
 
         internal static void Install(RegistryKey root, string executable)
@@ -29,8 +31,10 @@ namespace SolidEdgeConvert
             if (!File.Exists(executable)) throw new FileNotFoundException("The converter executable could not be found.", executable);
             RegisterServer(root, executable, StepClass);
             RegisterServer(root, executable, PdfClass);
+            RegisterServer(root, executable, DatedPdfClass);
             InstallFormat(root, executable, MenuKey, "01Step", "STEP (.stp)", ConversionFormat.Step);
             InstallFormat(root, executable, DraftMenuKey, "01Pdf", "PDF (.pdf)", ConversionFormat.Pdf);
+            InstallFormat(root, executable, DraftMenuKey, "02PdfWithDate", "PDF with Date", ConversionFormat.PdfWithDate);
         }
 
         private static void RegisterServer(RegistryKey root, string executable, string id)
@@ -62,7 +66,8 @@ namespace SolidEdgeConvert
                     using (RegistryKey action = step.CreateSubKey("command"))
                     {
                         action.SetValue("", command);
-                        action.SetValue("DelegateExecute", "{" + (format == ConversionFormat.Step ? StepClass : PdfClass) + "}");
+                        string id = format == ConversionFormat.Step ? StepClass : format == ConversionFormat.Pdf ? PdfClass : DatedPdfClass;
+                        action.SetValue("DelegateExecute", "{" + id + "}");
                     }
                 }
             }
@@ -76,6 +81,7 @@ namespace SolidEdgeConvert
             root.DeleteSubKeyTree(DraftMenuKey, false);
             root.DeleteSubKeyTree(@"Software\Classes\CLSID\{" + StepClass + "}", false);
             root.DeleteSubKeyTree(@"Software\Classes\CLSID\{" + PdfClass + "}", false);
+            root.DeleteSubKeyTree(@"Software\Classes\CLSID\{" + DatedPdfClass + "}", false);
         }
 
         internal static void NotifyExplorer() { SHChangeNotify(0x08000000, 0, IntPtr.Zero, IntPtr.Zero); }
