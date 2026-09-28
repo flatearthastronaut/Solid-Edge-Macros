@@ -4,7 +4,7 @@ Push-Location $PSScriptRoot
 try {
     & .\Build.cmd
     if ($LASTEXITCODE -ne 0) { throw 'Release build failed.' }
-    & $compiler /nologo /target:exe /platform:x64 /r:Microsoft.CSharp.dll /r:System.Windows.Forms.dll /r:System.Drawing.dll /main:RegressionTests /out:tests\RegressionTests.exe tests\RegressionTests.cs Program.cs Conversion.cs SolidEdgeSession.cs ShellMenu.cs
+    & $compiler /nologo /target:exe /platform:x64 /r:Microsoft.CSharp.dll /r:System.Windows.Forms.dll /r:System.Drawing.dll /main:RegressionTests /out:tests\RegressionTests.exe tests\RegressionTests.cs Program.cs Conversion.cs SolidEdgeSession.cs ShellMenu.cs BatchConversion.cs ShellSelection.cs ShellServer.cs
     if ($LASTEXITCODE -ne 0) { throw 'Regression test compilation failed.' }
     & .\tests\RegressionTests.exe
     if ($LASTEXITCODE -ne 0) { throw 'Regression tests failed.' }

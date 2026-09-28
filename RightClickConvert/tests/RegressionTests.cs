@@ -196,6 +196,51 @@ internal static class RegressionTests
                 Equal("draft must never change", File.ReadAllText(draft));
                 Equal(0, Directory.GetFiles(folder, ".*.pdf").Length);
             });
+            Test("batch converts multiple parts once each and reports progress", delegate {
+                string second = Path.Combine(folder, "Second part.par");
+                File.WriteAllText(second, "second source");
+                int connected = 0, totalSeen = 0;
+                List<BatchItem> results = BatchConversion.Run(new[] { source, second, source.ToUpperInvariant() }, ConversionFormat.Step, ExistingOutput.Replace,
+                    delegate { connected++; return new FakeSession(false); }, delegate(int n, int total, string message) { totalSeen = total; });
+                Equal(2, results.Count); Equal(2, connected); Equal(2, totalSeen);
+                Check(results.TrueForAll(x => x.Error == null && !x.Skipped), "Batch did not complete");
+            });
+            Test("batch continues after a failed file and records its error", delegate {
+                string good = Path.Combine(folder, "Good draft.dft");
+                File.WriteAllText(good, "good draft");
+                int connected = 0;
+                List<BatchItem> results = BatchConversion.Run(new[] { draft, good }, ConversionFormat.Pdf, ExistingOutput.Replace,
+                    delegate { connected++; return new FakeSession(false) { FailSave = connected == 1, RejectStepAccess = true }; }, delegate { });
+                Check(results[0].Error != null && results[1].Error == null, "Failure discarded subsequent files");
+                Equal("PDF data", File.ReadAllText(Path.ChangeExtension(good, ".pdf")));
+            });
+            Test("batch skip policy preserves all existing outputs without connecting", delegate {
+                string originalPdf = File.ReadAllText(pdf);
+                List<BatchItem> results = BatchConversion.Run(new[] { draft }, ConversionFormat.Pdf, ExistingOutput.Skip,
+                    delegate { throw new Exception("Skipped file must not connect"); }, delegate { });
+                Check(results[0].Skipped && results[0].Error == null, "Existing output not skipped");
+                Equal(originalPdf, File.ReadAllText(pdf));
+            });
+            Test("batch reports missing and wrong-extension files but converts valid entries", delegate {
+                List<BatchItem> results = BatchConversion.Run(new[] { source, Path.Combine(folder, "missing.dft"), draft }, ConversionFormat.Pdf, ExistingOutput.Replace,
+                    delegate { return new FakeSession(false) { RejectStepAccess = true }; }, delegate { });
+                Check(results[0].Error != null && results[1].Error != null && results[2].Error == null, "Per-file validation failed");
+            });
+            Test("empty batch rejected and distinct paths survive beyond 100 files", delegate {
+                ExpectFailure(delegate { BatchConversion.UniquePaths(new string[0]); });
+                List<string> many = new List<string>();
+                for (int i = 0; i < 150; i++) many.Add(Path.Combine(folder, "Part " + i + ".par"));
+                Equal(150, BatchConversion.UniquePaths(many).Length);
+            });
+            Test("real Windows Shell selection preserves every path and Unicode", delegate {
+                IShellItemArray selection = ShellSelection.Create(new[] { source, draft });
+                try
+                {
+                    string[] paths = ShellSelection.Read(selection);
+                    Equal(2, paths.Length); Equal(source, paths[0]); Equal(draft, paths[1]);
+                }
+                finally { System.Runtime.InteropServices.Marshal.ReleaseComObject(selection); }
+            });
             Console.WriteLine("Passed " + passed + " regression tests.");
             return 0;
         }
