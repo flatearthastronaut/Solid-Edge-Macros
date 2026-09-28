@@ -91,37 +91,37 @@ internal static class RegressionTests
             });
             Test("borrowed document is released but never closed", delegate {
                 FakeDocument document = new FakeDocument();
-                using (IPart part = new SolidEdgePart(document, false)) { part.SaveAs("unused"); part.CloseIfOwned(); }
+                using (IEdgeDocument part = new SolidEdgeDocument(document, false)) { part.SaveAs("unused"); part.CloseIfOwned(); }
                 Check(document.Saved && !document.Closed, "Borrowed document was closed");
             });
             Test("owned document closes without saving", delegate {
                 FakeDocument document = new FakeDocument();
-                using (IPart part = new SolidEdgePart(document, true)) { part.CloseIfOwned(); }
+                using (IEdgeDocument part = new SolidEdgeDocument(document, true)) { part.CloseIfOwned(); }
                 Check(document.Closed && !document.SaveOnClose, "Source might be saved");
             });
             Test("open-document lookup reuses a saved part", delegate {
                 FakeDocument document = new FakeDocument { FullName = source };
                 FakeDocuments documents = new FakeDocuments { Existing = document };
-                using (IPart part = SolidEdgeSession.OpenPart(documents, source)) { part.CloseIfOwned(); }
+                using (IEdgeDocument part = SolidEdgeSession.OpenDocument(documents, source)) { part.CloseIfOwned(); }
                 Check(!documents.OpenCalled && !document.Closed, "Existing part was reopened or closed");
             });
             Test("unsaved edits are rejected without closing or reopening", delegate {
                 FakeDocument document = new FakeDocument { FullName = source, Dirty = true };
                 FakeDocuments documents = new FakeDocuments { Existing = document };
-                ExpectFailure(delegate { SolidEdgeSession.OpenPart(documents, source); });
+                ExpectFailure(delegate { SolidEdgeSession.OpenDocument(documents, source); });
                 Check(!documents.OpenCalled && !document.Closed, "Dirty document was touched");
             });
             Test("a document opened by the converter is owned", delegate {
                 FakeDocument document = new FakeDocument { FullName = source };
                 FakeDocuments documents = new FakeDocuments { OpenResult = document };
-                using (IPart part = SolidEdgeSession.OpenPart(documents, source)) { part.CloseIfOwned(); }
+                using (IEdgeDocument part = SolidEdgeSession.OpenDocument(documents, source)) { part.CloseIfOwned(); }
                 Check(documents.OpenCalled && document.Closed && !document.SaveOnClose, "Ownership incorrect");
             });
             Test("redirected and null opens are rejected", delegate {
                 FakeDocument other = new FakeDocument { FullName = Path.Combine(folder, "different.par") };
-                ExpectFailure(delegate { SolidEdgeSession.OpenPart(new FakeDocuments { OpenResult = other }, source); });
+                ExpectFailure(delegate { SolidEdgeSession.OpenDocument(new FakeDocuments { OpenResult = other }, source); });
                 Check(!other.Closed && !other.Saved, "Unrelated document was changed");
-                ExpectFailure(delegate { SolidEdgeSession.OpenPart(new FakeDocuments(), source); });
+                ExpectFailure(delegate { SolidEdgeSession.OpenDocument(new FakeDocuments(), source); });
             });
             Test("menu command quotes executable and Explorer argument", delegate {
                 Equal("\"C:\\Tools & CAD\\SolidEdgeConvert.exe\" --step \"%1\"", ShellMenu.Command(@"C:\Tools & CAD\SolidEdgeConvert.exe"));
@@ -131,6 +131,70 @@ internal static class RegressionTests
             Test("all exports preserve source and remove staging files", delegate {
                 Equal("source must never change", File.ReadAllText(source));
                 Equal(0, Directory.GetFiles(folder, ".*.stp").Length);
+            });
+            string draft = Path.Combine(folder, "Drawing & sheet 100% é.DFT");
+            string pdf = Path.ChangeExtension(draft, ".pdf");
+            File.WriteAllText(draft, "draft must never change");
+            Test("PDF accepts uppercase draft extension and preserves full base name", delegate {
+                Equal(pdf, Conversion.OutputPath(draft, ConversionFormat.Pdf));
+            });
+            Test("format and source extension must match", delegate {
+                ExpectFailure(delegate { Conversion.OutputPath(source, ConversionFormat.Pdf); });
+                ExpectFailure(delegate { Conversion.OutputPath(draft, ConversionFormat.Step); });
+                ExpectFailure(delegate { Conversion.OutputPath(Path.Combine(folder, "missing.dft"), ConversionFormat.Pdf); });
+                ExpectFailure(delegate { Conversion.OutputPath(draft, (ConversionFormat)99); });
+            });
+            Test("PDF export uses .pdf SaveAs and never accesses the STEP setting", delegate {
+                FakeSession s = new FakeSession(false) { RejectStepAccess = true };
+                Conversion.Run(draft, false, delegate { return s; }, delegate { }, ConversionFormat.Pdf);
+                Equal(".pdf", s.SavedExtension);
+                Equal("PDF data", File.ReadAllText(pdf));
+                Equal("open,idle,save,close,idle,part-dispose,session-dispose", String.Join(",", s.Events));
+            });
+            Test("PDF replacement refusal leaves existing output and never connects", delegate {
+                File.WriteAllText(pdf, "old PDF");
+                FakeSession s = new FakeSession(false) { RejectStepAccess = true };
+                ExpectFailure(delegate { Conversion.Run(draft, false, delegate { return s; }, delegate { }, ConversionFormat.Pdf); });
+                Equal(0, s.Events.Count);
+                Equal("old PDF", File.ReadAllText(pdf));
+            });
+            Test("failed PDF SaveAs preserves old output and closes the owned draft", delegate {
+                FakeSession s = new FakeSession(false) { RejectStepAccess = true, FailSave = true };
+                ExpectFailure(delegate { Conversion.Run(draft, true, delegate { return s; }, delegate { }, ConversionFormat.Pdf); });
+                Equal("old PDF", File.ReadAllText(pdf));
+                Check(s.PartClosed && s.PartDisposed && s.Disposed, "Draft cleanup incomplete");
+            });
+            Test("PDF open and empty-output failures preserve previous PDF", delegate {
+                foreach (FakeSession s in new[] {
+                    new FakeSession(false) { RejectStepAccess = true, FailOpen = true },
+                    new FakeSession(false) { RejectStepAccess = true, EmptyOutput = true },
+                    new FakeSession(false) { RejectStepAccess = true, MissingOutput = true },
+                    new FakeSession(false) { RejectStepAccess = true, FailClose = true } })
+                {
+                    ExpectFailure(delegate { Conversion.Run(draft, true, delegate { return s; }, delegate { }, ConversionFormat.Pdf); });
+                    Equal("old PDF", File.ReadAllText(pdf));
+                    Check(s.Disposed, "PDF session not disposed");
+                }
+            });
+            Test("approved PDF replacement publishes the completed export", delegate {
+                FakeSession s = new FakeSession(false) { RejectStepAccess = true };
+                Conversion.Run(draft, true, delegate { return s; }, delegate { }, ConversionFormat.Pdf);
+                Equal("PDF data", File.ReadAllText(pdf));
+            });
+            Test("saved open drafts stay open and dirty drafts are rejected", delegate {
+                FakeDocument document = new FakeDocument { FullName = draft };
+                FakeDocuments documents = new FakeDocuments { Existing = document };
+                using (IEdgeDocument borrowed = SolidEdgeSession.OpenDocument(documents, draft)) { borrowed.CloseIfOwned(); }
+                document.Dirty = true;
+                ExpectFailure(delegate { SolidEdgeSession.OpenDocument(documents, draft); });
+                Check(!documents.OpenCalled && !document.Closed && !document.Saved, "Existing draft was modified");
+            });
+            Test("PDF menu command quotes executable and selected draft", delegate {
+                Equal("\"C:\\Tools & CAD\\SolidEdgeConvert.exe\" --pdf \"%1\"", ShellMenu.Command(@"C:\Tools & CAD\SolidEdgeConvert.exe", ConversionFormat.Pdf));
+            });
+            Test("PDF preserves source and removes temporary exports", delegate {
+                Equal("draft must never change", File.ReadAllText(draft));
+                Equal(0, Directory.GetFiles(folder, ".*.pdf").Length);
             });
             Console.WriteLine("Passed " + passed + " regression tests.");
             return 0;
@@ -164,21 +228,24 @@ internal static class RegressionTests
         internal object Adapter;
         internal bool FailSave, FailOpen, FailClose, FailEnable, FailRestore, MissingOutput, EmptyOutput;
         internal bool PartClosed, PartDisposed, Disposed;
+        internal bool RejectStepAccess;
+        internal string SavedExtension;
         internal Action OnSave;
         internal List<string> Events = new List<string>();
         internal FakeSession(bool adapter) { Adapter = adapter; }
         public object StepAdapter
         {
-            get { Events.Add("get"); return Adapter; }
+            get { if (RejectStepAccess) throw new Exception("PDF must not read STEP settings"); Events.Add("get"); return Adapter; }
             set
             {
+                if (RejectStepAccess) throw new Exception("PDF must not write STEP settings");
                 Events.Add("set:" + value);
                 Adapter = value;
                 if ((bool)value && FailEnable) throw new IOException("Enable failed");
                 if (!(bool)value && FailRestore) throw new IOException("Restore failed");
             }
         }
-        public IPart OpenPart(string path)
+        public IEdgeDocument OpenDocument(string path)
         {
             Events.Add("open");
             if (FailOpen) throw new IOException("Open failed");
@@ -186,14 +253,15 @@ internal static class RegressionTests
         }
         public void DoIdle() { Events.Add("idle"); }
         public void Dispose() { Events.Add("session-dispose"); Disposed = true; }
-        private sealed class FakePart : IPart
+        private sealed class FakePart : IEdgeDocument
         {
             private FakeSession owner;
             internal FakePart(FakeSession owner) { this.owner = owner; }
             public void SaveAs(string path)
             {
                 owner.Events.Add("save");
-                if (!owner.MissingOutput) File.WriteAllText(path, owner.EmptyOutput ? "" : "STEP data");
+                owner.SavedExtension = Path.GetExtension(path);
+                if (!owner.MissingOutput) File.WriteAllText(path, owner.EmptyOutput ? "" : (owner.SavedExtension == ".pdf" ? "PDF data" : "STEP data"));
                 if (owner.OnSave != null) owner.OnSave();
                 if (owner.FailSave) throw new IOException("Save failed after partial write");
             }

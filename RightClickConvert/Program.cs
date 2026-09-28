@@ -6,7 +6,7 @@ using System.Windows.Forms;
 using Microsoft.Win32;
 
 [assembly: System.Reflection.AssemblyTitle("Solid Edge Convert")]
-[assembly: System.Reflection.AssemblyVersion("1.0.0.0")]
+[assembly: System.Reflection.AssemblyVersion("1.1.0.0")]
 
 namespace SolidEdgeConvert
 {
@@ -30,8 +30,9 @@ namespace SolidEdgeConvert
                     ShellMenu.NotifyExplorer();
                     return 0;
                 }
-                if (args.Length != 2 || args[0] != "--step")
-                    throw new ArgumentException("Usage: SolidEdgeConvert.exe --step \"C:\\folder\\part.par\"\n\nRun without arguments to install or remove the right-click menu.");
+                if (args.Length != 2 || (args[0] != "--step" && args[0] != "--pdf"))
+                    throw new ArgumentException("Usage:\nSolidEdgeConvert.exe --step \"C:\\folder\\part.par\"\nSolidEdgeConvert.exe --pdf \"C:\\folder\\drawing.dft\"\n\nRun without arguments to install or remove the right-click menus.");
+                ConversionFormat format = args[0] == "--step" ? ConversionFormat.Step : ConversionFormat.Pdf;
 
                 // Serialize our converters: STEP translator settings belong to
                 // the application, so concurrent exports could restore them in
@@ -44,12 +45,12 @@ namespace SolidEdgeConvert
                     if (!acquired) throw new InvalidOperationException("Another conversion is running. Wait for it to finish, then try again.");
                     try
                     {
-                        string output = Conversion.OutputPath(args[1]);
+                        string output = Conversion.OutputPath(args[1], format);
                         bool replace = File.Exists(output);
-                        if (replace && MessageBox.Show("Replace this existing STEP file?\n\n" + output,
+                        if (replace && MessageBox.Show("Replace this existing " + Conversion.FormatName(format) + " file?\n\n" + output,
                             "Solid Edge Convert", MessageBoxButtons.YesNo, MessageBoxIcon.Question,
                             MessageBoxDefaultButton.Button2) != DialogResult.Yes) return 0;
-                        using (ProgressForm form = new ProgressForm(args[1], replace))
+                        using (ProgressForm form = new ProgressForm(args[1], replace, format))
                         {
                             Application.Run(form);
                             return form.Succeeded ? 0 : 1;
@@ -83,16 +84,16 @@ namespace SolidEdgeConvert
         internal SetupForm()
         {
             Text = "Solid Edge Convert";
-            ClientSize = new Size(500, 205);
+            ClientSize = new Size(500, 230);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
             Font = new Font("Segoe UI", 10);
-            Controls.Add(new Label { Left = 20, Top = 18, Width = 460, Height = 110,
-                Text = "Add Convert > STEP (.stp) to the right-click menu for .par files.\n\nThe STEP file is saved beside the original part.\nOn Windows 11, choose Show more options first.\nKeep this executable in its current folder after installing." });
-            Button install = new Button { Text = "Install menu", Left = 20, Top = 145, Width = 140, Height = 35 };
-            Button remove = new Button { Text = "Remove menu", Left = 175, Top = 145, Width = 140, Height = 35 };
-            Button close = new Button { Text = "Close", Left = 360, Top = 145, Width = 120, Height = 35 };
+            Controls.Add(new Label { Left = 20, Top = 18, Width = 460, Height = 135,
+                Text = "Add right-click conversions for Solid Edge files:\nPart (.par) > STEP (.stp)\nDraft (.dft) > PDF (.pdf)\n\nOutput is saved beside the original file.\nOn Windows 11, choose Show more options first.\nKeep this executable in its current folder after installing." });
+            Button install = new Button { Text = "Install menus", Left = 20, Top = 175, Width = 140, Height = 35 };
+            Button remove = new Button { Text = "Remove menus", Left = 175, Top = 175, Width = 140, Height = 35 };
+            Button close = new Button { Text = "Close", Left = 360, Top = 175, Width = 120, Height = 35 };
             install.Click += delegate { ChangeMenu(true); };
             remove.Click += delegate { ChangeMenu(false); };
             close.Click += delegate { Close(); };
@@ -110,7 +111,7 @@ namespace SolidEdgeConvert
                     else ShellMenu.Uninstall(user);
                 }
                 ShellMenu.NotifyExplorer();
-                MessageBox.Show(this, install ? "The Convert menu is installed for your Windows account." : "The Convert menu was removed.", Text);
+                MessageBox.Show(this, install ? "The Convert menus are installed for your Windows account." : "The Convert menus were removed.", Text);
             }
             catch (Exception error) { MessageBox.Show(this, Program.Describe(error), Text, MessageBoxButtons.OK, MessageBoxIcon.Error); }
         }
@@ -120,14 +121,16 @@ namespace SolidEdgeConvert
     {
         private readonly string source;
         private readonly bool replace;
+        private readonly ConversionFormat format;
         private readonly Label status;
         private bool finished;
         internal bool Succeeded { get; private set; }
 
-        internal ProgressForm(string source, bool replace)
+        internal ProgressForm(string source, bool replace, ConversionFormat format)
         {
             this.source = source;
             this.replace = replace;
+            this.format = format;
             Text = "Solid Edge Convert";
             ClientSize = new Size(460, 115);
             FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -156,7 +159,7 @@ namespace SolidEdgeConvert
             {
                 using (OleMessageFilter filter = new OleMessageFilter())
                     result = Conversion.Run(source, replace, delegate { return new SolidEdgeSession(); },
-                        delegate(string message) { BeginInvoke((Action)delegate { status.Text = message; }); });
+                        delegate(string message) { BeginInvoke((Action)delegate { status.Text = message; }); }, format);
             }
             catch (Exception error) { failure = error; }
             BeginInvoke((Action)delegate

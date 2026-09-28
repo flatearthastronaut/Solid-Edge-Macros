@@ -49,14 +49,14 @@ namespace SolidEdgeConvert
             set { ((dynamic)application).SetGlobalParameter(StepAdapterKey, value); }
         }
 
-        public IPart OpenPart(string path)
+        public IEdgeDocument OpenDocument(string path)
         {
-            return OpenPart(documents, path);
+            return OpenDocument(documents, path);
         }
 
-        internal static IPart OpenPart(object documents, string path)
+        internal static IEdgeDocument OpenDocument(object documents, string path)
         {
-            // Reuse an already-open, saved part without closing it afterwards.
+            // Reuse an already-open, saved part or draft without closing it afterwards.
             // Reject unsaved changes so a right-click export represents the file
             // selected in Explorer, not an unexpected in-memory revision.
             int count = ((dynamic)documents).Count;
@@ -70,8 +70,8 @@ namespace SolidEdgeConvert
                     if (!String.IsNullOrEmpty(name) && String.Equals(Path.GetFullPath(name), path, StringComparison.OrdinalIgnoreCase))
                     {
                         if ((bool)((dynamic)candidate).Dirty)
-                            throw new InvalidOperationException("This part has unsaved changes in Solid Edge. Save it, then convert it again.");
-                        IPart part = new SolidEdgePart(candidate, false);
+                            throw new InvalidOperationException("This document has unsaved changes in Solid Edge. Save it, then convert it again.");
+                        IEdgeDocument part = new SolidEdgeDocument(candidate, false);
                         candidate = null; // ownership of this COM reference transfers
                         return part;
                     }
@@ -85,8 +85,8 @@ namespace SolidEdgeConvert
                 if (opened == null) throw new IOException("Solid Edge did not return the requested document.");
                 string openedName = ((dynamic)opened).FullName;
                 if (String.IsNullOrEmpty(openedName) || !String.Equals(Path.GetFullPath(openedName), path, StringComparison.OrdinalIgnoreCase))
-                    throw new IOException("Solid Edge opened a different document. Check the selected part and try again.");
-                IPart part = new SolidEdgePart(opened, true);
+                    throw new IOException("Solid Edge opened a different document. Check the selected file and try again.");
+                IEdgeDocument part = new SolidEdgeDocument(opened, true);
                 opened = null;
                 return part;
             }
@@ -103,11 +103,11 @@ namespace SolidEdgeConvert
         }
     }
 
-    internal sealed class SolidEdgePart : IPart
+    internal sealed class SolidEdgeDocument : IEdgeDocument
     {
         private object document;
         private readonly bool owned;
-        internal SolidEdgePart(object document, bool owned) { this.document = document; this.owned = owned; }
+        internal SolidEdgeDocument(object document, bool owned) { this.document = document; this.owned = owned; }
         public void SaveAs(string path) { ((dynamic)document).SaveAs(path); }
         public void CloseIfOwned() { if (owned) ((dynamic)document).Close(false); }
         public void Dispose() { ComLifetime.Release(ref document); }
