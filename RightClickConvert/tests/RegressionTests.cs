@@ -289,6 +289,65 @@ internal static class RegressionTests
             Test("dated menu quotes paths and selects the dated PDF command", delegate {
                 Equal("\"C:\\Tools & CAD\\SolidEdgeConvert.exe\" --pdf-date \"%1\"", ShellMenu.Command(@"C:\Tools & CAD\SolidEdgeConvert.exe", ConversionFormat.PdfWithDate));
             });
+            string stepSource = Path.Combine(folder, "Imported.part & é.STP");
+            string longStepSource = Path.Combine(folder, "Imported.part & é.STEP");
+            string nativePart = Path.ChangeExtension(stepSource, ".par");
+            File.WriteAllText(stepSource, "STEP source");
+            File.WriteAllText(longStepSource, "STEP source");
+            Test("both STEP extensions map to a native part and reject other formats", delegate {
+                Equal(nativePart, Conversion.OutputPath(stepSource, ConversionFormat.Part));
+                Equal(nativePart, Conversion.OutputPath(longStepSource, ConversionFormat.Part));
+                ExpectFailure(delegate { Conversion.OutputPath(draft, ConversionFormat.Part); });
+                ExpectFailure(delegate { Conversion.OutputPath(source, ConversionFormat.Part); });
+            });
+            Test("STEP import uses normal.par and owns only the new part", delegate {
+                FakeDocument existing = new FakeDocument { Dirty = true };
+                FakeDocument imported = new FakeDocument();
+                FakeDocuments documents = new FakeDocuments { Existing = existing, OpenResult = imported };
+                using (IEdgeDocument part = SolidEdgeSession.ImportStepPart(documents, stepSource)) { part.CloseIfOwned(); }
+                Equal("normal.par", documents.Template); Equal(stepSource, documents.ImportPath);
+                Check(!documents.OpenCalled && imported.Closed && !imported.SaveOnClose && !existing.Closed, "Import ownership incorrect");
+            });
+            Test("already-open STEP import is rejected without saving or closing it", delegate {
+                FakeDocument existing = new FakeDocument { Dirty = true };
+                ExpectFailure(delegate { SolidEdgeSession.ImportStepPart(new FakeDocuments { Existing = existing, OpenResult = existing }, stepSource); });
+                Check(!existing.Closed && !existing.Saved, "Existing document touched");
+            });
+            Test("invalid template result and null import are rejected safely", delegate {
+                FakeDocument assembly = new FakeDocument { Type = 3 };
+                ExpectFailure(delegate { SolidEdgeSession.ImportStepPart(new FakeDocuments { OpenResult = assembly }, stepSource); });
+                Check(assembly.Closed && !assembly.SaveOnClose && !assembly.Saved, "Rejected import not closed safely");
+                ExpectFailure(delegate { SolidEdgeSession.ImportStepPart(new FakeDocuments(), stepSource); });
+            });
+            Test("STEP import saves native part and restores either translator state", delegate {
+                foreach (bool enabled in new[] { false, true }) {
+                    FakeSession s = new FakeSession(enabled);
+                    Conversion.Run(stepSource, true, delegate { return s; }, delegate { }, ConversionFormat.Part);
+                    Equal(".par", s.SavedExtension); Equal("PAR data", File.ReadAllText(nativePart));
+                    Equal(enabled, s.Adapter);
+                    Check(s.Events.Contains("import") && !s.Events.Contains("open"), "Wrong document opening route");
+                    Check(s.PartClosed && s.PartDisposed && s.Disposed, "Import cleanup incomplete");
+                }
+            });
+            Test("failed STEP import or native save preserves prior output and translator", delegate {
+                File.WriteAllText(nativePart, "original native part");
+                foreach (FakeSession s in new[] { new FakeSession(false) { FailOpen = true }, new FakeSession(false) { FailSave = true }, new FakeSession(false) { EmptyOutput = true } }) {
+                    ExpectFailure(delegate { Conversion.Run(stepSource, true, delegate { return s; }, delegate { }, ConversionFormat.Part); });
+                    Equal("original native part", File.ReadAllText(nativePart)); Equal(false, s.Adapter);
+                    Check(s.Disposed, "Import session retained");
+                }
+                Equal("STEP source", File.ReadAllText(stepSource)); Equal(0, Directory.GetFiles(folder, ".*.par").Length);
+            });
+            Test("STEP source collisions cannot overwrite another selection's result", delegate {
+                int connected = 0;
+                List<BatchItem> results = BatchConversion.Run(new[] { stepSource, longStepSource }, ConversionFormat.Part, ExistingOutput.Replace,
+                    delegate { connected++; return new FakeSession(false); }, delegate { });
+                Equal(1, connected); Check(results[0].Error == null && results[1].Error != null, "Colliding destinations were accepted");
+                Equal("PAR data", File.ReadAllText(nativePart)); Equal("STEP source", File.ReadAllText(longStepSource));
+            });
+            Test("part menu command quotes selected STEP path", delegate {
+                Equal("\"C:\\Tools & CAD\\SolidEdgeConvert.exe\" --part \"%1\"", ShellMenu.Command(@"C:\Tools & CAD\SolidEdgeConvert.exe", ConversionFormat.Part));
+            });
             Console.WriteLine("Passed " + passed + " regression tests.");
             return 0;
         }
@@ -345,6 +404,12 @@ internal static class RegressionTests
             return new FakePart(this);
         }
         public void DoIdle() { Events.Add("idle"); }
+        public IEdgeDocument ImportStepPart(string path)
+        {
+            Events.Add("import");
+            if (FailOpen) throw new IOException("Import or template failed");
+            return new FakePart(this);
+        }
         public void Dispose() { Events.Add("session-dispose"); Disposed = true; }
         private sealed class FakePart : IEdgeDocument
         {
@@ -354,7 +419,7 @@ internal static class RegressionTests
             {
                 owner.Events.Add("save");
                 owner.SavedExtension = Path.GetExtension(path);
-                if (!owner.MissingOutput) File.WriteAllText(path, owner.EmptyOutput ? "" : (owner.SavedExtension == ".pdf" ? "PDF data" : "STEP data"));
+                if (!owner.MissingOutput) File.WriteAllText(path, owner.EmptyOutput ? "" : (owner.SavedExtension == ".pdf" ? "PDF data" : owner.SavedExtension == ".par" ? "PAR data" : "STEP data"));
                 if (owner.OnSave != null) owner.OnSave();
                 if (owner.FailSave) throw new IOException("Save failed after partial write");
             }
@@ -371,6 +436,7 @@ internal static class RegressionTests
 // Public for the runtime binder, just like COM's IDispatch surface.
 public sealed class FakeDocument
 {
+    public int Type = 1;
     public bool Saved, Closed, SaveOnClose;
     public string FullName { get; set; }
     public bool Dirty { get; set; }
@@ -382,7 +448,9 @@ public sealed class FakeDocuments
 {
     public FakeDocument Existing, OpenResult;
     public bool OpenCalled;
+    public string Template, ImportPath;
     public int Count { get { return Existing == null ? 0 : 1; } }
     public object Item(int index) { return Existing; }
     public object Open(string path) { OpenCalled = true; return OpenResult; }
+    public object OpenWithTemplate(string path, string template) { ImportPath = path; Template = template; return OpenResult; }
 }

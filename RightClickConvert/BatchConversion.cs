@@ -37,6 +37,7 @@ namespace SolidEdgeConvert
             // even if a long conversion or overwrite prompt crosses midnight.
             DateTime batchDate = exportDate ?? DateTime.Today;
             List<BatchItem> results = new List<BatchItem>();
+            HashSet<string> destinations = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             for (int index = 0; index < sources.Length; index++)
             {
                 BatchItem item = new BatchItem { Source = sources[index] };
@@ -44,6 +45,10 @@ namespace SolidEdgeConvert
                 try
                 {
                     item.Output = Conversion.OutputPath(item.Source, format, batchDate);
+                    // foo.stp and foo.step share foo.par. Do not let Replace
+                    // silently overwrite another selection's result in this batch.
+                    if (!destinations.Add(item.Output))
+                        throw new IOException("Another selected file has the same output path: " + item.Output + ". Rename one source or convert it separately.");
                     // Check immediately before each conversion, not only when
                     // the batch starts, so newly created outputs are protected.
                     if (File.Exists(item.Output) && existing == ExistingOutput.Skip)

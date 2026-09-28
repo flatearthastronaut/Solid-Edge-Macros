@@ -17,11 +17,12 @@ internal static class ShellIntegrationTests
     {
         try
         {
-            if (args.Length != 2) throw new ArgumentException("Pass generated .par and .dft fixture paths.");
+            if (args.Length != 3) throw new ArgumentException("Pass generated .par, .dft, and .stp fixture paths.");
             Exercise(args[0], ".stp", "STEP (.stp)");
             Exercise(args[1], ".pdf", "PDF (.pdf)");
             Exercise(args[1], ".pdf", "PDF with Date", true);
-            Console.WriteLine("PASS actual Shell multi-selection menus: STEP, PDF, and dated PDF; all nine source hashes preserved.");
+            Exercise(args[2], ".par", "Solid Edge Part (.par)");
+            Console.WriteLine("PASS actual Shell multi-selection menus: STEP, PDF, dated PDF, and STEP to Part; all twelve source hashes preserved.");
             return 0;
         }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
@@ -35,7 +36,9 @@ internal static class ShellIntegrationTests
         string[] hashes = new string[3];
         for (int i = 0; i < paths.Length; i++)
         {
-            paths[i] = Path.Combine(folder, "Selected " + i + " & é 100%" + Path.GetExtension(fixture));
+            // Include both STEP spellings in the same actual Explorer selection.
+            string extension = outputExtension == ".par" ? (i == 1 ? ".STEP" : ".stp") : Path.GetExtension(fixture);
+            paths[i] = Path.Combine(folder, "Selected " + i + " & é 100%" + extension);
             File.Copy(fixture, paths[i]); hashes[i] = Hash(paths[i]);
         }
         Console.WriteLine("Invoking " + label + " on " + paths.Length + " files through IContextMenu.");
@@ -54,6 +57,7 @@ internal static class ShellIntegrationTests
         {
             string output = expectedOutput(path);
             if (!File.Exists(output)) throw new Exception("Shell selection did not convert " + path);
+            if (outputExtension == ".par") { CheckNativePart(output); continue; }
             string text = Encoding.ASCII.GetString(File.ReadAllBytes(output));
             if (outputExtension == ".pdf" ? !text.StartsWith("%PDF-") || !text.Contains("%%EOF") : !text.StartsWith("ISO-10303-21;") || !text.Contains("END-ISO-10303-21;"))
                 throw new Exception("Incomplete export: " + output);
@@ -145,6 +149,39 @@ internal static class ShellIntegrationTests
     {
         using (SHA256 hash = SHA256.Create())
         using (FileStream stream = File.OpenRead(path)) return Convert.ToBase64String(hash.ComputeHash(stream));
+    }
+    private static void CheckNativePart(string path)
+    {
+        using (OleMessageFilter filter = new OleMessageFilter())
+        {
+            object app = null, documents = null, part = null, models = null;
+            try
+            {
+                app = Marshal.GetActiveObject("SolidEdge.Application");
+                documents = ((dynamic)app).Documents;
+                int before = ((dynamic)documents).Count;
+                object adapterBefore = null;
+                ((dynamic)app).GetGlobalParameter(458, ref adapterBefore);
+                part = ((dynamic)documents).Open(path);
+                if ((int)((dynamic)part).Type != 1) throw new Exception("Output is not a native part: " + path);
+                models = ((dynamic)part).Models;
+                if ((int)((dynamic)models).Count < 1) throw new Exception("Imported part has no model: " + path);
+                ComLifetime.Release(ref models);
+                ((dynamic)part).Close(false);
+                ComLifetime.Release(ref part);
+                ((dynamic)app).DoIdle();
+                if ((int)((dynamic)documents).Count != before) throw new Exception("Native validation left a document open.");
+                object adapterAfter = null;
+                ((dynamic)app).GetGlobalParameter(458, ref adapterAfter);
+                if (!Object.Equals(adapterBefore, adapterAfter)) throw new Exception("Native validation changed STEP settings.");
+            }
+            finally
+            {
+                ComLifetime.Release(ref models);
+                try { if (part != null) ((dynamic)part).Close(false); }
+                finally { ComLifetime.Release(ref part); ComLifetime.Release(ref documents); ComLifetime.Release(ref app); }
+            }
+        }
     }
     [ComImport, Guid("000214E4-0000-0000-C000-000000000046"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     private interface IContextMenu

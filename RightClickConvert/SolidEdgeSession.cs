@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -52,6 +53,67 @@ namespace SolidEdgeConvert
         public IEdgeDocument OpenDocument(string path)
         {
             return OpenDocument(documents, path);
+        }
+
+        public IEdgeDocument ImportStepPart(string path)
+        {
+            return ImportStepPart(documents, path);
+        }
+
+        internal static IEdgeDocument ImportStepPart(object documents, string path)
+        {
+            // Batch imports with OpenWithTemplate(source, "Normal.par"). Let
+            // Solid Edge resolve its configured template instead of hard-coding
+            // a workstation/version-specific Program Files path or using Add().
+            // A translated document need not have the STEP source's FullName.
+            List<object> existing = new List<object>();
+            object imported = null;
+            bool owned = false;
+            try
+            {
+                int count = ((dynamic)documents).Count;
+                for (int index = 1; index <= count; index++) existing.Add(((dynamic)documents).Item(index));
+                imported = ((dynamic)documents).OpenWithTemplate(path, "normal.par");
+                if (imported == null) throw new IOException("Solid Edge did not return an imported part. Check the STEP file and normal.par template.");
+                foreach (object open in existing)
+                    if (SameDocument(open, imported))
+                        throw new IOException("Solid Edge returned an already-open document for this STEP file. Close that document and retry so normal.par can be applied to a fresh import.");
+                owned = true;
+                // igPartDocument = 1, verified against Batch's Framework interop.
+                if ((int)((dynamic)imported).Type != 1)
+                    throw new IOException("The STEP import did not produce a Solid Edge part using normal.par.");
+                IEdgeDocument result = new SolidEdgeDocument(imported, true);
+                imported = null;
+                return result;
+            }
+            finally
+            {
+                try
+                {
+                    // Close only a newly created rejected import; never an object
+                    // from the pre-import document snapshot, even if it is dirty.
+                    if (imported != null && owned) ((dynamic)imported).Close(false);
+                }
+                finally
+                {
+                    ComLifetime.Release(ref imported);
+                    for (int index = existing.Count - 1; index >= 0; index--)
+                    {
+                        object open = existing[index];
+                        ComLifetime.Release(ref open);
+                    }
+                }
+            }
+        }
+
+        private static bool SameDocument(object left, object right)
+        {
+            if (Object.ReferenceEquals(left, right)) return true;
+            if (!Marshal.IsComObject(left) || !Marshal.IsComObject(right)) return false;
+            IntPtr first = Marshal.GetIUnknownForObject(left);
+            IntPtr second = IntPtr.Zero;
+            try { second = Marshal.GetIUnknownForObject(right); return first == second; }
+            finally { Marshal.Release(first); if (second != IntPtr.Zero) Marshal.Release(second); }
         }
 
         internal static IEdgeDocument OpenDocument(object documents, string path)

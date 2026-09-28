@@ -6,10 +6,11 @@ Push-Location $PSScriptRoot
 try {
     $part = Get-ChildItem -LiteralPath 'tests\work' -Recurse -File -Filter 'Cylinder*.par' | Sort-Object LastWriteTime -Descending | Select-Object -First 1
     $draft = Get-ChildItem -LiteralPath 'tests\work' -Recurse -File -Filter 'Drawing*.dft' | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    if ($null -eq $part -or $null -eq $draft) { throw 'Run LiveTest.ps1 and LivePdfTest.ps1 to generate fixtures first.' }
-    & $compiler /nologo /target:exe /platform:x64 /r:Microsoft.CSharp.dll /out:tests\ShellIntegrationTests.exe tests\ShellIntegrationTests.cs BatchConversion.cs ShellSelection.cs Conversion.cs
+    $step = Get-ChildItem -LiteralPath 'tests\work' -Recurse -File -Filter 'Cylinder*.stp' | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($null -eq $part -or $null -eq $draft -or $null -eq $step) { throw 'Run LiveTest.ps1 and LivePdfTest.ps1 to generate fixtures first.' }
+    & $compiler /nologo /target:exe /platform:x64 /r:Microsoft.CSharp.dll /out:tests\ShellIntegrationTests.exe tests\ShellIntegrationTests.cs BatchConversion.cs ShellSelection.cs Conversion.cs SolidEdgeSession.cs
     if ($LASTEXITCODE -ne 0) { throw 'Shell integration test compilation failed.' }
-    & .\tests\ShellIntegrationTests.exe $part.FullName $draft.FullName
+    & .\tests\ShellIntegrationTests.exe $part.FullName $draft.FullName $step.FullName
     if ($LASTEXITCODE -ne 0) { throw 'Shell integration test failed.' }
 }
 finally { Pop-Location }

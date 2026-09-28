@@ -11,9 +11,12 @@ namespace SolidEdgeConvert
         // remains effective even if another app becomes the default opener.
         internal const string MenuKey = @"Software\Classes\SystemFileAssociations\.par\shell\SolidEdgeMacros.Convert";
         internal const string DraftMenuKey = @"Software\Classes\SystemFileAssociations\.dft\shell\SolidEdgeMacros.Convert";
+        internal const string StpMenuKey = @"Software\Classes\SystemFileAssociations\.stp\shell\SolidEdgeMacros.Convert";
+        internal const string StepMenuKey = @"Software\Classes\SystemFileAssociations\.step\shell\SolidEdgeMacros.Convert";
         internal const string StepClass = "B84A6BE1-A4D2-4CD2-A1AE-60EAA476AD11";
         internal const string PdfClass = "AF39D53D-3C70-4055-8197-442F4C5180B2";
         internal const string DatedPdfClass = "D8F750C4-A88D-4F7A-BD12-590D6813B742";
+        internal const string PartClass = "46FDDBA1-7601-445B-A3A6-7F7624B196C2";
 
         internal static string Command(string executable, ConversionFormat format = ConversionFormat.Step)
         {
@@ -22,7 +25,7 @@ namespace SolidEdgeConvert
             // Explorer launches the executable directly, with both paths quoted.
             // Do not use a command shell: CAD names may contain &, %, or spaces.
             Conversion.FormatName(format); // reject unsupported formats before registry changes
-            string argument = format == ConversionFormat.Step ? "--step" : format == ConversionFormat.Pdf ? "--pdf" : "--pdf-date";
+            string argument = format == ConversionFormat.Step ? "--step" : format == ConversionFormat.Pdf ? "--pdf" : format == ConversionFormat.Part ? "--part" : "--pdf-date";
             return "\"" + executable + "\" " + argument + " \"%1\"";
         }
 
@@ -32,9 +35,12 @@ namespace SolidEdgeConvert
             RegisterServer(root, executable, StepClass);
             RegisterServer(root, executable, PdfClass);
             RegisterServer(root, executable, DatedPdfClass);
+            RegisterServer(root, executable, PartClass);
             InstallFormat(root, executable, MenuKey, "01Step", "STEP (.stp)", ConversionFormat.Step);
             InstallFormat(root, executable, DraftMenuKey, "01Pdf", "PDF (.pdf)", ConversionFormat.Pdf);
             InstallFormat(root, executable, DraftMenuKey, "02PdfWithDate", "PDF with Date", ConversionFormat.PdfWithDate);
+            InstallFormat(root, executable, StpMenuKey, "01Part", "Solid Edge Part (.par)", ConversionFormat.Part);
+            InstallFormat(root, executable, StepMenuKey, "01Part", "Solid Edge Part (.par)", ConversionFormat.Part);
         }
 
         private static void RegisterServer(RegistryKey root, string executable, string id)
@@ -66,7 +72,7 @@ namespace SolidEdgeConvert
                     using (RegistryKey action = step.CreateSubKey("command"))
                     {
                         action.SetValue("", command);
-                        string id = format == ConversionFormat.Step ? StepClass : format == ConversionFormat.Pdf ? PdfClass : DatedPdfClass;
+                        string id = format == ConversionFormat.Step ? StepClass : format == ConversionFormat.Pdf ? PdfClass : format == ConversionFormat.Part ? PartClass : DatedPdfClass;
                         action.SetValue("DelegateExecute", "{" + id + "}");
                     }
                 }
@@ -75,13 +81,16 @@ namespace SolidEdgeConvert
 
         internal static void Uninstall(RegistryKey root)
         {
-            // Delete only this application's uniquely named verbs, not .par/.dft,
+            // Delete only this application's uniquely named verbs, not file types,
             // its association, or other programs' Convert commands.
             root.DeleteSubKeyTree(MenuKey, false);
             root.DeleteSubKeyTree(DraftMenuKey, false);
+            root.DeleteSubKeyTree(StpMenuKey, false);
+            root.DeleteSubKeyTree(StepMenuKey, false);
             root.DeleteSubKeyTree(@"Software\Classes\CLSID\{" + StepClass + "}", false);
             root.DeleteSubKeyTree(@"Software\Classes\CLSID\{" + PdfClass + "}", false);
             root.DeleteSubKeyTree(@"Software\Classes\CLSID\{" + DatedPdfClass + "}", false);
+            root.DeleteSubKeyTree(@"Software\Classes\CLSID\{" + PartClass + "}", false);
         }
 
         internal static void NotifyExplorer() { SHChangeNotify(0x08000000, 0, IntPtr.Zero, IntPtr.Zero); }

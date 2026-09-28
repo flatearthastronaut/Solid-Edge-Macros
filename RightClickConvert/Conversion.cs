@@ -5,7 +5,7 @@ using System.IO;
 
 namespace SolidEdgeConvert
 {
-    internal enum ConversionFormat { Step, Pdf, PdfWithDate }
+    internal enum ConversionFormat { Step, Pdf, PdfWithDate, Part }
 
     // These small boundaries let regression tests exercise failure cleanup without
     // starting CAD or touching a user's open documents.
@@ -19,6 +19,7 @@ namespace SolidEdgeConvert
     {
         object StepAdapter { get; set; }
         IEdgeDocument OpenDocument(string path);
+        IEdgeDocument ImportStepPart(string path);
         void DoIdle();
     }
 
@@ -31,6 +32,7 @@ namespace SolidEdgeConvert
                 case ConversionFormat.Step: return "STEP";
                 case ConversionFormat.Pdf: return "PDF";
                 case ConversionFormat.PdfWithDate: return "PDF with Date";
+                case ConversionFormat.Part: return "Solid Edge Part";
                 default: throw new ArgumentOutOfRangeException("format");
             }
         }
@@ -39,10 +41,15 @@ namespace SolidEdgeConvert
         {
             string name = FormatName(format);
             string inputExtension = format == ConversionFormat.Step ? ".par" : ".dft";
+            if (format == ConversionFormat.Part) inputExtension = ".stp or .step";
             if (String.IsNullOrWhiteSpace(source))
                 throw new ArgumentException("Select a Solid Edge " + inputExtension + " file.");
             string fullPath = Path.GetFullPath(source);
-            if (!String.Equals(Path.GetExtension(fullPath), inputExtension, StringComparison.OrdinalIgnoreCase))
+            string extension = Path.GetExtension(fullPath);
+            bool supported = format == ConversionFormat.Part
+                ? String.Equals(extension, ".stp", StringComparison.OrdinalIgnoreCase) || String.Equals(extension, ".step", StringComparison.OrdinalIgnoreCase)
+                : String.Equals(extension, inputExtension, StringComparison.OrdinalIgnoreCase);
+            if (!supported)
                 throw new ArgumentException(name + " conversion requires a " + inputExtension + " file.");
             if (!File.Exists(fullPath))
                 throw new FileNotFoundException("The selected CAD file could not be found.", fullPath);
@@ -53,7 +60,7 @@ namespace SolidEdgeConvert
                 return Path.Combine(Path.GetDirectoryName(fullPath), Path.GetFileNameWithoutExtension(fullPath)
                     + " " + (exportDate ?? DateTime.Today).ToString("yyyyMMdd", CultureInfo.InvariantCulture) + ".pdf");
             }
-            return Path.ChangeExtension(fullPath, format == ConversionFormat.Step ? ".stp" : ".pdf");
+            return Path.ChangeExtension(fullPath, format == ConversionFormat.Step ? ".stp" : format == ConversionFormat.Part ? ".par" : ".pdf");
         }
 
         internal static string Run(string source, bool replaceExisting,
@@ -61,7 +68,7 @@ namespace SolidEdgeConvert
         {
             string output = OutputPath(source, format, exportDate);
             string formatName = FormatName(format);
-            bool useStepAdapter = format == ConversionFormat.Step;
+            bool useStepAdapter = format == ConversionFormat.Step || format == ConversionFormat.Part;
             source = Path.GetFullPath(source);
             if (File.Exists(output) && !replaceExisting)
                 throw new IOException("The " + formatName + " file already exists. Conversion was cancelled.");
@@ -87,7 +94,7 @@ namespace SolidEdgeConvert
                         // false values unconditionally, including on COM failures.
                         if (useStepAdapter) session.StepAdapter = true;
                         progress("Opening " + Path.GetFileName(source) + "...");
-                        part = session.OpenDocument(source);
+                        part = format == ConversionFormat.Part ? session.ImportStepPart(source) : session.OpenDocument(source);
                         session.DoIdle();
                         progress("Converting to " + formatName + "...");
                         part.SaveAs(temporary);
