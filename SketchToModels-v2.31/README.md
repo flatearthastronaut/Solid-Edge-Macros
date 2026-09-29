@@ -24,6 +24,7 @@ Case-insensitive contained-name matching ignores spaces, hyphens and underscores
 - Register the OLE message filter with HRESULT checking; retain it during the UI loop and restore the previous filter with a disposable scope on the same thread.
 - Dispose the main form explicitly. Clear completed grid sketch references, and release the form's retained COM references once when it is disposed. Cleanup does not close documents or quit Solid Edge.
 - Follow the SDK warning about shared wrappers: no FinalReleaseComObject, no release-to-zero loops, and no forced collection while modeling. This is targeted lifetime improvement, not a claim that every temporary dynamic COM reference is deterministically released.
+- At the end of ProcessSelection, a finally block performs two GC.Collect / GC.WaitForPendingFinalizers passes to clean up unreachable temporary COM wrappers after success or failure. The form is re-enabled afterwards. References still used by the form remain alive; this cleanup does not close documents or quit Solid Edge. Live memory usage still needs verification in repeated Solid Edge modeling runs.
 - Use 64-bit-safe conversion for application HWND values.
 - Use the bounded native Wireframe Chain selector for both solid and surface stages, avoiding the solid stage's potentially blocked UI Automation traversal. This is a project-proven reliability change, not a technique prescribed by the SDK.
 - Report an initial SaveAs failure as a save-stage failure.

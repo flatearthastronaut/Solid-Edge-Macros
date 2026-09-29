@@ -1243,7 +1243,22 @@ including both saves. An exception stops the batch; later rows do not run.
                 status.Text = "Stopped: " + e.Message;
                 MessageBox.Show(this, e.Message + "\n\nPreviously completed parts remain saved. Existing filenames are blocked on retry.", "Processing stopped", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
-            finally { Enabled = true; UseWaitCursor = false; }
+            finally
+            {
+                try
+                {
+                    // Modeling has finished (or unwound after a failure). Collect
+                    // unreachable temporary COM wrappers now, not between parts.
+                    // The second pass reclaims objects made eligible by finalizers;
+                    // live app/assembly/grid references remain usable. Keep the
+                    // form disabled while finalizers run to prevent another batch.
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                }
+                finally { Enabled = true; UseWaitCursor = false; }
+            }
         }
         /// <summary>
         /// Release the form's retained COM objects only on final disposal, after
