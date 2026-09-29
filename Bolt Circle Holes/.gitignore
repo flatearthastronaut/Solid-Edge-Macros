@@ -1,0 +1,6 @@
+# Generated local logs and old root-level releases remain on disk.
+/BoltCircleHoles-*.exe
+/BoltCircleHoles-*.zip
+**/BoltCircleHoles-run.log
+**/BoltCircleHoles-error.txt
+/tests/window-preview.png
