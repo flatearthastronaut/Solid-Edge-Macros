@@ -1,0 +1,7 @@
+Tool: built-in image_gen, transparent_background=true.
+
+Prompt:
+Create a polished Windows desktop application icon for a Solid Edge drafting utility named Dual Dimension Toggle. One centered square icon, transparent outside the icon. A deep navy rounded-square tile, bold precise ivory-white horizontal engineering dimension line with inward arrowheads and two short extension lines, paired with a simple cyan two-way toggle or opposing horizontal arrows below to express switching between single-unit inch dimensions and dual dimensions. Flat vector-like geometric graphic, crisp broad strokes, very simple bold silhouette legible at 16px and 32px; no tiny marks. No text, no letters, no numerals, no gradients, no scene, no mockup, no drop shadow outside the tile, no watermark. The icon should occupy 90 percent of the canvas with balanced transparent padding. Square 1024x1024 output.
+
+Delivered source artwork: Assets/DualDimensionToggle.png.
+Windows icon packaging: BuildIcon.ps1.

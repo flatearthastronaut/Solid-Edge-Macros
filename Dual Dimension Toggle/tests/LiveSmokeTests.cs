@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using DraftDimensionStyles;
+using DualDimensionToggle;
 
 // Runs only when explicitly invoked. Creates its own unsaved scratch draft,
 // changes no existing document, closes the scratch and restores the active one.

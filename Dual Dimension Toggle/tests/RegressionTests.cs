@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using DraftDimensionStyles;
+using DualDimensionToggle;
 
 // Public fakes exercise the same late-bound boundary used for Solid Edge.
 // A setter may reject or silently ignore a style change, both seen in COM apps.

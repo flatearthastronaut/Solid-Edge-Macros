@@ -3,10 +3,12 @@ using System.Drawing;
 using System.Reflection;
 using System.Windows.Forms;
 
-[assembly: AssemblyTitle("Draft Dimension Styles")]
-[assembly: AssemblyVersion("1.1.0.0")]
+[assembly: AssemblyTitle("Dual Dimension Toggle")]
+[assembly: AssemblyProduct("Dual Dimension Toggle")]
+[assembly: AssemblyDescription("Switch draft dimensions between inch-only and dual styles on the active sheet.")]
+[assembly: AssemblyVersion("1.2.0.0")]
 
-namespace DraftDimensionStyles
+namespace DualDimensionToggle
 {
     internal static class Program
     {
@@ -21,6 +23,7 @@ namespace DraftDimensionStyles
 
     internal sealed class ConverterForm : Form
     {
+        private readonly Icon applicationIcon;
         private readonly RadioButton toInch = new RadioButton { Text = "Dual dimensioned to inch only", Checked = true, AutoSize = true };
         private readonly RadioButton toDual = new RadioButton { Text = "Inch only to dual dimensioned", AutoSize = true };
         private readonly Button convert = new Button { Text = "Convert active sheet", AutoSize = true, Padding = new Padding(10, 4, 10, 4) };
@@ -28,7 +31,13 @@ namespace DraftDimensionStyles
 
         internal ConverterForm()
         {
-            Text = "Draft Dimension Styles v1.1";
+            Text = "Dual Dimension Toggle v1.2";
+            // The same multi-resolution icon is embedded as a Windows resource
+            // for Explorer and a managed resource for the window/taskbar.
+            using (System.IO.Stream iconStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("DualDimensionToggle.ico"))
+            using (Icon embeddedIcon = new Icon(iconStream))
+                applicationIcon = (Icon)embeddedIcon.Clone();
+            Icon = applicationIcon;
             Font = new Font("Segoe UI", 10);
             AutoScaleMode = AutoScaleMode.Dpi;
             ClientSize = new Size(690, 480);
@@ -47,6 +56,12 @@ namespace DraftDimensionStyles
             layout.Controls.Add(results);
             Controls.Add(layout);
             convert.Click += ConvertClick;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            try { base.Dispose(disposing); }
+            finally { if (disposing && applicationIcon != null) applicationIcon.Dispose(); }
         }
 
         private void ConvertClick(object sender, EventArgs args)

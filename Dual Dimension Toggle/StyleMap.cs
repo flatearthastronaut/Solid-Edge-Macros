@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
-namespace DraftDimensionStyles
+namespace DualDimensionToggle
 {
     internal enum MatchStatus { Convert, AlreadyTarget, Unrecognized, Missing, Ambiguous }
 
