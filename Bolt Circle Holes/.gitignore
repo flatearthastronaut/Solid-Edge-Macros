@@ -4,3 +4,9 @@
 **/BoltCircleHoles-run.log
 **/BoltCircleHoles-error.txt
 /tests/window-preview.png
+/tests/thread-chart/
+/tests/threads-preview.png
+/tests/*.exe
+/tests/sdk-docs/
+/tests/ThreadLookupProbe.cs
+/tests/SingleFeatureProbe.cs

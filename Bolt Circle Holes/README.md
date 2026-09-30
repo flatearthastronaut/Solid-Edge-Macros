@@ -1,3 +1,24 @@
+# Bolt Circle Holes v0.18
+
+Run `Compiled Executables\BoltCircleHoles-v0.18.exe` with a part open in Solid Edge 2026. Keep the included `C'bore Chart.xls` beside the executable. Select the hole type/size and quantity (the **6** button selects six), select the Create From face or reference plane, and click the first center. Inspect the result before saving the part; the macro never saves it.
+
+Inch and metric thread lists contain the 26 sizes from `Thread_Depth_Charts.pdf`. Full-thread and drill-to-shoulder depths use that chart's inch columns. Each placement creates ONE native Hole feature containing all requested threaded holes, equally spaced around base Z starting exactly at the clicked point. Thread placement adds no construction lines, dimensions, or separate circular Pattern feature. For multiple threads, the selected support must be perpendicular to base Z and the first center must be off the axis. The 120-degree drill point extends beyond the chart's shoulder depth.
+
+Counterbores, A2 presets, and button holes retain their existing dimension and native circular-pattern behavior. All displayed linear dimensions are inches. Matching bundled counterbore charts load without Excel or ACE.
+
+## v0.18 thread correction
+
+Solid Edge 2026 silently returned zero dimensions from the legacy ThreadDataByDescription lookup, causing the reported 1/4-20 UNC error. This release uses HoleDataCollection.AddEx with ANSI Inch / UNC / 2B or ISO Metric / Metric / 6H. It checks the returned thread identity, nominal size, and tap-drill diameter because an unrecognized table size can silently select the table's first entry.
+
+HoleDiameter stays at the nominal thread diameter; ThreadDiameterOption selects the tap drill. Setting HoleDiameter to the drill diameter would change or clear the thread selection. Profile.End splits the disconnected centers into profiles in one ProfileSet. After creating a seed hole, UserDefinedPatterns.AddByProfiles consumes it into the native multi-profile Hole group, displayed as ONE Hole entry in Pathfinder. This is Solid Edge's internal representation of an Ordered multi-hole feature; there is no separate circular Pattern or set of individual Hole features. Automatic profile dimensions are explicitly removed. Feature status, occurrence count, material removal, depths, final collection counts, and absence of a new circular Pattern are checked; failures trigger ownership-aware rollback. Only thread selections use this grouping; counterbore and A2 behavior is unchanged.
+
+Validation: compiled against installed Solid Edge 2026. All 26 thread table entries and their configured depths passed live checks. A temporary unsaved test part successfully received six 1/4-20 UNC holes in ONE Hole feature and six M10 holes in ONE Hole feature. All twelve retained their selected thread identity, with zero profile dimensions and zero circular Pattern features. Occurrence counts, six new physical hole geometries per feature, and analytical material-removal volumes verified the complete groups. An off-body placement was rejected and rolled back while preserving the existing groups and body. The scratch part was closed without saving. Chart, unit conversion, spacing, selection switching, and quantity-shortcut regression checks are in tests/VerifyThreads.ps1. The repeatable live test is tests/VerifyNativeThreads.cmd (source: tests/VerifyNativeThreads.cs); it requires a running Solid Edge instance and creates/closes its own unsaved part.
+
+Loose source, charts, executable, and the ZIP release remain in this folder; the executable and ZIP are also in Compiled Executables. Build.cmd rebuilds the executable. View log shows the persistent BoltCircleHoles-run.log, including thread-table selection, returned values, each created position, validation, and cleanup details.
+
+## Historical release notes
+
+The sections below record earlier releases and their validation limits; the v0.18 instructions above supersede earlier run instructions and thread implementation descriptions.
 # Bolt Circle Holes v0.7
 
 Creates one native counterbored Hole feature from the selected chart size. The drill extent is always Through All. Bolt-circle patterning is a later increment.
@@ -208,3 +229,17 @@ Added Metric Threads and Inch Threads dropdowns marked Coming soon. They are dis
 Each selection row now includes a small scalable section symbol. Inch and metric counterbores use a stepped through-hole symbol; the A2 symbol switches between counterbore and V-bottom button hole. Thread placeholders have a threaded section symbol. Symbols are drawn locally with disposed drawing resources, with no external image dependency. The compact window is 510 by 574 pixels to accommodate the two new rows.
 
 Build.cmd now also places the executable and required XLS in Compiled Executables. The ZIP and loose files remain available in the macro folder. Validation: compiled, preview inspected, and tests/VerifyPlaceholders.ps1 passed for disabled placeholders, A2 icon changes, reset behavior, and control bounds.
+
+## v0.17 - Blind threaded holes and quantity shortcut
+
+Metric Threads and Inch Threads now contain the 13 metric coarse and 13 inch UNC entries from Thread_Depth_Charts.pdf (DB, 9/29/2026). Both full-thread and drill-to-shoulder depths use the PDF's INCH columns consistently; its independently rounded millimeter columns are not mixed into the calculation. The new 6 button sets the total quantity to six with one click and is locked with the quantity field during placement.
+
+For THREAD selections only, the first hole center is exactly where clicked. Remaining centers are equally spaced about the part's base Z axis at the same radius and elevation. The macro adds explicit Hole2d centers to one finite tapped Hole feature. It adds no sketch dimensions, construction line, Right-plane projection, or Pattern feature. Counts above one require a support perpendicular to base Z and a click off that axis. Other counterbore/button-hole behavior remains unchanged.
+
+The PDF provides sizes and depths, not tap-drill diameters. ThreadDataByDescription resolves the selected size in the running Solid Edge thread table with explicit metric/inch units. A bounded set of common description spellings is tried. The native nominal size and tap-drill diameter are checked; failure reports THREAD.lookup details and does not substitute a clearance diameter. The thread uses native igTappedHole treatment, finite thread depth, tap-drill diameter, and the chart's finite drill depth to the full-diameter shoulder. A 120-degree drill point extends beyond the shoulder, consistent with the macro's current drill-point setting. These are native tapped-hole definitions, not modeled helical grooves.
+
+Logging records lookup attempts, thread settings, every additional center, count/spacing, and feature readback. Existing feature-status, material-removal, ownership-aware rollback, and unsaved-part behavior remain. Post-creation validation checks finite thread/drill depths, tapped treatment, zero profile dimensions, and no new Pattern feature.
+
+Validation: built against Solid Edge 2026; tests/VerifyThreads.ps1 checks all 26 chart rows against the chart's rounding formulas, unit conversion, 1/2/6/13/999 center counts and spacing, unchanged first point/elevation/radius, rejected invalid multi-hole supports, dropdown exclusivity, and the 6 shortcut. Window rendered and inspected. Live thread-table lookup and native tapped-hole creation still require testing in Solid Edge.
+
+API references: Solid Edge SDK SolidEdge.Part.Holes sample for profile/Holes2d/AddFinite flow; Siemens HoleData.ThreadDataByDescription documentation for explicit lookup units, ThreadDiameterOption for tap-drill choice, and HoleData.ThreadDepth for finite thread-depth semantics.

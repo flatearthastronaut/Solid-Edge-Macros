@@ -13,11 +13,13 @@ namespace BoltCircleHoles
             if(size!=null && size.Unavailable!=null)throw new InvalidOperationException(size.Unavailable);
             if (size == null || !size.Depth.HasValue)
                 throw new InvalidOperationException("This screw size has no counterbore depth in the chart. Enter its depth in C'bore Chart.xls and restart the macro.");
-            double[] values = { size.Drill * 0.0254, (size.ButtonHole ? size.Drill : size.Bore) * 0.0254, size.Depth.Value * 0.0254 };
+            double[] values = { size.Drill * 0.0254, (size.ButtonHole || size.Thread!=null ? size.Drill : size.Bore) * 0.0254, size.Depth.Value * 0.0254 };
             foreach (double value in values)
                 if (double.IsNaN(value) || double.IsInfinity(value) || value <= 0)
                     throw new InvalidOperationException("All hole dimensions must be positive finite values.");
-            if (!size.ButtonHole && values[1] <= values[0]) throw new InvalidOperationException("The counterbore diameter must exceed the drill diameter.");
+            if (!size.ButtonHole && size.Thread==null && values[1] <= values[0]) throw new InvalidOperationException("The counterbore diameter must exceed the drill diameter.");
+            if(size.Thread!=null && (size.Thread.FullDepthInches<=0 || size.Thread.FullDepthInches>=size.Depth.Value))
+                throw new InvalidOperationException("Thread depth must be positive and shorter than drill shoulder depth.");
             return values;
         }
         public static double[] Vector(Array values)
@@ -189,7 +191,7 @@ namespace BoltCircleHoles
             double factor=radiusInches*0.0254/r;
             return new[]{clicked[0]*factor,clicked[1]*factor,clicked[2]};
         }
-        public static Part.Hole Create(Part.PartDocument part, Part.Model model, object support, double[] center, HoleSize size, bool reverse, int totalHoles)
+        public static object Create(Part.PartDocument part, Part.Model model, object support, double[] center, HoleSize size, bool reverse, int totalHoles)
         {
             RunLog.Write("HOLE.request","size="+size+" center_m="+RunLog.Value(center)+" reverse="+reverse+" support="+(support is Geometry.Face ? "Face" : "RefPlane"));
             if(size!=null && size.Unavailable!=null)throw new InvalidOperationException(size.Unavailable);
@@ -219,6 +221,9 @@ namespace BoltCircleHoles
             Part.HoleData data = null;
             Part.Hole hole = null;
             Part.Pattern pattern = null;
+            Part.UserDefinedPattern threadGroup=null;
+            int threadGroupCount=model.UserDefinedPatterns.Count;
+            double[][] threadCenters=null;
             int patternCount=model.Patterns.Count;
             var previousMode = part.ModelingMode;
             RunLog.Write("HOLE.before","part="+part.Name+" mode="+previousMode+" volume_m3="+RunLog.Value(before)+" holes="+holeCount+" profileSets="+setCount+" refPlanes="+planeCount+" holeData="+dataCount);
@@ -250,7 +255,28 @@ namespace BoltCircleHoles
                 RunLog.Write("PROFILE.center","uv_m="+RunLog.Value(new[]{u,v})+" roundtrip_xyz_m="+RunLog.Value(projected)+" error_m="+RunLog.Value(error));
                 if (Dot(error,error)>1e-12) throw new InvalidOperationException("The center did not map onto the Create From support.");
                 var holeCenter=RunLog.Call("PROFILE.Holes2d.Add",delegate {return profile.Holes2d.Add(u,v);});
-                AddBaseZConstruction(part,profile,holeCenter,center,u,v);
+                if(size.Thread==null)AddBaseZConstruction(part,profile,holeCenter,center,u,v);
+                else
+                {
+                    // Profile.End splits disconnected hole centers into separate profiles.
+                    // Keep them in one ProfileSet, then use the native multi-profile Hole
+                    // grouping operation after creating the seed. This produces one Hole
+                    // entry in Pathfinder, not separate Hole features or a circular Pattern.
+                    var origin=OnProfile(profile,0,0);
+                    var a=Difference(OnProfile(profile,1,0),origin);var b=Difference(OnProfile(profile,0,1),origin);
+                    var normal=new[]{a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]};
+                    threadCenters=ThreadChart.Centers(center,normal,totalHoles);
+                    for(int i=1;i<threadCenters.Length;i++)
+                    {
+                        var point=threadCenters[i];double pu,pv;
+                        profile.Convert3DCoordinate(point[0],point[1],point[2],out pu,out pv);
+                        var delta=Difference(OnProfile(profile,pu,pv),point);
+                        if(Dot(delta,delta)>1e-12)throw new InvalidOperationException("A thread center did not map to its support.");
+                        profile.Holes2d.Add(pu,pv);
+                        RunLog.Write("THREAD.center","index="+(i+1)+" xyz_m="+RunLog.Value(point));
+                    }
+                    RunLog.Write("THREAD.layout","holes="+totalHoles+" angular_spacing_deg="+RunLog.Value(360.0/totalHoles)+" dimensions=none pattern_feature=none");
+                }
                 int profileStatus=RunLog.Call("PROFILE.End",delegate {return profile.End(Part.ProfileValidationType.igProfileClosed);});
                 RunLog.Write("PROFILE.validation","return_code="+profileStatus);
                 if (profileStatus!=0) throw new InvalidOperationException("Solid Edge could not validate the hole profile (code "+profileStatus+").");
@@ -271,7 +297,15 @@ namespace BoltCircleHoles
                 }
                 if (reverse) side = side==Part.FeaturePropertyConstants.igRight ? Part.FeaturePropertyConstants.igLeft : Part.FeaturePropertyConstants.igRight;
                 RunLog.Write("DIRECTION.chosen",side+" numeric="+(int)side+" reversed="+reverse);
-                var expectedType=size.ButtonHole ? Part.FeaturePropertyConstants.igRegularHole : Part.FeaturePropertyConstants.igCounterboreHole;
+                var expectedType=size.ButtonHole || size.Thread!=null ? Part.FeaturePropertyConstants.igRegularHole : Part.FeaturePropertyConstants.igCounterboreHole;
+                var expectedTreatment=size.Thread!=null ? Part.FeaturePropertyConstants.igTappedHole : Part.FeaturePropertyConstants.igNone;
+                if(size.Thread!=null)
+                {
+                    data=RunLog.Call("HOLEDATA.thread-add",delegate {return ThreadChart.AddData(part,size);});
+                    RunLog.Call("HOLEDATA.thread-configure",delegate {ThreadChart.Configure(data,size);});
+                    dims[0]=data.HoleDiameter; // Native nominal thread diameter; tap-drill option controls cutting size.
+                }
+                else
                 if(size.ButtonHole)
                     data=RunLog.Call("HOLEDATA.button",delegate {return part.HoleDataCollection.Add(expectedType,dims[0],
                         BottomAngle:120.0,VBottomDimType:Part.FeaturePropertyConstants.igVBottomDimToFlat,TreatmentType:Part.FeaturePropertyConstants.igNone,IgnoreSavedDefaultValues:true);});
@@ -283,11 +317,11 @@ namespace BoltCircleHoles
                     TreatmentType:Part.FeaturePropertyConstants.igNone,
                     CounterboreProfileLocationType:Part.FeaturePropertyConstants.igCounterboreProfileIsAtTop,
                     IgnoreSavedDefaultValues:true);});
-                if(size.ButtonHole) RunLog.Write("HOLEDATA.readback","type="+data.HoleType+" treatment="+data.TreatmentType+" diameter_m="+RunLog.Value(data.HoleDiameter));
+                if(size.ButtonHole || size.Thread!=null) RunLog.Write("HOLEDATA.readback","type="+data.HoleType+" treatment="+data.TreatmentType+" diameter_m="+RunLog.Value(data.HoleDiameter));
                 else RunLog.Write("HOLEDATA.readback","type="+data.HoleType+" treatment="+data.TreatmentType+" treatment_numeric="+(int)data.TreatmentType+" drill_m="+RunLog.Value(data.HoleDiameter)+" cbore_m="+RunLog.Value(data.CounterboreDiameter)+" depth_m="+RunLog.Value(data.CounterboreDepth)+" profile_location="+data.CounterboreProfileLocationType);
-                if(data.HoleType!=expectedType || data.TreatmentType!=Part.FeaturePropertyConstants.igNone)
-                    throw new InvalidOperationException("Solid Edge did not retain the requested hole type/no-thread treatment settings. See HOLEDATA.readback in the log.");
-                if(size.ButtonHole) hole=RunLog.Call("HOLE.AddFinite.button",delegate {return model.Holes.AddFinite(profile,side,dims[2],data);});
+                if(data.HoleType!=expectedType || data.TreatmentType!=expectedTreatment)
+                    throw new InvalidOperationException("Solid Edge did not retain the requested hole type/treatment settings. See HOLEDATA.readback in the log.");
+                if(size.ButtonHole || size.Thread!=null) hole=RunLog.Call(size.Thread!=null ? "HOLE.AddFinite.threads" : "HOLE.AddFinite.button",delegate {return model.Holes.AddFinite(profile,side,dims[2],data);});
                 else hole=RunLog.Call("HOLE.AddThroughAll",delegate {return model.Holes.AddThroughAll(profile,side,data);});
                 object description=null;
                 var featureStatus=RunLog.Call("HOLE.get_Status",delegate {return hole.get_Status(out description);});
@@ -299,9 +333,9 @@ namespace BoltCircleHoles
                 if (!after.IsSolid || after.Volume<=0 || before-after.Volume<=Math.Max(1e-16,before*1e-10))
                     throw new InvalidOperationException("The hole did not remove material from a valid solid. Try reversing direction or choosing another center.");
                 var actual=(Part.HoleData)hole.HoleData;
-                if(size.ButtonHole) RunLog.Write("HOLE.readback","diameter_m="+RunLog.Value(actual.HoleDiameter));
+                if(size.ButtonHole || size.Thread!=null) RunLog.Write("HOLE.readback","diameter_m="+RunLog.Value(actual.HoleDiameter));
                 else RunLog.Write("HOLE.readback","drill_m="+RunLog.Value(actual.HoleDiameter)+" cbore_m="+RunLog.Value(actual.CounterboreDiameter)+" depth_m="+RunLog.Value(actual.CounterboreDepth));
-                if (Math.Abs(actual.HoleDiameter-dims[0])>1e-9 || (!size.ButtonHole && (Math.Abs(actual.CounterboreDiameter-dims[1])>1e-9 || Math.Abs(actual.CounterboreDepth-dims[2])>1e-9)))
+                if (Math.Abs(actual.HoleDiameter-dims[0])>1e-9 || (!size.ButtonHole && size.Thread==null && (Math.Abs(actual.CounterboreDiameter-dims[1])>1e-9 || Math.Abs(actual.CounterboreDepth-dims[2])>1e-9)))
                     throw new InvalidOperationException("The created hole dimensions do not match the chart.");
                 if(size.ButtonHole)
                 {
@@ -309,7 +343,54 @@ namespace BoltCircleHoles
                     if(hole.ExtentType!=Part.FeaturePropertyConstants.igFinite || Math.Abs(hole.Depth-dims[2])>1e-9 || Math.Abs(actual.BottomAngle-120.0)>1e-9)
                         throw new InvalidOperationException("The button-hole blind depth or 120-degree V bottom does not match the chart settings.");
                 }
-                if(totalHoles>1)
+                if(size.Thread!=null)
+                {
+                    RunLog.Write("THREAD.readback","description="+actual.ThreadDescription+" treatment="+actual.TreatmentType+
+                        " depth_method="+actual.ThreadDepthMethod+" thread_depth_m="+RunLog.Value(actual.ThreadDepth)+" shoulder_m="+RunLog.Value(hole.Depth));
+                    if(actual.TreatmentType!=Part.FeaturePropertyConstants.igTappedHole || actual.ThreadDepthMethod!=Part.FeaturePropertyConstants.igFinite ||
+                        Math.Abs(actual.ThreadDepth-size.Thread.FullDepthInches*.0254)>1e-9 || hole.ExtentType!=Part.FeaturePropertyConstants.igFinite ||
+                        Math.Abs(hole.Depth-dims[2])>1e-9 || Math.Abs(actual.BottomAngle-120.0)>1e-9)
+                        throw new InvalidOperationException("Thread treatment or depths do not match the selected chart row.");
+                    if(set.Profiles.Count!=totalHoles)
+                        throw new InvalidOperationException("The thread profile count does not match the requested quantity.");
+                    if(totalHoles>1)
+                    {
+                        Array profiles=new object[totalHoles];
+                        for(int i=1;i<=totalHoles;i++)profiles.SetValue(set.Profiles.Item(i),i-1);
+                        double seedVolume=((Geometry.Body)model.Body).Volume;
+                        // SE represents an Ordered multi-position Hole internally as a
+                        // UserDefinedPattern. AddByProfiles consumes the seed into ONE
+                        // native Hole entry (Holes.Count returns to baseline); it does not
+                        // create a separate circular Pattern or independently editable holes.
+                        threadGroup=RunLog.Call("THREAD.group.AddByProfiles",delegate {
+                            return model.UserDefinedPatterns.AddByProfiles(totalHoles,profiles,hole);});
+                        object groupDescription=null;
+                        if(threadGroup.get_Status(out groupDescription)!=Part.FeatureStatusConstants.igFeatureOK)
+                            throw new InvalidOperationException("Solid Edge could not create the complete Hole group: "+Convert.ToString(groupDescription));
+                        int occurrences=0,features=0;
+                        threadGroup.GetNumberOfOccurrences(out occurrences,out features);
+                        if(occurrences!=totalHoles)
+                            throw new InvalidOperationException("The Hole group did not retain every requested position.");
+                        var groupedBody=(Geometry.Body)model.Body;
+                        if(!groupedBody.IsSolid || groupedBody.Volume<=0 || seedVolume-groupedBody.Volume<=Math.Max(1e-16,seedVolume*1e-10))
+                            throw new InvalidOperationException("The Hole group did not remove additional material from a valid solid.");
+                        RunLog.Write("THREAD.group","entry="+threadGroup.EdgebarName+" occurrences="+occurrences+
+                            " seed_volume_m3="+RunLog.Value(seedVolume)+" final_volume_m3="+RunLog.Value(groupedBody.Volume));
+                    }
+                    for(int i=1;i<=set.Profiles.Count;i++)
+                    {
+                        var member=set.Profiles.Item(i);
+                        RemoveThreadDimensions(member);member.Visible=false;
+                    }
+                    object finalDescription=null;
+                    var finalStatus=threadGroup==null ? hole.get_Status(out finalDescription) : threadGroup.get_Status(out finalDescription);
+                    if(finalStatus!=Part.FeatureStatusConstants.igFeatureOK)
+                        throw new InvalidOperationException("The Hole feature failed after removing automatic dimensions.");
+                    if(model.Patterns.Count!=patternCount || model.Holes.Count!=holeCount+(totalHoles==1 ? 1 : 0) ||
+                        model.UserDefinedPatterns.Count!=threadGroupCount+(totalHoles>1 ? 1 : 0))
+                        throw new InvalidOperationException("Unexpected thread-hole or pattern-feature count.");
+                }
+                if(totalHoles>1 && size.Thread==null)
                 {
                     var patternPlane=RunLog.Call("PATTERN.base-XY",delegate {return FindBaseXYPlane(part);});
                     Array features=new object[]{hole};Array axisPoint=new double[]{0,0,0};
@@ -339,7 +420,7 @@ namespace BoltCircleHoles
                 profile.Visible=false;
                 if(localPlane!=null) localPlane.Visible=false;
                 RunLog.Write("HOLE.success","Created and validated. Part left unsaved.");
-                return hole;
+                return threadGroup!=null ? (object)threadGroup : hole;
             }
             catch(Exception failure)
             {
@@ -347,6 +428,8 @@ namespace BoltCircleHoles
                 var cleanup = new List<string>();
                 // Never delete a pre-existing feature or guess ownership after an ambiguous failed COM call.
                 bool safe=true;
+                if(threadGroup!=null) safe=RemoveOwned("thread Hole group",delegate {threadGroup.Delete();},delegate {return model.UserDefinedPatterns.Count==threadGroupCount;},cleanup);
+                else if(model.UserDefinedPatterns.Count!=threadGroupCount){cleanup.Add("A Hole group was added without an ownership handle.");safe=false;}
                 if(pattern!=null) safe=RemoveOwned("pattern",delegate {pattern.Delete();},delegate {return model.Patterns.Count==patternCount;},cleanup);
                 else if(model.Patterns.Count!=patternCount){cleanup.Add("The pattern collection changed without returning a feature handle.");safe=false;}
                 if(safe && hole!=null) safe=RemoveOwned("hole",delegate {hole.Delete();},delegate {return model.Holes.Count==holeCount;},cleanup);
@@ -364,6 +447,16 @@ namespace BoltCircleHoles
                     try {RunLog.Call("MODE.restore."+previousMode,delegate {part.ModelingMode=previousMode;});} catch(Exception ex){Program.Log(ex);}
             }
         }
+        static void RemoveThreadDimensions(Part.Profile profile)
+        {
+            // SE creates positioning dimensions while consuming a hole profile, even if
+            // none were requested. Remove only dimensions on this newly owned profile.
+            var dimensions=(Support.Dimensions)profile.Dimensions;
+            int count=dimensions.Count;
+            for(int i=count;i>=1;i--)dimensions.Item(i).Delete();
+            if(dimensions.Count!=0)throw new InvalidOperationException("Could not remove automatic thread positioning dimensions.");
+            RunLog.Write("THREAD.dimensions-removed","count="+count+" remaining=0");
+        }
         static bool RemoveOwned(string name,Action remove,Func<bool> restored,List<string> errors)
         {
             try {RunLog.Call("CLEANUP.delete."+name,remove);return true;}
@@ -371,7 +464,7 @@ namespace BoltCircleHoles
             {
                 // A deleted hole can cascade-delete its profile, plane or HoleData.
                 // Only ignore a disconnected child when the live owning collection is back to baseline.
-                if(ex.HResult==unchecked((int)0x80010108))
+                if(ex.HResult==unchecked((int)0x80010108) || ex.HResult==unchecked((int)0x800401FD) || ex.HResult==unchecked((int)0x800401FB))
                 {
                     try {if(restored()){RunLog.Write("CLEANUP.already-removed",name+" collection verified at original count");return true;}}
                     catch(Exception check){RunLog.Error("CLEANUP.verification."+name,check);}
@@ -381,12 +474,3 @@ namespace BoltCircleHoles
         }
     }
 }
-
-
-
-
-
-
-
-
-

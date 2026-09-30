@@ -20,6 +20,7 @@ namespace BoltCircleHoles
         public double? Depth, Radius;
         public string Adapter, Unavailable;
         public bool ButtonHole;
+        public ThreadSpec Thread;
         public override string ToString() { return Adapter==null ? Screw : Adapter+ (ButtonHole ? " - Button Hole" : " - Counterbore"); }
     }
 
@@ -89,11 +90,11 @@ namespace BoltCircleHoles
         readonly ComboBox metricThreads=new ComboBox(), inchThreads=new ComboBox();
         readonly HoleSymbol a2Symbol=new HoleSymbol();
         bool updatingSelection;
-        HoleSize SelectedSize {get {return (a2Sizes.SelectedItem ?? metricSizes.SelectedItem ?? sizes.SelectedItem) as HoleSize;}}
+        HoleSize SelectedSize {get {return (metricThreads.SelectedItem ?? inchThreads.SelectedItem ?? a2Sizes.SelectedItem ?? metricSizes.SelectedItem ?? sizes.SelectedItem) as HoleSize;}}
         readonly NumericUpDown holeCount = new NumericUpDown { Minimum=1, Maximum=999, Value=1, DecimalPlaces=0 };
         readonly Label spacing = new Label();
         readonly Label dimensions = new Label(), status = new Label(), partName = new Label();
-        readonly Button pick = new Button(), back = new Button();
+        readonly Button pick = new Button(), back = new Button(), six = new Button();
         readonly CheckBox reverse = new CheckBox { Text = "Reverse cutting direction", Left=24, Top=352, Width=450, Height=26 };
         LogWindow logWindow;
         SE.Application edge;
@@ -110,7 +111,7 @@ namespace BoltCircleHoles
         public MainWindow(bool previewOnly)
         {
             preview = previewOnly;
-            Text = "Bolt Circle Holes v0.16";
+            Text = "Bolt Circle Holes v0.18";
             Font = new Font("Segoe UI", 10);
             AutoScaleMode = AutoScaleMode.Dpi;
             ClientSize = new Size(510, 574);
@@ -134,12 +135,11 @@ namespace BoltCircleHoles
             Controls.AddRange(new Control[]{metricSizes,a2Sizes,
                 new Label {Text="Metric",Left=24,Top=120,Width=105,Height=26},
                 new Label {Text="A2 Holes",Left=24,Top=154,Width=110,Height=26}});
-            // Placeholders deliberately have no selection handlers and never enter SelectedSize.
-            // Future thread support can be added without changing the current hole creation path.
             foreach(var list in new[]{metricThreads,inchThreads})
             {
                 list.DropDownStyle=ComboBoxStyle.DropDownList;
-                list.Items.Add("Coming soon");list.SelectedIndex=0;list.Enabled=false;
+                var selectedList=list;
+                list.SelectedIndexChanged+=delegate {SelectSize(selectedList);};
             }
             metricThreads.SetBounds(155,184,278,30);inchThreads.SetBounds(155,218,278,30);
             Controls.AddRange(new Control[]{metricThreads,inchThreads,
@@ -154,6 +154,8 @@ namespace BoltCircleHoles
             dimensions.SetBounds(24, 260, 455, 86);
             var countLabel=new Label {Text="Number of holes",Left=24,Top=386,Width=155,Height=26};
             holeCount.SetBounds(185,383,100,30);
+            six.SetBounds(295,383,42,28);six.Text="6";six.AccessibleName="Set quantity to six";
+            six.Click+=delegate {holeCount.Value=6;};Controls.Add(six);
             spacing.SetBounds(24,418,455,28);
             holeCount.ValueChanged+=delegate {UpdateSpacing();};
             UpdateSpacing();
@@ -201,13 +203,15 @@ namespace BoltCircleHoles
                 foreach(var size in chart)
                     if(size.Screw.StartsWith("M",StringComparison.OrdinalIgnoreCase))metricSizes.Items.Add(size);else sizes.Items.Add(size);
                 foreach(var size in A2Chart.Load(chart))a2Sizes.Items.Add(size);
+                foreach(var size in ThreadChart.Load(true))metricThreads.Items.Add(size);
+                foreach(var size in ThreadChart.Load(false))inchThreads.Items.Add(size);
                 RunLog.Write("CHART.loaded","rows="+(sizes.Items.Count+metricSizes.Items.Count)+" last_write_utc="+File.GetLastWriteTimeUtc(chartPath).ToString("o"));
                 sizes.SelectedIndex = -1;
                 pick.Enabled = false;
                 status.Text = "Select a screw size, then choose its Create From face or plane.";
                 if(RunLog.WriteFailure!=null) status.Text="Run log could not be written: "+RunLog.WriteFailure;
             }
-            catch (Exception ex) { Fail(ex); sizes.Enabled = metricSizes.Enabled = a2Sizes.Enabled = pick.Enabled = false; }
+            catch (Exception ex) { Fail(ex); sizes.Enabled = metricSizes.Enabled = a2Sizes.Enabled = metricThreads.Enabled = inchThreads.Enabled = six.Enabled = pick.Enabled = false; }
         }
         void SelectSize(ComboBox changed)
         {
@@ -215,11 +219,10 @@ namespace BoltCircleHoles
             updatingSelection=true;
             try
             {
-                if(changed==sizes){metricSizes.SelectedIndex=-1;a2Sizes.SelectedIndex=-1;}
-                else if(changed==metricSizes){sizes.SelectedIndex=-1;a2Sizes.SelectedIndex=-1;}
-                else
+                foreach(var list in new[]{sizes,metricSizes,a2Sizes,metricThreads,inchThreads})
+                    if(list!=changed)list.SelectedIndex=-1;
+                if(changed==a2Sizes)
                 {
-                    sizes.SelectedIndex=-1;metricSizes.SelectedIndex=-1;
                     var a2=a2Sizes.SelectedItem as HoleSize;
                     if(a2!=null && !a2.ButtonHole)for(int i=0;i<metricSizes.Items.Count;i++)
                         if(((HoleSize)metricSizes.Items[i]).Screw==a2.Screw){metricSizes.SelectedIndex=i;break;}
@@ -243,9 +246,11 @@ namespace BoltCircleHoles
             if(size.ButtonHole)dimensions.Text="Button Hole (blind, 120-degree V bottom)\r\nDiameter  "+(size.Drill>0 ? Format(size.Drill) : "Not specified")+
                 "     Depth  "+(size.Depth.HasValue ? Format(size.Depth.Value) : "Not specified")+
                 "\r\nRadius from Z axis: "+(size.Radius.HasValue ? Format(size.Radius.Value)+" (A2 chart Z)" : "Not specified in A2 chart");
+            if(size.Thread!=null)dimensions.Text="Thread: "+size.Screw+"\r\nFull thread depth  "+Format(size.Thread.FullDepthInches)+
+                "\r\nDrill shoulder depth  "+Format(size.Depth.Value)+" (120-degree point)\r\nTap drill: Solid Edge thread table";
             RunLog.Write("SIZE.mode","adapter="+size.Adapter+" radius_in="+RunLog.Value(size.Radius)+" unavailable="+size.Unavailable);
             status.ForeColor = SystemColors.ControlText;
-            status.Text = size.Unavailable ?? (size.Adapter!=null && size.Depth.HasValue ? "Select a face perpendicular to Z, then click to set the angle. The A2 chart fixes the radius." : size.Depth.HasValue ? "Select face / plane, then click a flat face or reference plane." : "This chart size has no counterbore depth. Add its depth to the chart and restart before creating a hole.");
+            status.Text = size.Thread!=null ? "Click the first thread position. Quantity is equally spaced around Z in one Hole feature; no dimensions." : size.Unavailable ?? (size.Adapter!=null && size.Depth.HasValue ? "Select a face perpendicular to Z, then click to set the angle. The A2 chart fixes the radius." : size.Depth.HasValue ? "Select face / plane, then click a flat face or reference plane." : "This chart size has no counterbore depth. Add its depth to the chart and restart before creating a hole.");
         }
         static string Format(double n) { return n.ToString("0.000", CultureInfo.InvariantCulture) + " in"; }
         static bool Same(object a, object b)
@@ -284,13 +289,13 @@ namespace BoltCircleHoles
                 mouse.ClearLocateFilter();
                 mouse.AddToLocateFilter(30); // seLocateRefPlane
                 mouse.AddToLocateFilter(32); // seLocateFace; reject nonplanar geometry below.
-                sizes.Enabled = metricSizes.Enabled = a2Sizes.Enabled = holeCount.Enabled = false;
+                sizes.Enabled = metricSizes.Enabled = a2Sizes.Enabled = metricThreads.Enabled = inchThreads.Enabled = six.Enabled = holeCount.Enabled = false;
                 pick.Enabled = false;
                 back.Text = "Back";
                 status.ForeColor = SystemColors.ControlText;
                 status.Text = "Click a flat face or reference plane in Solid Edge for the hole's Create From support.\r\nRight-click to cancel selection.";
             }
-            catch (Exception ex) { StopPick(); sizes.Enabled = metricSizes.Enabled = a2Sizes.Enabled = holeCount.Enabled = true; pick.Enabled = SelectedSize != null; Fail(ex); }
+            catch (Exception ex) { StopPick(); sizes.Enabled = metricSizes.Enabled = a2Sizes.Enabled = metricThreads.Enabled = inchThreads.Enabled = six.Enabled = holeCount.Enabled = true; pick.Enabled = SelectedSize != null; Fail(ex); }
         }
         void Queue(Action action)
         {
@@ -323,16 +328,16 @@ namespace BoltCircleHoles
                         pick.Enabled = back.Enabled = reverse.Enabled = false;
                         try
                         {
-                            status.Text = holeCount.Value==1 ? "Creating hole..." : "Creating hole and circular pattern...";
+                            status.Text = SelectedSize.Thread!=null ? "Creating equally spaced threaded holes..." : holeCount.Value==1 ? "Creating hole..." : "Creating hole and circular pattern...";
                             status.Refresh();
                             HoleEngine.Create(part,selectedModel,selectedSupport,center,SelectedSize,reverse.Checked,(int)holeCount.Value);
                             selectedSupport = null;
                             status.ForeColor = Color.DarkGreen;
-                            status.Text = (holeCount.Value==1 ? "Hole created." : holeCount.Value+" holes created in a circular pattern.")+(SelectedSize.ButtonHole ? " Blind depth: "+Format(SelectedSize.Depth.Value) : " Drill: Through All.")+"\r\nThe part has not been saved.";
+                            status.Text = SelectedSize.Thread!=null ? holeCount.Value+" threaded holes created in one Hole feature. No dimensions.\r\nThe part has not been saved." : (holeCount.Value==1 ? "Hole created." : holeCount.Value+" holes created in a circular pattern.")+(SelectedSize.ButtonHole ? " Blind depth: "+Format(SelectedSize.Depth.Value) : " Drill: Through All.")+"\r\nThe part has not been saved.";
                             pick.Text = "Create another";
                             back.Text = "Close";
                         }
-                        finally { pick.Enabled = back.Enabled = reverse.Enabled = sizes.Enabled = metricSizes.Enabled = a2Sizes.Enabled = holeCount.Enabled = true; }
+                        finally { pick.Enabled = back.Enabled = reverse.Enabled = sizes.Enabled = metricSizes.Enabled = a2Sizes.Enabled = metricThreads.Enabled = inchThreads.Enabled = six.Enabled = holeCount.Enabled = true; }
                         return;
                     }
                     var plane = graphic as Part.RefPlane;
@@ -430,7 +435,7 @@ namespace BoltCircleHoles
         void Reset()
         {
             StopPick(); selectedSupport = null; selectedModel=null;
-            sizes.Enabled = metricSizes.Enabled = a2Sizes.Enabled = holeCount.Enabled = true;
+            sizes.Enabled = metricSizes.Enabled = a2Sizes.Enabled = metricThreads.Enabled = inchThreads.Enabled = six.Enabled = holeCount.Enabled = true;
             pick.Text = "Select face / plane";
             back.Text = "Close";
             UpdateSize();
@@ -489,7 +494,7 @@ namespace BoltCircleHoles
             using (var mutex = new System.Threading.Mutex(true, "Local\\SolidEdgeBoltCircleHoles", out first))
             {
                 if (!first) { MessageBox.Show("Bolt Circle Holes is already open."); return 1; }
-                RunLog.Write("SESSION.start","version=0.16 exe="+typeof(Program).Assembly.Location+" 64bit="+Environment.Is64BitProcess+" CLR="+Environment.Version);
+                RunLog.Write("SESSION.start","version=0.18 exe="+typeof(Program).Assembly.Location+" 64bit="+Environment.Is64BitProcess+" CLR="+Environment.Version);
                 IMessageFilter previous;
                 var filter = new BusyFilter();
                 BusyFilter.CoRegisterMessageFilter(filter, out previous);
@@ -500,22 +505,3 @@ namespace BoltCircleHoles
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
