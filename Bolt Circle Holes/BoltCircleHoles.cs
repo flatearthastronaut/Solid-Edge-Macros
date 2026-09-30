@@ -111,7 +111,14 @@ namespace BoltCircleHoles
         public MainWindow(bool previewOnly)
         {
             preview = previewOnly;
-            Text = "Bolt Circle Holes v0.18";
+            Text = "Bolt Circle Holes v0.19";
+            // The window uses the executable's embedded icon, so copied macros do
+            // not depend on an external ICO. Release the owned GDI object on close.
+            Icon windowIcon;
+            using(var stream=typeof(MainWindow).Assembly.GetManifestResourceStream("BoltCircleHoles.Icon"))
+            using(var embedded=new Icon(stream))windowIcon=(Icon)embedded.Clone();
+            Icon=windowIcon;
+            Disposed+=delegate {if(windowIcon!=null)windowIcon.Dispose();};
             Font = new Font("Segoe UI", 10);
             AutoScaleMode = AutoScaleMode.Dpi;
             ClientSize = new Size(510, 574);

@@ -1,7 +1,7 @@
 $ErrorActionPreference='Stop'
 Add-Type -AssemblyName System.Windows.Forms
 $project=Split-Path $PSScriptRoot
-$a=[Reflection.Assembly]::LoadFrom((Join-Path $project 'Compiled Executables\BoltCircleHoles-v0.18.exe'))
+$a=[Reflection.Assembly]::LoadFrom((Join-Path $project 'Compiled Executables\BoltCircleHoles-v0.19.exe'))
 $metric=[BoltCircleHoles.ThreadChart]::Load($true);$inch=[BoltCircleHoles.ThreadChart]::Load($false)
 if($metric.Count -ne 13 -or $inch.Count -ne 13){throw 'Missing chart sizes'}
 # Check the independent chart rule against every transcribed inch-column value.

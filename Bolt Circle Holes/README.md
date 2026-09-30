@@ -1,3 +1,10 @@
+# Bolt Circle Holes v0.19
+
+Run `Compiled Executables\BoltCircleHoles-v0.19.exe`. This release adds a six-counterbore flange icon to the executable, popup title bar, and taskbar. Hole creation is unchanged from v0.18.
+
+`BoltCircleHoles.ico` and `BoltCircleHoles.png` are available beside the source and in Compiled Executables for toolbar/shortcut use. The ICO contains 16, 24, 32, 48, 64, 128, and 256-pixel images with transparent backgrounds. BuildIcon.ps1 regenerates the artwork; Build.cmd embeds the existing ICO as both Windows and managed resources, so the running macro needs no separate icon file.
+
+Validation: rebuilt successfully, verified all seven icon sizes and the executable's embedded icon, inspected the popup preview, and passed the chart/spacing/selection/quantity regression checks. No Solid Edge geometry code changed.
 # Bolt Circle Holes v0.18
 
 Run `Compiled Executables\BoltCircleHoles-v0.18.exe` with a part open in Solid Edge 2026. Keep the included `C'bore Chart.xls` beside the executable. Select the hole type/size and quantity (the **6** button selects six), select the Create From face or reference plane, and click the first center. Inspect the result before saving the part; the macro never saves it.
