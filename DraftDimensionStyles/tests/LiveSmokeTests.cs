@@ -61,6 +61,19 @@ internal static class LiveSmokeTests
                     object style = ((dynamic)dim).Style; held.Add(style); dimStyles.Add(style);
                     ((dynamic)style).Name = sources[i];
                 }
+                // Real angular dimensions sharing convertible style names must
+                // retain their names and local angular precision in both modes.
+                List<object> angularStyles = new List<object>();
+                string[] angularNames = { "2 3 place m[i]", "1 3 place" };
+                for (int i = 0; i < angularNames.Length; i++)
+                {
+                    object line = ((dynamic)lines).AddBy2Points(0.02, 0.15 + i * 0.04, 0.08, 0.18 + i * 0.04); held.Add(line);
+                    object angle = ((dynamic)dimensions).AddAngle(line); held.Add(angle);
+                    Check((int)((dynamic)angle).DimensionType == 3, "Real angular dimension created");
+                    object style = ((dynamic)angle).Style; held.Add(style); angularStyles.Add(style);
+                    ((dynamic)style).Name = angularNames[i];
+                    ((dynamic)style).AngularDecimalRoundOff = 4;
+                }
                 // A dimension on a second working sheet must remain unchanged.
                 sheets = ((dynamic)scratch).Sheets;
                 other = ((dynamic)sheets).AddSheet("Scope sentinel");
@@ -75,6 +88,12 @@ internal static class LiveSmokeTests
                 ConversionReport report = Converter.ConvertDocument(scratch, false);
                 Console.WriteLine(report);
                 Check(report.Changed == 3 && report.Failed == 0, "Three actual dimensions must convert to inches");
+                Check(report.AngularSkipped == 2, "Both angles skipped during inch conversion");
+                for (int i = 0; i < angularStyles.Count; i++)
+                {
+                    Check((string)((dynamic)angularStyles[i]).Name == angularNames[i], "Angular name retained during inch conversion");
+                    Check((int)((dynamic)angularStyles[i]).AngularDecimalRoundOff == 4, "Angular precision retained during inch conversion");
+                }
                 string[] targets = { "1 2 place", "1 3 place", "3 3 place (vert)" };
                 for (int i = 0; i < 3; i++)
                 {
@@ -88,6 +107,12 @@ internal static class LiveSmokeTests
                 report = Converter.ConvertDocument(scratch, true);
                 Console.WriteLine(report);
                 Check(report.Changed == 3 && report.Failed == 0, "Three actual dimensions must convert to dual");
+                Check(report.AngularSkipped == 2, "Both angles skipped during dual conversion");
+                for (int i = 0; i < angularStyles.Count; i++)
+                {
+                    Check((string)((dynamic)angularStyles[i]).Name == angularNames[i], "Angular name retained during dual conversion");
+                    Check((int)((dynamic)angularStyles[i]).AngularDecimalRoundOff == 4, "Angular precision retained during dual conversion");
+                }
                 for (int i = 0; i < 3; i++)
                 {
                     dynamic style = dimStyles[i];

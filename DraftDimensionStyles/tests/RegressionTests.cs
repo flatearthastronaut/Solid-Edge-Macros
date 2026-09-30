@@ -18,8 +18,18 @@ public sealed class FakeStyle
 }
 public sealed class FakeDimension
 {
-    public FakeStyle Style { get; set; }
-    public FakeDimension(string name) { Style = new FakeStyle(name); }
+    private readonly FakeStyle style;
+    public bool ThrowOnStyleRead, ThrowOnTypeRead;
+    public int Kind = 1;
+    public int DimensionType
+    {
+        get { if (ThrowOnTypeRead) throw new InvalidOperationException("Type unavailable"); return Kind; }
+    }
+    public FakeStyle Style
+    {
+        get { if (ThrowOnStyleRead) throw new Exception("Angular style must not be accessed"); return style; }
+    }
+    public FakeDimension(string name) { style = new FakeStyle(name); }
 }
 public sealed class FakeCollection
 {
@@ -127,6 +137,35 @@ internal static class RegressionTests
             Equal(1, Converter.ConvertDocument(doc, false).Ambiguous, "ambiguous reported");
             Equal(0, ambiguous.Style.Writes, "ambiguous never written");
             Equal(0, Converter.ConvertDocument(Document(), true).Examined, "empty sheet");
+
+            // Every angular kind must be skipped in both directions even when
+            // its style has a valid counterpart in the destination family.
+            foreach (int kind in new[] { 3, 7, 11 })
+            foreach (bool toDual in new[] { false, true })
+            {
+                string original = toDual ? "1 3 place" : "2 3 place m[i]";
+                FakeDimension angle = new FakeDimension(original) { Kind = kind, ThrowOnStyleRead = true };
+                FakeDimension length = new FakeDimension(original);
+                report = Converter.ConvertDocument(Document(angle, length), toDual);
+                Equal(1, report.AngularSkipped, "angular type " + kind + " skipped");
+                Equal(1, report.Changed, "linear dimension still converted");
+                Equal(0, report.Failed, "angular style never accessed");
+                angle.ThrowOnStyleRead = false;
+                Equal(original, angle.Style.Name, "angular style unchanged");
+                Equal(0, angle.Style.Writes, "no angular style writes");
+            }
+            // Distinguish arc length from arc angle; keep other non-angular
+            // dimension kinds within the macro's existing conversion scope.
+            foreach (int kind in new[] { 1, 2, 4, 5, 6, 8, 9, 10 })
+            {
+                FakeDimension length = new FakeDimension("2 3 place m[i]") { Kind = kind };
+                Equal(1, Converter.ConvertDocument(Document(length), false).Changed, "non-angular type " + kind + " converted");
+            }
+            FakeDimension unreadable = new FakeDimension("2 3 place m[i]") { ThrowOnTypeRead = true };
+            report = Converter.ConvertDocument(Document(unreadable), false);
+            Equal(1, report.Failed, "unreadable type reported");
+            Equal(0, unreadable.Style.Writes, "unreadable type never changed");
+
             doc = Document(); doc.Type = 1;
             bool rejected = false;
             try { Converter.ConvertDocument(doc, false); } catch (InvalidOperationException) { rejected = true; }

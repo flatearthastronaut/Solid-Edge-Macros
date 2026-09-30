@@ -4,7 +4,7 @@ using System.Reflection;
 using System.Windows.Forms;
 
 [assembly: AssemblyTitle("Draft Dimension Styles")]
-[assembly: AssemblyVersion("1.0.0.0")]
+[assembly: AssemblyVersion("1.1.0.0")]
 
 namespace DraftDimensionStyles
 {
@@ -28,7 +28,7 @@ namespace DraftDimensionStyles
 
         internal ConverterForm()
         {
-            Text = "Draft Dimension Styles v1.0";
+            Text = "Draft Dimension Styles v1.1";
             Font = new Font("Segoe UI", 10);
             AutoScaleMode = AutoScaleMode.Dpi;
             ClientSize = new Size(690, 480);
@@ -41,7 +41,7 @@ namespace DraftDimensionStyles
             layout.Controls.Add(new Label { Text = "Matches the decimal-place count and vertical orientation in your style names.\r\nExample: 2 3 place m[i]  <->  1 3 place", AutoSize = true, Margin = new Padding(0, 0, 0, 12) });
             layout.Controls.Add(toInch);
             layout.Controls.Add(toDual);
-            layout.Controls.Add(new Label { Text = "Activate the desired sheet in Solid Edge, then click Convert.\r\nMissing matches and other styles are skipped. Review and save the draft afterward.", AutoSize = true, Margin = new Padding(0, 12, 0, 12) });
+            layout.Controls.Add(new Label { Text = "Activate the desired sheet in Solid Edge, then click Convert.\r\nAngular dimensions are unchanged. Review and save the draft afterward.", AutoSize = true, Margin = new Padding(0, 12, 0, 12) });
             convert.Margin = new Padding(0, 0, 0, 14);
             layout.Controls.Add(convert);
             layout.Controls.Add(results);

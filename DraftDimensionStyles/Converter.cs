@@ -8,13 +8,14 @@ namespace DraftDimensionStyles
     internal sealed class ConversionReport
     {
         internal string SheetName;
-        internal int Examined, Changed, AlreadyTarget, Unrecognized, Missing, Ambiguous, Failed;
+        internal int Examined, Changed, AlreadyTarget, AngularSkipped, Unrecognized, Missing, Ambiguous, Failed;
         internal readonly List<string> Details = new List<string>();
         public override string ToString()
         {
             StringBuilder text = new StringBuilder();
             text.AppendLine("Active sheet: " + SheetName);
             text.AppendLine(String.Format("{0} changed; {1} already in the requested style family.", Changed, AlreadyTarget));
+            text.AppendLine(AngularSkipped + " angular dimensions skipped (unchanged).");
             text.AppendLine(String.Format("{0} other styles; {1} missing matches; {2} ambiguous matches; {3} errors.", Unrecognized, Missing, Ambiguous, Failed));
             text.AppendLine("Dimensions examined: " + Examined);
             text.AppendLine("Changes are not saved automatically. Review the draft, then save it in Solid Edge.");
@@ -84,6 +85,17 @@ namespace DraftDimensionStyles
                     try
                     {
                         dimension = ((dynamic)dimensions).Item(index);
+                        // Read the measured dimension type before accessing its
+                        // style: angular dimensions can share the same named
+                        // styles as lengths. SDK DimTypeConstants: Angular = 3,
+                        // ArcAngle = 7, AngularCoordinate = 11. ArcLength (6)
+                        // measures a length and must still be converted.
+                        int dimensionType = (int)((dynamic)dimension).DimensionType;
+                        if (dimensionType == 3 || dimensionType == 7 || dimensionType == 11)
+                        {
+                            report.AngularSkipped++;
+                            continue;
+                        }
                         style = ((dynamic)dimension).Style;
                         source = (string)((dynamic)style).Name;
                         string target;

@@ -1,6 +1,6 @@
-# Draft Dimension Styles v1.0
+# Draft Dimension Styles v1.1
 
-Converts existing dimensions on **only the active sheet** of the active Solid Edge draft between inch-only and dual-dimension named styles. The decimal-place count and `(vert)` suffix are matched; the leading sorting/group number is ignored.
+Converts existing non-angular dimensions on **only the active sheet** of the active Solid Edge draft between inch-only and dual-dimension named styles. The decimal-place count and `(vert)` suffix are matched; the leading sorting/group number is ignored. Angular dimensions retain their current styles in both directions.
 
 ## Run
 
@@ -26,6 +26,7 @@ Both directions use the same rules. Matching is case-insensitive and tolerates e
 
 - The matching target style must already exist in the draft. Missing matches are skipped and reported.
 - If multiple target names have the same decimal count and orientation, the dimension is skipped and reported as ambiguous. The macro does not guess which group to use.
+- Angular, arc-angle, and angular-coordinate dimensions are skipped before reading or changing their styles, even if they use a matching style name. The result shows how many were skipped. Arc-length dimensions still convert because they measure length.
 - Fraction styles, ANSI/ISO styles, and names outside this naming convention are unchanged.
 - Dimensions already in the requested style family are unchanged. Running the same direction twice does not toggle them back.
 - Individual errors are reported, and processing continues with the remaining dimensions. If a style assignment fails, the macro attempts to restore the original style name and reports any failure to restore it.
@@ -36,10 +37,10 @@ Precision is preserved **by choosing the corresponding N-place named style**, ex
 
 Requires Windows with 64-bit Solid Edge and .NET Framework 4.x. The executable is standalone; no Siemens interop DLLs need to be distributed. `Build.cmd` uses the Windows .NET Framework C# compiler and writes the executable to `Compiled Executables`.
 
-- `Test.ps1`: compiles the release and runs 74 automated regression assertions covering both directions, decimal count, vertical orientation, grouping numbers, missing/ambiguous styles, unsupported styles, repeated runs, failure recovery, active-sheet scope, and unchanged shared style definitions.
-- `LiveTest.ps1`: requires a running Solid Edge instance accessible to the test process. Creates an unsaved scratch draft, checks both directions on real dimensions, checks inch precision and dual display, verifies a second sheet remains unchanged, closes the scratch without saving, and restores the previously active document. Does not modify existing documents.
+- `Test.ps1`: compiles the release and runs 114 automated regression assertions covering both directions, decimal count, vertical orientation, grouping numbers, missing/ambiguous styles, unsupported styles, repeated runs, failure recovery, active-sheet scope, unchanged shared style definitions, and all three angular dimension types. Also verifies that an unreadable dimension type prevents changes and that non-angular types still convert.
+- `LiveTest.ps1`: requires a running Solid Edge instance accessible to the test process. Creates an unsaved scratch draft, checks both directions on real dimensions, checks inch precision and dual display, verifies angular style names and angular precision remain unchanged, verifies a second sheet remains unchanged, closes the scratch without saving, and restores the previously active document. Does not modify existing documents.
 
-Validated September 30, 2026: release compiled; all 74 regression assertions and 22 live Solid Edge assertions passed.
+Validated September 30, 2026: v1.1 release compiled; all 114 regression assertions and 34 live Solid Edge assertions passed.
 
 ## API and lifetime references
 
