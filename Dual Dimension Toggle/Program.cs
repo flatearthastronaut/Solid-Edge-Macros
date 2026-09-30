@@ -6,7 +6,7 @@ using System.Windows.Forms;
 [assembly: AssemblyTitle("Dual Dimension Toggle")]
 [assembly: AssemblyProduct("Dual Dimension Toggle")]
 [assembly: AssemblyDescription("Switch draft dimensions between inch-only and dual styles on the active sheet.")]
-[assembly: AssemblyVersion("1.2.0.0")]
+[assembly: AssemblyVersion("1.3.0.0")]
 
 namespace DualDimensionToggle
 {
@@ -31,7 +31,7 @@ namespace DualDimensionToggle
 
         internal ConverterForm()
         {
-            Text = "Dual Dimension Toggle v1.2";
+            Text = "Dual Dimension Toggle v1.3";
             // The same multi-resolution icon is embedded as a Windows resource
             // for Explorer and a managed resource for the window/taskbar.
             using (System.IO.Stream iconStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("DualDimensionToggle.ico"))
