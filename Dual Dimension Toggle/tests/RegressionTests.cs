@@ -43,7 +43,8 @@ public sealed class FakeSheet
     public string Name { get { return "Test sheet"; } }
     public FakeCollection Dimensions { get; set; }
     public FakeCollection FeatureControlFrames { get; set; }
-    public FakeSheet() { FeatureControlFrames = new FakeCollection(); }
+    public FakeCollection Balloons { get; set; }
+    public FakeSheet() { FeatureControlFrames = new FakeCollection(); Balloons = new FakeCollection(); }
 }
 public sealed class FakeDocument
 {
@@ -173,6 +174,7 @@ internal static class RegressionTests
             try { Converter.ConvertDocument(doc, false); } catch (InvalidOperationException) { rejected = true; }
             Equal(true, rejected, "non-draft rejected");
             assertions += FeatureFrameTests.Run();
+            assertions += CalloutTests.Run();
             Console.WriteLine("PASS: " + assertions + " regression assertions.");
             return 0;
         }

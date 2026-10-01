@@ -54,32 +54,7 @@ namespace DualDimensionToggle
             string value = inch;
             if (toDual)
             {
-                int point = inch.IndexOf('.');
-                int places = point < 0 ? 0 : inch.Length - point - 1;
-                decimal inches;
-                if (places > 28 || !Decimal.TryParse(inch, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out inches))
-                {
-                    reason = "Tolerance exceeds supported decimal precision or range.";
-                    return FrameTextStatus.Unsupported;
-                }
-                try
-                {
-                    // Decimal math avoids binary floating point rounding drift.
-                    // Keep the original inch text exactly (including zeros).
-                    // User rule: metric has one fewer decimal place; ties round
-                    // away from zero, e.g. .025 in -> .64 mm at two places.
-                    int metricPlaces = Math.Max(0, places - 1);
-                    decimal mm = Decimal.Round(inches * 25.4m, metricPlaces, MidpointRounding.AwayFromZero);
-                    string metric = mm.ToString("F" + metricPlaces, CultureInfo.InvariantCulture);
-                    if (inch.StartsWith(".", StringComparison.Ordinal) && metric.StartsWith("0.", StringComparison.Ordinal))
-                        metric = metric.Substring(1);
-                    value = metric + "[" + inch + "]";
-                }
-                catch (OverflowException)
-                {
-                    reason = "Converted tolerance exceeds the supported decimal range.";
-                    return FrameTextStatus.Unsupported;
-                }
+                if (!UnitText.TryDual(inch, out value, out reason)) return FrameTextStatus.Unsupported;
             }
             // The bracketed inch value is authoritative when going to single;
             // never reconstruct it from an already rounded metric value.

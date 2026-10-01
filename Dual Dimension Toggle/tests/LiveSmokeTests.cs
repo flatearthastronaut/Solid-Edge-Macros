@@ -95,6 +95,23 @@ internal static class LiveSmokeTests
                 bool composite = (bool)((dynamic)stacked).CompositeFrame;
                 object singleFrame = ((dynamic)frames).Add(0.15, 0.26, 0.0); held.Add(singleFrame);
                 ((dynamic)singleFrame).PrimaryFrame = "%PO%VB.001%VBA%VBB";
+                object notes = ((dynamic)sheet).Balloons; held.Add(notes);
+                object note = ((dynamic)notes).Add(0.10, 0.16, 0.0); held.Add(note);
+                ((dynamic)note).Callout = 1;
+                string noteDual = "%DI %{%HS/DU} DRILL %ZH\r%DI 6.50/6.35[.256/.250] DIA %{%BD/DU} DP.\r(1)PLC AS SHOWN\r(FOR 1/4 SPRING PIN)";
+                string noteInch = noteDual.Replace("6.50/6.35[.256/.250]", ".256/.250");
+                ((dynamic)note).BalloonText = noteDual;
+                object noteStyle = ((dynamic)note).Style; held.Add(noteStyle);
+                ((dynamic)noteStyle).Name = "2 2 place m[i]";
+                object styleNote = ((dynamic)notes).Add(0.12, 0.13, 0.0); held.Add(styleNote);
+                ((dynamic)styleNote).Callout = 1;
+                ((dynamic)styleNote).BalloonText = "%TS THR'D %{%TD/DU} DP.";
+                object styleNoteStyle = ((dynamic)styleNote).Style; held.Add(styleNoteStyle);
+                ((dynamic)styleNoteStyle).Name = "2 2 place m[i]";
+                object angleNote = ((dynamic)notes).Add(0.15, 0.10, 0.0); held.Add(angleNote);
+                ((dynamic)angleNote).Callout = 1; ((dynamic)angleNote).BalloonText = "45%DG";
+                object angleNoteStyle = ((dynamic)angleNote).Style; held.Add(angleNoteStyle);
+                ((dynamic)angleNoteStyle).Name = "2 3 place m[i]";
                 // A dimension on a second working sheet must remain unchanged.
                 sheets = ((dynamic)scratch).Sheets;
                 other = ((dynamic)sheets).AddSheet("Scope sentinel");
@@ -107,10 +124,20 @@ internal static class LiveSmokeTests
                 object otherFrames = ((dynamic)other).FeatureControlFrames; held.Add(otherFrames);
                 object otherFrame = ((dynamic)otherFrames).Add(0.03, 0.16, 0.0); held.Add(otherFrame);
                 ((dynamic)otherFrame).PrimaryFrame = dualRows[0];
+                object otherNotes = ((dynamic)other).Balloons; held.Add(otherNotes);
+                object otherNote = ((dynamic)otherNotes).Add(0.12, 0.10, 0.0); held.Add(otherNote);
+                ((dynamic)otherNote).Callout = 1; ((dynamic)otherNote).BalloonText = noteDual;
                 ((dynamic)sheet).Activate();
 
                 ConversionReport report = Converter.ConvertDocument(scratch, false);
                 Console.WriteLine(report);
+                Check(report.CalloutsChanged == 2 && report.CalloutStylesChanged == 2 && report.CalloutValuesChanged == 2 && report.CalloutsFailed == 0, "Callout style and explicit range convert to inch");
+                Check((string)((dynamic)note).BalloonText == noteInch, "Callout linked fields and surrounding text retained");
+                Check((string)((dynamic)noteStyle).Name == "1 2 place", "Callout inch style");
+                Check(CalloutHistoryStore.Read(note) != null, "Known pair record stored on actual annotation");
+                Check((string)((dynamic)styleNote).BalloonText == "%TS THR'D %{%TD/DU} DP.", "Style-only callout raw fields unchanged");
+                Check((string)((dynamic)angleNoteStyle).Name == "2 3 place m[i]", "Angle callout unchanged");
+                Check((string)((dynamic)otherNote).BalloonText == noteDual, "Other sheet callout unchanged");
                 Check(report.Changed == 3 && report.Failed == 0, "Three actual dimensions must convert to inches");
                 Check(report.FramesChanged == 2 && report.FrameRowsChanged == 5 && report.FramesFailed == 0, "Stacked and projected FCF tolerances convert to inches");
                 Check((string)((dynamic)stacked).PrimaryFrame == singleRows[0], "Primary FCF inch text");
@@ -139,6 +166,11 @@ internal static class LiveSmokeTests
                 Check(Converter.ConvertDocument(scratch, false).Changed == 0, "Repeat must be idempotent");
                 report = Converter.ConvertDocument(scratch, true);
                 Console.WriteLine(report);
+                Check(report.CalloutsChanged == 2 && report.CalloutValuesChanged == 2 && report.CalloutsFailed == 0, "Known callout pairs restored to dual");
+                Check((string)((dynamic)note).BalloonText == noteDual, "Callout range roundtrip");
+                Check((string)((dynamic)noteStyle).Name == "2 2 place m[i]", "Callout dual style");
+                Check(CalloutHistoryStore.Read(note) == null, "Completed pair record removed");
+                Check(Converter.ConvertDocument(scratch, true).CalloutsChanged == 0, "Repeated callout dual conversion idempotent");
                 Check(report.Changed == 3 && report.Failed == 0, "Three actual dimensions must convert to dual");
                 Check(report.FramesChanged == 3 && report.FrameRowsChanged == 6 && report.FramesFailed == 0, "Single, stacked and projected FCFs convert to dual");
                 Check((string)((dynamic)stacked).PrimaryFrame == dualRows[0], "Primary FCF metric rounding");
@@ -162,7 +194,8 @@ internal static class LiveSmokeTests
                     Check((bool)style.DualDisplay, "Dual display " + i);
                     Check((int)style.SecondaryDecimalRoundOff == (i == 0 ? 4 : 5), "Dual inch precision " + i);
                 }
-                Console.WriteLine("PASS: " + assertions + " live Solid Edge assertions in a disposable draft.");
+                assertions += LiveCalloutHistory.Run(app);
+                Console.WriteLine("PASS: " + assertions + " live Solid Edge assertions in disposable drafts.");
                 return 0;
             }
             catch (Exception error) { Console.Error.WriteLine(error); return 1; }
