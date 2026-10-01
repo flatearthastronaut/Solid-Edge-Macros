@@ -5,8 +5,8 @@ using System.Windows.Forms;
 
 [assembly: AssemblyTitle("Dual Dimension Toggle")]
 [assembly: AssemblyProduct("Dual Dimension Toggle")]
-[assembly: AssemblyDescription("Switch draft dimensions between inch-only and dual styles on the active sheet.")]
-[assembly: AssemblyVersion("1.3.0.0")]
+[assembly: AssemblyDescription("Switch draft dimensions and Feature Control Frame tolerances between inch-only and dual units.")]
+[assembly: AssemblyVersion("1.4.0.0")]
 
 namespace DualDimensionToggle
 {
@@ -31,7 +31,7 @@ namespace DualDimensionToggle
 
         internal ConverterForm()
         {
-            Text = "Dual Dimension Toggle v1.3";
+            Text = "Dual Dimension Toggle v1.4";
             // The same multi-resolution icon is embedded as a Windows resource
             // for Explorer and a managed resource for the window/taskbar.
             using (System.IO.Stream iconStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("DualDimensionToggle.ico"))
@@ -46,8 +46,8 @@ namespace DualDimensionToggle
             TableLayoutPanel layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(18), ColumnCount = 1, RowCount = 7 };
             for (int i = 0; i < 6; i++) layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            layout.Controls.Add(new Label { Text = "Change dimension styles on the active draft sheet", AutoSize = true, Font = new Font(Font, FontStyle.Bold), Margin = new Padding(0, 0, 0, 12) });
-            layout.Controls.Add(new Label { Text = "Matches the decimal-place count and vertical orientation in your style names.\r\nExample: 2 3 place m[i]  <->  1 3 place", AutoSize = true, Margin = new Padding(0, 0, 0, 12) });
+            layout.Controls.Add(new Label { Text = "Convert dimensions and Feature Control Frames", AutoSize = true, Font = new Font(Font, FontStyle.Bold), Margin = new Padding(0, 0, 0, 12) });
+            layout.Controls.Add(new Label { Text = "Active sheet only. Dimension styles keep their decimal places and orientation.\r\nFrame tolerances: .001  <->  .03[.001] (metric uses one fewer decimal place).", AutoSize = true, Margin = new Padding(0, 0, 0, 12) });
             layout.Controls.Add(toInch);
             layout.Controls.Add(toDual);
             layout.Controls.Add(new Label { Text = "Activate the desired sheet in Solid Edge, then click Convert.\r\nAngular dimensions are unchanged. Review and save the draft afterward.", AutoSize = true, Margin = new Padding(0, 12, 0, 12) });

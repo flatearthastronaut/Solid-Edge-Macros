@@ -42,6 +42,8 @@ public sealed class FakeSheet
 {
     public string Name { get { return "Test sheet"; } }
     public FakeCollection Dimensions { get; set; }
+    public FakeCollection FeatureControlFrames { get; set; }
+    public FakeSheet() { FeatureControlFrames = new FakeCollection(); }
 }
 public sealed class FakeDocument
 {
@@ -170,6 +172,7 @@ internal static class RegressionTests
             bool rejected = false;
             try { Converter.ConvertDocument(doc, false); } catch (InvalidOperationException) { rejected = true; }
             Equal(true, rejected, "non-draft rejected");
+            assertions += FeatureFrameTests.Run();
             Console.WriteLine("PASS: " + assertions + " regression assertions.");
             return 0;
         }

@@ -74,6 +74,27 @@ internal static class LiveSmokeTests
                     ((dynamic)style).Name = angularNames[i];
                     ((dynamic)style).AngularDecimalRoundOff = 4;
                 }
+                // Real Feature Control Frames verify symbol serialization and
+                // row setters, in addition to the pure parser regression suite.
+                object frames = ((dynamic)sheet).FeatureControlFrames; held.Add(frames);
+                object stacked = ((dynamic)frames).Add(0.03, 0.26, 0.0); held.Add(stacked);
+                string[] dualRows = { "%PO%VB.03[.001]%VBA%VBB", "%PO%VB%DI.013[.0005]%MC%VBA1",
+                    "%PO%VB.025[.0010]%VBA", "%PO%VB.64[.025]%VBB" };
+                string[] singleRows = { "%PO%VB.001%VBA%VBB", "%PO%VB%DI.0005%MC%VBA1",
+                    "%PO%VB.0010%VBA", "%PO%VB.025%VBB" };
+                ((dynamic)stacked).PrimaryFrame = dualRows[0];
+                ((dynamic)stacked).SecondaryFrame = dualRows[1];
+                ((dynamic)stacked).TertiaryFrame = dualRows[2];
+                ((dynamic)stacked).QuaternaryFrame = dualRows[3];
+                // The projected-height property aliases TertiaryFrame, so use
+                // a separate object to test preservation of that optional text.
+                object projectedFrame = ((dynamic)frames).Add(0.15, 0.22, 0.0); held.Add(projectedFrame);
+                ((dynamic)projectedFrame).PrimaryFrame = dualRows[0];
+                ((dynamic)projectedFrame).ProjectedToleranceFrame = "%PT.5";
+                string projected = (string)((dynamic)projectedFrame).ProjectedToleranceFrame;
+                bool composite = (bool)((dynamic)stacked).CompositeFrame;
+                object singleFrame = ((dynamic)frames).Add(0.15, 0.26, 0.0); held.Add(singleFrame);
+                ((dynamic)singleFrame).PrimaryFrame = "%PO%VB.001%VBA%VBB";
                 // A dimension on a second working sheet must remain unchanged.
                 sheets = ((dynamic)scratch).Sheets;
                 other = ((dynamic)sheets).AddSheet("Scope sentinel");
@@ -83,11 +104,23 @@ internal static class LiveSmokeTests
                 object otherDim = ((dynamic)otherDims).AddLength(otherLine); held.Add(otherDim);
                 object otherStyle = ((dynamic)otherDim).Style; held.Add(otherStyle);
                 ((dynamic)otherStyle).Name = sources[0];
+                object otherFrames = ((dynamic)other).FeatureControlFrames; held.Add(otherFrames);
+                object otherFrame = ((dynamic)otherFrames).Add(0.03, 0.16, 0.0); held.Add(otherFrame);
+                ((dynamic)otherFrame).PrimaryFrame = dualRows[0];
                 ((dynamic)sheet).Activate();
 
                 ConversionReport report = Converter.ConvertDocument(scratch, false);
                 Console.WriteLine(report);
                 Check(report.Changed == 3 && report.Failed == 0, "Three actual dimensions must convert to inches");
+                Check(report.FramesChanged == 2 && report.FrameRowsChanged == 5 && report.FramesFailed == 0, "Stacked and projected FCF tolerances convert to inches");
+                Check((string)((dynamic)stacked).PrimaryFrame == singleRows[0], "Primary FCF inch text");
+                Check((string)((dynamic)stacked).SecondaryFrame == singleRows[1], "Secondary FCF symbols and datum preserved");
+                Check((string)((dynamic)stacked).TertiaryFrame == singleRows[2], "Tertiary FCF trailing zero preserved");
+                Check((string)((dynamic)stacked).QuaternaryFrame == singleRows[3], "Quaternary FCF inch text");
+                Check((string)((dynamic)projectedFrame).ProjectedToleranceFrame == projected, "Projection text unchanged");
+                Check((bool)((dynamic)stacked).CompositeFrame == composite, "Composite setting unchanged");
+                Check((string)((dynamic)singleFrame).PrimaryFrame == singleRows[0], "Single FCF already in inch format");
+                Check((string)((dynamic)otherFrame).PrimaryFrame == dualRows[0], "Other sheet FCF unchanged");
                 Check(report.AngularSkipped == 2, "Both angles skipped during inch conversion");
                 for (int i = 0; i < angularStyles.Count; i++)
                 {
@@ -107,6 +140,15 @@ internal static class LiveSmokeTests
                 report = Converter.ConvertDocument(scratch, true);
                 Console.WriteLine(report);
                 Check(report.Changed == 3 && report.Failed == 0, "Three actual dimensions must convert to dual");
+                Check(report.FramesChanged == 3 && report.FrameRowsChanged == 6 && report.FramesFailed == 0, "Single, stacked and projected FCFs convert to dual");
+                Check((string)((dynamic)stacked).PrimaryFrame == dualRows[0], "Primary FCF metric rounding");
+                Check((string)((dynamic)stacked).SecondaryFrame == dualRows[1], "Secondary FCF metric rounding");
+                Check((string)((dynamic)stacked).TertiaryFrame == dualRows[2], "Tertiary FCF metric precision");
+                Check((string)((dynamic)stacked).QuaternaryFrame == dualRows[3], "Quaternary FCF midpoint rounding");
+                Check((string)((dynamic)singleFrame).PrimaryFrame == dualRows[0], "Single FCF produces user example");
+                Check((string)((dynamic)projectedFrame).ProjectedToleranceFrame == projected, "Projection text unchanged after reverse conversion");
+                Check((bool)((dynamic)stacked).CompositeFrame == composite, "Composite setting unchanged after reverse conversion");
+                Check(Converter.ConvertDocument(scratch, true).FramesChanged == 0, "Repeated dual FCF conversion is idempotent");
                 Check(report.AngularSkipped == 2, "Both angles skipped during dual conversion");
                 for (int i = 0; i < angularStyles.Count; i++)
                 {

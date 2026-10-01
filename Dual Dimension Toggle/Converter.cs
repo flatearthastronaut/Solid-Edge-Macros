@@ -9,6 +9,7 @@ namespace DualDimensionToggle
     {
         internal string SheetName;
         internal int Examined, Changed, AlreadyTarget, AngularSkipped, Unrecognized, Missing, Ambiguous, Failed;
+        internal int FramesExamined, FramesChanged, FrameRowsChanged, FramesAlreadyTarget, FramesSkipped, FramesFailed;
         internal readonly List<string> Details = new List<string>();
         public override string ToString()
         {
@@ -18,6 +19,9 @@ namespace DualDimensionToggle
             text.AppendLine(AngularSkipped + " angular dimensions skipped (unchanged).");
             text.AppendLine(String.Format("{0} other styles; {1} missing matches; {2} ambiguous matches; {3} errors.", Unrecognized, Missing, Ambiguous, Failed));
             text.AppendLine("Dimensions examined: " + Examined);
+            text.AppendLine(String.Format("Feature Control Frames: {0} changed ({1} rows); {2} already in requested format; {3} skipped; {4} errors.",
+                FramesChanged, FrameRowsChanged, FramesAlreadyTarget, FramesSkipped, FramesFailed));
+            text.AppendLine("Feature Control Frames examined: " + FramesExamined);
             text.AppendLine("Changes are not saved automatically. Review the draft, then save it in Solid Edge.");
             foreach (string detail in Details) text.AppendLine(detail);
             return text.ToString();
@@ -150,6 +154,7 @@ namespace DualDimensionToggle
                 }
                 foreach (KeyValuePair<string, int> change in changes)
                     report.Details.Add(change.Value + " x " + change.Key);
+                FeatureFrameConverter.ConvertSheet(sheet, toDual, report);
                 return report;
             }
             finally { Com.Release(ref styles); Com.Release(ref dimensions); Com.Release(ref sheet); }
