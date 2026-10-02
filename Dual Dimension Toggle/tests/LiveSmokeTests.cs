@@ -31,7 +31,7 @@ internal static class LiveSmokeTests
                 styles = ((dynamic)scratch).DimensionStyles;
                 object first = ((dynamic)styles).Item(1); held.Add(first);
                 string parent = (string)((dynamic)first).Name;
-                string[] names = { "1 2 place", "1 3 place", "2 2 place m[i]", "2 3 place m[i]", "3 3 place (vert)", "4 3 place m[i] (vert)", "Vert 2 PLC", "Vert 2PLC m[i]", "Vert 3 PLC", "Vert 3PLC m[i]" };
+                string[] names = { "1 2 place", "1 3 place", "2 2 place m[i]", "2 3 place m[i]", "3 3 place (vert)", "4 3 place m[i] (vert)", "Vert- 2 PLC", "Vert - 2PLC m[i]", "Vert- 3 PLC", "Vert - 3PLC m[i]" };
                 HashSet<string> existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 for (int i = 1; i <= (int)((dynamic)styles).Count; i++)
                 {
@@ -52,7 +52,7 @@ internal static class LiveSmokeTests
                 }
                 lines = ((dynamic)sheet).Lines2d;
                 dimensions = ((dynamic)sheet).Dimensions;
-                string[] sources = { "2 2 place m[i]", "2 3 place m[i]", "4 3 place m[i] (vert)", "Vert 2PLC m[i]", "Vert 3PLC m[i]" };
+                string[] sources = { "2 2 place m[i]", "2 3 place m[i]", "4 3 place m[i] (vert)", "Vert - 2PLC m[i]", "Vert - 3PLC m[i]" };
                 List<object> dimStyles = new List<object>();
                 for (int i = 0; i < sources.Length; i++)
                 {
@@ -64,7 +64,7 @@ internal static class LiveSmokeTests
                 // Real angular dimensions sharing convertible style names must
                 // retain their names and local angular precision in both modes.
                 List<object> angularStyles = new List<object>();
-                string[] angularNames = { "Vert 3PLC m[i]", "1 3 place" };
+                string[] angularNames = { "Vert - 3PLC m[i]", "1 3 place" };
                 for (int i = 0; i < angularNames.Length; i++)
                 {
                     object line = ((dynamic)lines).AddBy2Points(0.02, 0.15 + i * 0.04, 0.08, 0.18 + i * 0.04); held.Add(line);
@@ -163,7 +163,7 @@ internal static class LiveSmokeTests
                     Check((string)((dynamic)angularStyles[i]).Name == angularNames[i], "Angular name retained during inch conversion");
                     Check((int)((dynamic)angularStyles[i]).AngularDecimalRoundOff == 4, "Angular precision retained during inch conversion");
                 }
-                string[] targets = { "1 2 place", "1 3 place", "3 3 place (vert)", "Vert 2 PLC", "Vert 3 PLC" };
+                string[] targets = { "1 2 place", "1 3 place", "3 3 place (vert)", "Vert- 2 PLC", "Vert- 3 PLC" };
                 for (int i = 0; i < sources.Length; i++)
                 {
                     dynamic style = dimStyles[i];

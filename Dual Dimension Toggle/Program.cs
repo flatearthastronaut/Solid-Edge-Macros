@@ -6,7 +6,7 @@ using System.Windows.Forms;
 [assembly: AssemblyTitle("Dual Dimension Toggle")]
 [assembly: AssemblyProduct("Dual Dimension Toggle")]
 [assembly: AssemblyDescription("Switch draft dimensions and Feature Control Frame tolerances between inch-only and dual units.")]
-[assembly: AssemblyVersion("1.8.0.0")]
+[assembly: AssemblyVersion("1.9.0.0")]
 
 namespace DualDimensionToggle
 {
@@ -31,7 +31,7 @@ namespace DualDimensionToggle
 
         internal ConverterForm()
         {
-            Text = "Dual Dimension Toggle v1.8";
+            Text = "Dual Dimension Toggle v1.9";
             // The same multi-resolution icon is embedded as a Windows resource
             // for Explorer and a managed resource for the window/taskbar.
             using (System.IO.Stream iconStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("DualDimensionToggle.ico"))

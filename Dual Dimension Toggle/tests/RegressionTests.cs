@@ -176,10 +176,49 @@ internal static class RegressionTests
             assertions += FeatureFrameTests.Run();
             assertions += CalloutTests.Run();
             VertStyles();
+            HyphenatedVertStyles();
             Console.WriteLine("PASS: " + assertions + " regression assertions.");
             return 0;
         }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
+    }
+
+    private static void HyphenatedVertStyles()
+    {
+        // These spellings were read directly from the user's active draft.
+        string[] names = { "Vert- 2 PLC", "Vert- 3 PLC", "Vert- 4 PLC",
+            "Vert - 2PLC m[i]", "Vert - 3PLC m[i]", "Vert - 4PLC m[i]" };
+        StyleMap map = new StyleMap(names);
+        for (int i = 0; i < 3; i++)
+        {
+            Match(map, names[i + 3], false, MatchStatus.Convert, names[i]);
+            Match(map, names[i], true, MatchStatus.Convert, names[i + 3]);
+            Match(map, names[i], false, MatchStatus.AlreadyTarget, null);
+            Match(map, names[i + 3], true, MatchStatus.AlreadyTarget, null);
+        }
+        Match(map, " vert -  2 PLC M[ I ] ", false, MatchStatus.Convert, names[0]);
+        Match(map, "Vert-2PLC", true, MatchStatus.Convert, names[3]);
+        Match(map, "Vert 2 PLC", true, MatchStatus.Convert, names[3]);
+        Match(map, "Vert - 5PLC m[i]", false, MatchStatus.Missing, null);
+        Match(new StyleMap(new[] { "Vert- 2 PLC", "Vert 2 PLC" }), names[3], false, MatchStatus.Ambiguous, null);
+        foreach (string invalid in new[] { "Vert--2PLC", "Vert - fraction", "Vert - 2PLC custom", "Vert - 2PLC i[m]", "Vert - -2PLC" })
+            Match(map, invalid, false, MatchStatus.Unrecognized, null);
+
+        FakeDimension two = new FakeDimension(names[3]) { Kind = 8 };
+        FakeDimension three = new FakeDimension(names[4]) { Kind = 8 };
+        FakeDocument doc = Document(two, three);
+        List<object> definitions = new List<object>();
+        foreach (string name in names) definitions.Add(new FakeStyle(name));
+        doc.DimensionStyles = new FakeCollection(definitions.ToArray());
+        ConversionReport report = Converter.ConvertDocument(doc, false);
+        Equal(2, report.Changed, "Both coordinate styles from the actual draft convert");
+        Equal(0, report.Unrecognized, "Hyphenated styles recognized");
+        Equal(names[0], two.Style.Name, "Coordinate two-place target uses catalog spelling");
+        Equal(names[1], three.Style.Name, "Coordinate three-place target uses catalog spelling");
+        Equal(0, Converter.ConvertDocument(doc, false).Changed, "Hyphenated inch repeat unchanged");
+        Equal(2, Converter.ConvertDocument(doc, true).Changed, "Both coordinate styles reverse");
+        Equal(names[3], two.Style.Name, "Coordinate two-place original restored");
+        Equal(names[4], three.Style.Name, "Coordinate three-place original restored");
     }
 
     private static void VertStyles()

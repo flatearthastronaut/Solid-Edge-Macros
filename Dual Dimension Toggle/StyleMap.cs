@@ -15,8 +15,12 @@ namespace DualDimensionToggle
         private static readonly Regex Pattern = new Regex(
             @"^\s*\d+\s+(\d+)\s+place(?:\s+(m\s*\[\s*i\s*\]))?(\s+\(vert\))?\s*$",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        // The draft uses Vert- 2 PLC and Vert - 2PLC m[i]. Treat the
+        // optional hyphen and its spacing as naming variations, preserving the
+        // precision and the catalog's exact target spelling. Still require a
+        // separator after Vert to avoid accepting unrelated custom names.
         private static readonly Regex VertPattern = new Regex(
-            @"^\s*Vert\s+(\d+)\s*PLC(?:\s+(m\s*\[\s*i\s*\]))?\s*$",
+            @"^\s*Vert(?:\s*-\s*|\s+)(\d+)\s*PLC(?:\s+(m\s*\[\s*i\s*\]))?\s*$",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         internal int Places;
         internal bool Dual;

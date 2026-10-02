@@ -1,11 +1,11 @@
-# Dual Dimension Toggle v1.8
+# Dual Dimension Toggle v1.9
 
 Converts existing non-angular dimensions, Feature Control Frame tolerances, and callout notes on **only the active sheet** of the active Solid Edge draft between inch-only and dual units. Dimension and callout styles match the decimal-place count and vertical naming family (`Vert` prefix or `(vert)` suffix); the leading sorting/group number on numbered styles is ignored. Angular dimensions and angle-only callouts retain their current styles in both directions.
 
 ## Run
 
 1. Open a draft in Solid Edge and activate the sheet to change.
-2. Run `Compiled Executables\Dual Dimension Toggle v1.8.exe`, either directly or through Solid Edge's Run Macro command.
+2. Run `Compiled Executables\Dual Dimension Toggle v1.9.exe`, either directly or through Solid Edge's Run Macro command.
 3. Choose **Dual dimensioned to inch only** or **Inch only to dual dimensioned**.
 4. Click **Convert active sheet**. Read the conversion results, review the draft, and save it in Solid Edge when ready.
 
@@ -13,7 +13,7 @@ Each direction has a small dimension drawing beside its radio button: `25.4 [1.0
 
 Version 1.2 renames the former Draft Dimension Styles macro to **Dual Dimension Toggle**. Update any existing shortcut or Solid Edge macro button to the new executable path in the `Dual Dimension Toggle` folder.
 
-Versioned executable filenames allow updates to be built while an older macro window is still open. Use **v1.8** for the complete callout conversion, including `/DU` field formatting and recovery from empty saved records. Existing shortcuts should point to the v1.8 executable; older executables remain earlier releases.
+Versioned executable filenames allow updates to be built while an older macro window is still open. Use **v1.9** for the complete callout conversion, including `/DU` field formatting and recovery from empty saved records. Existing shortcuts should point to the v1.9 executable; older executables remain earlier releases.
 
 ## Icon
 
@@ -89,10 +89,15 @@ The result separates dimension-style counts from Feature Control Frame counts an
 | `Vert 2 PLC` | `Vert 2PLC m[i]` |
 | `Vert 3 PLC` | `Vert 3PLC m[i]` |
 | `Vert 4 PLC` | `Vert 4PLC m[i]` |
+| `Vert- 2 PLC` | `Vert - 2PLC m[i]` |
+| `Vert- 3 PLC` | `Vert - 3PLC m[i]` |
+| `Vert- 4 PLC` | `Vert - 4PLC m[i]` |
 
 Both directions use the same rules. Matching is case-insensitive and tolerates extra spaces. A different grouping number is supported: for example, `20 3 place m[i]` can map to `10 3 place`. The exact target name is read from the draft's own style collection.
 
 Version 1.8 adds `Vert NPLC` / `Vert N PLC` names, with optional `m[i]` for dual units. The space between the decimal-place count and `PLC` is optional in either direction. The `Vert` prefix family stays separate from the numbered `(vert)` suffix family: if both exist at the same precision, each uses its own counterpart. This matching also applies to callout styles. Missing counterparts are reported instead of falling back to a horizontal or differently named vertical style.
+
+Version 1.9 also accepts an optional hyphen after `Vert`, with or without surrounding spaces. This fixes the actual draft names `Vert - 2PLC m[i]` and `Vert- 2 PLC`, which v1.8 did not recognize. Hyphenated and unhyphenated spellings belong to the same `Vert` family; duplicate target definitions at one precision are still reported as ambiguous. Regression tests cover the exact two-, three-, and four-place pairs and the coordinate-dimension type found in the draft.
 
 - The matching target style must already exist in the draft. Missing matches are skipped and reported.
 - If multiple target names have the same decimal count, orientation, and naming family, the dimension is skipped and reported as ambiguous. The macro does not guess which group to use.
@@ -107,11 +112,11 @@ Precision is preserved **by choosing the corresponding N-place named style**, ex
 
 Requires Windows with 64-bit Solid Edge and .NET Framework 4.x. The executable is standalone; no Siemens interop DLLs need to be distributed. `Build.cmd` uses the Windows .NET Framework C# compiler and writes the executable to `Compiled Executables`.
 
-- `Test.ps1`: compiles the release and runs 591 automated regression assertions covering dimension and frame conversion, rounding, precision, orientation, unsupported input, and failure handling. Callout checks cover both user samples, slash-separated ranges, `/DU` field conversion, unchanged non-length references, formatting modifiers, no inference of bare values, all four text fields, v1.5 record compatibility, empty-record recovery, stale-record detection, repeated runs, rollback, and unrelated attribute preservation.
+- `Test.ps1`: compiles the release and runs 643 automated regression assertions covering dimension and frame conversion, rounding, precision, orientation, unsupported input, and failure handling. Callout checks cover both user samples, slash-separated ranges, `/DU` field conversion, unchanged non-length references, formatting modifiers, no inference of bare values, all four text fields, v1.5 record compatibility, empty-record recovery, stale-record detection, repeated runs, rollback, and unrelated attribute preservation.
 - `LiveTest.ps1`: requires a running Solid Edge instance accessible to the test process. Checks both directions on real dimensions, frames, and callouts, unchanged angular annotations, symbols and raw linked text, repeated runs, and an untouched second sheet. Also saves and reopens a separate temporary draft to verify persistent pair restoration. Closes its scratch documents, deletes its temporary draft, and restores the previously active document. Does not modify existing documents.
 - `UiTest.ps1`: opens its own transparent off-screen popup, checks mutual exclusion, clickable illustrations, accessible descriptions, and layout at normal/minimum sizes and 150% control scaling. Writes `tests/PopupPreview.png` and `tests/PopupPreviewScaled.png` for visual inspection. Does not connect to Solid Edge. Both renderings were visually checked.
 
-Validated October 2, 2026: v1.8 release compiled; all 591 regression assertions, 88 live Solid Edge assertions, and 60 popup interaction/layout assertions passed. Live checks verify raw linked-field syntax and style assignment on scratch annotations; they do not validate evaluated hole values against a particular production model. Solid Edge ignored suffix assignments on the scratch callout type, so live precision/tolerance checks use the main text; all four fields are covered by regression tests.
+Validated October 2, 2026: v1.9 release compiled; all 643 regression assertions and 88 live Solid Edge assertions passed, including the exact hyphenated style names read from the active draft. The popup layout is unchanged from v1.8, which passed 60 interaction/layout assertions. Live checks verify raw linked-field syntax and style assignment on scratch annotations; they do not validate evaluated hole values against a particular production model. Solid Edge ignored suffix assignments on the scratch callout type, so live precision/tolerance checks use the main text; all four fields are covered by regression tests.
 
 ## API and lifetime references
 
