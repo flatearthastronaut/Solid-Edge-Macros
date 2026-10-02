@@ -165,7 +165,57 @@ internal static class CalloutTests
         CalloutHistory unicode = new CalloutHistory(); unicode.Inch[0] = "\u2300 .001\r\nline"; unicode.Dual[0] = "\u2300 .03[.001]\r\nline";
         Equal(unicode.Dual[0], CalloutHistory.Decode(unicode.Encode()).Dual[0], "Unicode and multiline history retained");
         FieldTests(original, single);
+        EmptyHistoryTests();
         return assertions;
+    }
+
+    private static void EmptyHistoryTests()
+    {
+        // Exact raw text and empty TextPairs attribute read from the user's
+        // failed opposite-side callout. An empty record contains no prior pairs.
+        const string dual = "FROM OPP. SIDE\r%DI %{%HS/DU}  DRILL %ZH\r%DI 6.50/6.35[.256/.250] DIA  %{%BD/DU}  DP.\r(1)PLC AS SHOWN\r(FOR 1/4 SPRING PIN)";
+        const string inch = "FROM OPP. SIDE\r%DI %HS  DRILL %ZH\r%DI .256/.250 DIA  %BD  DP.\r(1)PLC AS SHOWN\r(FOR 1/4 SPRING PIN)";
+        FakeCallout note = new FakeCallout("2 2 place m[i]", dual);
+        CalloutHistoryStore.Write(note, "");
+        Equal("", CalloutHistoryStore.Read(note), "Reproduce empty stored record");
+        ConversionReport report = Run(false, note);
+        Equal(0, report.CalloutsFailed, "Empty record does not fail the callout");
+        Equal(1, report.CalloutsChanged, "Opposite-side note converted");
+        Equal(2, report.CalloutValuesChanged, "Both explicit limits converted");
+        Equal(inch, note.Text[0], "Opposite-side words, spacing and model links retained");
+        Equal("1 2 place", note.Style.Name, "Opposite-side note inch style");
+        string saved = CalloutHistoryStore.Read(note);
+        Equal(true, !String.IsNullOrEmpty(saved), "Empty record replaced by valid pair history");
+        Equal(0, Run(false, note).CalloutsChanged, "Repaired note repeat unchanged");
+        report = Run(true, note);
+        Equal(0, report.CalloutsFailed, "Repaired record reverses successfully");
+        Equal(dual, note.Text[0], "Exact opposite-side note restored");
+        Equal(null, CalloutHistoryStore.Read(note), "Repaired record cleared after reversal");
+
+        note = new FakeCallout("1 2 place", "%HS .125 UNTRACKED");
+        CalloutHistoryStore.Write(note, "");
+        report = Run(true, note);
+        Equal(0, report.CalloutsFailed, "Empty record also permits inch-to-dual");
+        Equal("%{%HS/DU} .125 UNTRACKED", note.Text[0], "Empty record does not infer bare values");
+        Equal(0, report.CalloutValuesChanged, "No saved values invented");
+        Equal(null, CalloutHistory.Decode(""), "Empty record decodes as no history");
+
+        // Only the genuinely empty record is absent. Nonempty damaged or
+        // unknown versions could contain known pairs and must remain protected.
+        foreach (string invalid in new[] { " ", "1", "2.bad", "1.!.~.~.~.~.~.~.~" })
+        {
+            note = new FakeCallout("2 2 place m[i]", dual);
+            CalloutHistoryStore.Write(note, invalid);
+            Equal(1, Run(false, note).CalloutsFailed, "Nonempty invalid record still reported");
+            Equal(dual, note.Text[0], "Invalid record does not change text");
+            Equal("2 2 place m[i]", note.Style.Name, "Invalid record does not change style");
+            Equal(invalid, CalloutHistoryStore.Read(note), "Nonempty record retained for review");
+        }
+        note = new FakeCallout("2 2 place m[i]", dual) { IgnoreWrites = true };
+        CalloutHistoryStore.Write(note, "");
+        Equal(1, Run(false, note).CalloutsFailed, "Rejected conversion still reported after empty record");
+        Equal("", CalloutHistoryStore.Read(note), "Rollback restores original empty record");
+        Equal("2 2 place m[i]", note.Style.Name, "Rollback restores style with empty prior record");
     }
 
     private static void FieldTests(string original, string single)

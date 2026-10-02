@@ -16,7 +16,11 @@ namespace DualDimensionToggle
         private static string Unpack(string value) { return value == "~" ? null : Encoding.UTF8.GetString(Convert.FromBase64String(value)); }
         internal static CalloutHistory Decode(string text)
         {
-            if (text == null) return null;
+            // An annotation can have a TextPairs attribute with no value yet.
+            // It contains no saved pairs, just like a missing attribute, and
+            // must not prevent a first conversion. Reject nonempty malformed
+            // records below so potentially recoverable history is not lost.
+            if (String.IsNullOrEmpty(text)) return null;
             string[] parts = text.Split('.');
             if (parts.Length != 9 || parts[0] != "1") throw new InvalidOperationException("Unrecognized saved callout conversion record.");
             CalloutHistory result = new CalloutHistory();

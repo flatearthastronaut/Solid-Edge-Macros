@@ -26,9 +26,13 @@ internal static class LiveCalloutHistory
                 ((dynamic)noteStyle).Name = "DTT history test";
             }
             finally { Com.Release(ref noteStyle); Com.Release(ref customStyle); Com.Release(ref baseStyle); Com.Release(ref definitions); }
-            const string dual = "%DI 6.50/6.35[.256/.250] DIA\rBARE .125 MUST STAY\r%DI %{%HS/DU} DRILL %ZH";
-            const string single = "%DI .256/.250 DIA\rBARE .125 MUST STAY\r%DI %HS DRILL %ZH";
+            const string dual = "FROM OPP. SIDE\r%DI %{%HS/DU}  DRILL %ZH\r%DI 6.50/6.35[.256/.250] DIA  %{%BD/DU}  DP.\r(1)PLC AS SHOWN\r(FOR 1/4 SPRING PIN)\rBARE .125 MUST STAY";
+            const string single = "FROM OPP. SIDE\r%DI %HS  DRILL %ZH\r%DI .256/.250 DIA  %BD  DP.\r(1)PLC AS SHOWN\r(FOR 1/4 SPRING PIN)\rBARE .125 MUST STAY";
             ((dynamic)note).BalloonText = dual;
+            // Reproduce the empty TextPairs value found on the actual failed
+            // opposite-side note, without editing the user's production draft.
+            CalloutHistoryStore.Write(note, "");
+            if (CalloutHistoryStore.Read(note) != "") throw new Exception("Empty record fixture was not retained.");
             // Empty style catalog isolates text behavior regardless of which
             // styles the user's default template contains.
             ConversionReport report = new ConversionReport();
@@ -50,7 +54,7 @@ internal static class LiveCalloutHistory
             if (report.CalloutsChanged != 1 || report.CalloutsFailed != 0 || (string)((dynamic)note).BalloonText != dual)
                 throw new Exception("Saved callout pairs could not be restored: " + report);
             if (CalloutHistoryStore.Read(note) != null) throw new Exception("Restored callout history was not cleared.");
-            return 5;
+            return 6;
         }
         finally
         {

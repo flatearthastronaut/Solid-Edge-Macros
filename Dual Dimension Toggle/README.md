@@ -1,17 +1,17 @@
-# Dual Dimension Toggle v1.6
+# Dual Dimension Toggle v1.7
 
 Converts existing non-angular dimensions, Feature Control Frame tolerances, and callout notes on **only the active sheet** of the active Solid Edge draft between inch-only and dual units. Dimension and callout styles match the decimal-place count and `(vert)` suffix; the leading sorting/group number is ignored. Angular dimensions and angle-only callouts retain their current styles in both directions.
 
 ## Run
 
 1. Open a draft in Solid Edge and activate the sheet to change.
-2. Run `Compiled Executables\Dual Dimension Toggle v1.6.exe`, either directly or through Solid Edge's Run Macro command.
+2. Run `Compiled Executables\Dual Dimension Toggle v1.7.exe`, either directly or through Solid Edge's Run Macro command.
 3. Choose **Dual dimensioned to inch only** or **Inch only to dual dimensioned**.
 4. Click **Convert active sheet**. Read the conversion results, review the draft, and save it in Solid Edge when ready.
 
 Version 1.2 renames the former Draft Dimension Styles macro to **Dual Dimension Toggle**. Update any existing shortcut or Solid Edge macro button to the new executable path in the `Dual Dimension Toggle` folder.
 
-Versioned executable filenames allow updates to be built while an older macro window is still open. Use **v1.6** for the complete callout conversion, including `/DU` field formatting. Existing shortcuts should point to the v1.6 executable; older executables remain earlier releases.
+Versioned executable filenames allow updates to be built while an older macro window is still open. Use **v1.7** for the complete callout conversion, including `/DU` field formatting and recovery from empty saved records. Existing shortcuts should point to the v1.7 executable; older executables remain earlier releases.
 
 ## Icon
 
@@ -49,6 +49,8 @@ Existing round-off and tolerance modifiers are retained: `%{%HS/DU/@3/ST+.001^-.
 Callouts with missing/ambiguous target styles, malformed numeric pairs, or edited text that conflicts with a saved pair record are left unchanged and reported. Ordinary item balloons, parts-list labels, and angle-only callouts are skipped. Custom styles outside the naming convention remain unchanged, while their explicit numeric pairs and supported field formatting may still be converted. Their actual displayed units depend on those custom style definitions.
 
 If text in a tracked field is manually edited after an inch-only conversion, automatic restoration is skipped for that note so the edit is not overwritten. Review that note manually. Styles and raw text are read back after conversion; on failure, the macro attempts to restore the original style, text, and conversion record.
+
+Version 1.7 fixes a skipped opposite-side spring-pin note whose `TextPairs` attribute existed but was empty. An empty attribute is treated as no previous conversion history, allowing its current explicit pairs, linked-field formatting, and style to convert normally. The newly converted pairs receive a valid record for reversal. Nonempty damaged or unknown records still report an error and leave the note unchanged. Regression tests reproduce the exact note text and empty attribute; a live scratch-draft test verifies conversion and save/reopen restoration without modifying the production draft.
 
 ## Feature Control Frame tolerances
 
@@ -98,10 +100,10 @@ Precision is preserved **by choosing the corresponding N-place named style**, ex
 
 Requires Windows with 64-bit Solid Edge and .NET Framework 4.x. The executable is standalone; no Siemens interop DLLs need to be distributed. `Build.cmd` uses the Windows .NET Framework C# compiler and writes the executable to `Compiled Executables`.
 
-- `Test.ps1`: compiles the release and runs 505 automated regression assertions covering dimension and frame conversion, rounding, precision, orientation, unsupported input, and failure handling. Callout checks cover both user samples, slash-separated ranges, `/DU` field conversion, unchanged non-length references, formatting modifiers, no inference of bare values, all four text fields, v1.5 record compatibility, stale-record detection, repeated runs, rollback, and unrelated attribute preservation.
+- `Test.ps1`: compiles the release and runs 539 automated regression assertions covering dimension and frame conversion, rounding, precision, orientation, unsupported input, and failure handling. Callout checks cover both user samples, slash-separated ranges, `/DU` field conversion, unchanged non-length references, formatting modifiers, no inference of bare values, all four text fields, v1.5 record compatibility, empty-record recovery, stale-record detection, repeated runs, rollback, and unrelated attribute preservation.
 - `LiveTest.ps1`: requires a running Solid Edge instance accessible to the test process. Checks both directions on real dimensions, frames, and callouts, unchanged angular annotations, symbols and raw linked text, repeated runs, and an untouched second sheet. Also saves and reopens a separate temporary draft to verify persistent pair restoration. Closes its scratch documents, deletes its temporary draft, and restores the previously active document. Does not modify existing documents.
 
-Validated October 2, 2026: v1.6 release compiled; all 505 regression assertions and 75 live Solid Edge assertions passed. Live checks verify raw linked-field syntax and style assignment on scratch annotations; they do not validate evaluated hole values against a particular production model. Solid Edge ignored suffix assignments on the scratch callout type, so live precision/tolerance checks use the main text; all four fields are covered by regression tests.
+Validated October 2, 2026: v1.7 release compiled; all 539 regression assertions and 76 live Solid Edge assertions passed. Live checks verify raw linked-field syntax and style assignment on scratch annotations; they do not validate evaluated hole values against a particular production model. Solid Edge ignored suffix assignments on the scratch callout type, so live precision/tolerance checks use the main text; all four fields are covered by regression tests.
 
 ## API and lifetime references
 
