@@ -99,15 +99,22 @@ internal static class LiveSmokeTests
                 object note = ((dynamic)notes).Add(0.10, 0.16, 0.0); held.Add(note);
                 ((dynamic)note).Callout = 1;
                 string noteDual = "%DI %{%HS/DU} DRILL %ZH\r%DI 6.50/6.35[.256/.250] DIA %{%BD/DU} DP.\r(1)PLC AS SHOWN\r(FOR 1/4 SPRING PIN)";
-                string noteInch = noteDual.Replace("6.50/6.35[.256/.250]", ".256/.250");
+                string noteInch = noteDual.Replace("6.50/6.35[.256/.250]", ".256/.250").Replace("%{%HS/DU}", "%HS").Replace("%{%BD/DU}", "%BD");
                 ((dynamic)note).BalloonText = noteDual;
                 object noteStyle = ((dynamic)note).Style; held.Add(noteStyle);
                 ((dynamic)noteStyle).Name = "2 2 place m[i]";
                 object styleNote = ((dynamic)notes).Add(0.12, 0.13, 0.0); held.Add(styleNote);
                 ((dynamic)styleNote).Callout = 1;
-                ((dynamic)styleNote).BalloonText = "%TS THR'D %{%TD/DU} DP.";
+                ((dynamic)styleNote).BalloonText = "%TS THR'D %{%TD/DU/@3/ST+.001^-.002} DP.";
                 object styleNoteStyle = ((dynamic)styleNote).Style; held.Add(styleNoteStyle);
                 ((dynamic)styleNoteStyle).Name = "2 2 place m[i]";
+                object counterbore = ((dynamic)notes).Add(0.12, 0.11, 0.0); held.Add(counterbore);
+                ((dynamic)counterbore).Callout = 1;
+                const string cbDual = "%DI %{%HS/DU} DRILL %ZH\r%DI %{%BS/DU} C'BORE %{%BD/DU} DP.\r(%QC)PLC'S EQ. SP. AS SHOWN\r(FOR X S.H.C.S.)";
+                const string cbInch = "%DI %HS DRILL %ZH\r%DI %BS C'BORE %BD DP.\r(%QC)PLC'S EQ. SP. AS SHOWN\r(FOR X S.H.C.S.)";
+                ((dynamic)counterbore).BalloonText = cbDual;
+                object cbStyle = ((dynamic)counterbore).Style; held.Add(cbStyle);
+                ((dynamic)cbStyle).Name = "2 2 place m[i]";
                 object angleNote = ((dynamic)notes).Add(0.15, 0.10, 0.0); held.Add(angleNote);
                 ((dynamic)angleNote).Callout = 1; ((dynamic)angleNote).BalloonText = "45%DG";
                 object angleNoteStyle = ((dynamic)angleNote).Style; held.Add(angleNoteStyle);
@@ -131,11 +138,13 @@ internal static class LiveSmokeTests
 
                 ConversionReport report = Converter.ConvertDocument(scratch, false);
                 Console.WriteLine(report);
-                Check(report.CalloutsChanged == 2 && report.CalloutStylesChanged == 2 && report.CalloutValuesChanged == 2 && report.CalloutsFailed == 0, "Callout style and explicit range convert to inch");
+                Check(report.CalloutsChanged == 3 && report.CalloutStylesChanged == 3 && report.CalloutValuesChanged == 2 && report.CalloutsFailed == 0, "Callout style and explicit range convert to inch");
                 Check((string)((dynamic)note).BalloonText == noteInch, "Callout linked fields and surrounding text retained");
                 Check((string)((dynamic)noteStyle).Name == "1 2 place", "Callout inch style");
                 Check(CalloutHistoryStore.Read(note) != null, "Known pair record stored on actual annotation");
-                Check((string)((dynamic)styleNote).BalloonText == "%TS THR'D %{%TD/DU} DP.", "Style-only callout raw fields unchanged");
+                Check((string)((dynamic)styleNote).BalloonText == "%TS THR'D %{%TD/@3/ST+.001^-.002} DP.", "Thread depth unit format changed");
+                Check((string)((dynamic)counterbore).BalloonText == cbInch, "Exact user inch counterbore sample");
+                Check(CalloutHistoryStore.Read(counterbore) == null, "Linked-only note needs no metadata");
                 Check((string)((dynamic)angleNoteStyle).Name == "2 3 place m[i]", "Angle callout unchanged");
                 Check((string)((dynamic)otherNote).BalloonText == noteDual, "Other sheet callout unchanged");
                 Check(report.Changed == 3 && report.Failed == 0, "Three actual dimensions must convert to inches");
@@ -164,9 +173,15 @@ internal static class LiveSmokeTests
                 }
                 Check((string)((dynamic)otherStyle).Name == sources[0], "Other sheet must be untouched");
                 Check(Converter.ConvertDocument(scratch, false).Changed == 0, "Repeat must be idempotent");
+                ((dynamic)counterbore).BalloonText = cbDual;
+                report = Converter.ConvertDocument(scratch, false);
+                Check(report.CalloutsChanged == 1 && report.CalloutStylesChanged == 0 && report.CalloutsFailed == 0, "Repair DU fields even when style already inch");
+                Check((string)((dynamic)counterbore).BalloonText == cbInch, "Field-only repair retained");
                 report = Converter.ConvertDocument(scratch, true);
                 Console.WriteLine(report);
-                Check(report.CalloutsChanged == 2 && report.CalloutValuesChanged == 2 && report.CalloutsFailed == 0, "Known callout pairs restored to dual");
+                Check(report.CalloutsChanged == 3 && report.CalloutValuesChanged == 2 && report.CalloutsFailed == 0, "Known callout pairs restored to dual");
+                Check((string)((dynamic)counterbore).BalloonText == cbDual, "Exact user dual counterbore sample");
+                Check((string)((dynamic)styleNote).BalloonText == "%TS THR'D %{%TD/DU/@3/ST+.001^-.002} DP.", "Thread depth dual format restored");
                 Check((string)((dynamic)note).BalloonText == noteDual, "Callout range roundtrip");
                 Check((string)((dynamic)noteStyle).Name == "2 2 place m[i]", "Callout dual style");
                 Check(CalloutHistoryStore.Read(note) == null, "Completed pair record removed");

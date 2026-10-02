@@ -73,6 +73,9 @@ internal static class CalloutTests
         const string original = "%DI %{%HS/DU} DRILL %ZH\r%DI 6.50/6.35[.256/.250] DIA %{%BD/DU} DP.\r(1)PLC AS SHOWN\r(FOR 1/4 SPRING PIN)";
         string single = original.Replace("6.50/6.35[.256/.250]", ".256/.250");
         Text(original, false, single, 2);
+        // The literal parser preserves raw fields. The complete conversion also
+        // removes DU from linked lengths in the same atomic note transaction.
+        single = single.Replace("%{%HS/DU}", "%HS").Replace("%{%BD/DU}", "%BD");
         Text(original, true, original, 0);
         Text("DIA 3.18[.125]. DEPTH .03[.001]", false, "DIA .125. DEPTH .001", 2);
         Text("SIZE .99[.001]", true, "SIZE .03[.001]", 1);
@@ -121,7 +124,11 @@ internal static class CalloutTests
         Equal("UNTRACKED .125 AND 1/4-20 UNC", inch.Text[0], "Untracked literals preserved");
         FakeCallout linked = new FakeCallout("2 2 place m[i]", "%TS THR'D %{%TD/DU} DP.");
         Equal(1, Run(false, linked).CalloutStylesChanged, "Property-only note changes style");
-        Equal(0, linked.Writes, "Property text never rewritten");
+        Equal(1, linked.Writes, "Property text unit format rewritten");
+        Equal("%TS THR'D %TD DP.", linked.Text[0], "Thread designation retained and depth converted");
+        Equal(null, CalloutHistoryStore.Read(linked), "Linked-only conversion needs no history");
+        Run(true, linked);
+        Equal("%TS THR'D %{%TD/DU} DP.", linked.Text[0], "Thread depth wraps on reversal");
         foreach (FakeCallout skip in new[] { new FakeCallout("2 3 place m[i]", "45%DG"), new FakeCallout("2 2 place m[i]", original) { DisplayByItemNumber = true }, new FakeCallout("2 2 place m[i]", original) { LinkToPartsList = true } })
         { Equal(1, Run(false, skip).CalloutsSkipped, "Protected note skipped"); Equal(0, skip.Style.Writes, "Protected style untouched"); }
         FakeCallout balloon = new FakeCallout("2 2 place m[i]", original) { Callout = 0 };
@@ -157,6 +164,82 @@ internal static class CalloutTests
         Equal("keep", reopened.AttributeSets.Item(1).Item(1).Value, "Unrelated value retained");
         CalloutHistory unicode = new CalloutHistory(); unicode.Inch[0] = "\u2300 .001\r\nline"; unicode.Dual[0] = "\u2300 .03[.001]\r\nline";
         Equal(unicode.Dual[0], CalloutHistory.Decode(unicode.Encode()).Dual[0], "Unicode and multiline history retained");
+        FieldTests(original, single);
         return assertions;
+    }
+
+    private static void FieldTests(string original, string single)
+    {
+        const string counterbore = "%DI %HS DRILL %ZH\r%DI %BS C'BORE %BD DP.\r(%QC)PLC'S EQ. SP. AS SHOWN\r(FOR X S.H.C.S.)";
+        const string counterboreDual = "%DI %{%HS/DU} DRILL %ZH\r%DI %{%BS/DU} C'BORE %{%BD/DU} DP.\r(%QC)PLC'S EQ. SP. AS SHOWN\r(FOR X S.H.C.S.)";
+        Equal(counterboreDual, CalloutFields.Convert(counterbore, true), "Exact user dual counterbore sample");
+        Equal(counterbore, CalloutFields.Convert(counterboreDual, false), "Exact user inch counterbore sample");
+        foreach (string code in new[] { "%HS", "%HD", "%BS", "%BD", "%SS", "%TD", "%BR" })
+        {
+            string wrapped = "%{" + code + "/DU}";
+            Equal(wrapped, CalloutFields.Convert(code, true), "Length wraps " + code);
+            Equal(code, CalloutFields.Convert(wrapped, false), "Length unwraps " + code);
+            Equal(wrapped, CalloutFields.Convert(wrapped, true), "No duplicate DU " + code);
+            Equal(code, CalloutFields.Convert(code, false), "Inch already correct " + code);
+        }
+        foreach (string text in new[] { "%DI %DG %CS %DP %QC %TS %ZH %ZT %HC %SA %BA %BN %BQ",
+            "%{Custom %HS/DU|G}", "%{Custom %{Other %BD/DU}|G}", "%{%HS/DU|G}", "%{%QC/DU}", "%{%SA/DU}", "3.18[.125] AND .125", "" })
+        {
+            Equal(text, CalloutFields.Convert(text, true), "Non-length content not wrapped");
+            Equal(text, CalloutFields.Convert(text, false), "Unrelated expression untouched");
+        }
+        Equal(null, CalloutFields.Convert(null, true), "Null supported");
+        Equal("%DI%{%HS/DU}%RT%{%BD/DU}DEEP", CalloutFields.Convert("%DI%HS%RT%BDDEEP", true), "Adjacent codes and words");
+        Equal("100% %{%HS/DU}", CalloutFields.Convert("100% %HS", true), "Literal percent does not consume next field");
+        Equal("%{%HS/@3/ST+.001^-.002}", CalloutFields.Convert("%{%HS/DU/@3/ST+.001^-.002}", false), "Precision and tolerance retained");
+        Equal("%{%HS/DU/@3/ST+.001^-.002}", CalloutFields.Convert("%{%HS/@3/ST+.001^-.002}", true), "Options retained when adding DU");
+        Equal("%{%HS/@3/ST+.001^-.002}", CalloutFields.Convert("%{%HS/@3/du/ST+.001^-.002}", false), "DU option independent of case and order");
+        Equal("%{%HS/DUMMY}", CalloutFields.Convert("%{%HS/DUMMY}", false), "DU requires whole option");
+        Equal("%{%HS/DU}", CalloutFields.Convert("%{%HS}", true), "Existing wrapper not nested");
+        Equal("%HS", CalloutFields.Convert("%{%HS/DU/DU}", false), "Repeated DU removal");
+
+        // Unit-format changes must run even after v1.5 already changed the style.
+        FakeCallout note = new FakeCallout("1 2 place", counterboreDual);
+        ConversionReport report = Run(false, note);
+        Equal(1, report.CalloutsChanged, "Already-inch style still repairs field format");
+        Equal(0, report.CalloutStylesChanged, "Style already target");
+        Equal(1, report.CalloutFieldsChanged, "Unit formatting count");
+        Equal(counterbore, note.Text[0], "All counterbore lengths changed");
+        Equal(0, Run(false, note).CalloutsChanged, "Field-only repeated run idempotent");
+        note = new FakeCallout("2 2 place m[i]", counterbore);
+        note.Text[1] = "%HD"; note.Text[2] = "%SS"; note.Text[3] = "%TD";
+        report = Run(true, note);
+        Equal(4, report.CalloutFieldsChanged, "All four raw fields formatted");
+        Equal(counterboreDual, note.Text[0], "Already-dual style adds fields");
+        Equal("%{%HD/DU}", note.Text[1], "Lower field");
+        Equal("%{%SS/DU}", note.Text[2], "Prefix field");
+        Equal("%{%TD/DU}", note.Text[3], "Suffix field");
+
+        // A persisted v1.5 record used dual field wrappers in BOTH snapshots.
+        CalloutHistory old = new CalloutHistory();
+        old.Dual[0] = original;
+        old.Inch[0] = original.Replace("6.50/6.35[.256/.250]", ".256/.250");
+        note = new FakeCallout("1 2 place", old.Inch[0]);
+        CalloutHistoryStore.Write(note, old.Encode());
+        Run(false, note);
+        Equal(single, note.Text[0], "v1.5 inch text repaired");
+        report = Run(true, note);
+        Equal(0, report.CalloutsSkipped, "Old record accepts unit-only edit");
+        Equal(original, note.Text[0], "v1.5 literals and linked values restore together");
+        Equal(2, report.CalloutValuesChanged, "Known v1.5 literals counted");
+        Equal(null, CalloutHistoryStore.Read(note), "Old record cleared");
+        note = new FakeCallout("1 2 place", old.Inch[0]);
+        CalloutHistoryStore.Write(note, old.Encode());
+        Run(true, note);
+        Equal(original, note.Text[0], "Direct reversal of v1.5 record");
+        note = new FakeCallout("1 2 place", single.Replace("%HS", "%HD"));
+        CalloutHistoryStore.Write(note, old.Encode());
+        Equal(1, Run(true, note).CalloutsSkipped, "Changed field identity remains a stale record");
+
+        note = new FakeCallout("2 2 place m[i]", counterboreDual) { IgnoreWrites = true };
+        report = Run(false, note);
+        Equal(1, report.CalloutsFailed, "Field-only ignored write detected");
+        Equal("2 2 place m[i]", note.Style.Name, "Field-only failure rolls style back");
+        Equal(counterboreDual, note.Text[0], "Field-only failure retains raw links");
     }
 }

@@ -26,8 +26,8 @@ internal static class LiveCalloutHistory
                 ((dynamic)noteStyle).Name = "DTT history test";
             }
             finally { Com.Release(ref noteStyle); Com.Release(ref customStyle); Com.Release(ref baseStyle); Com.Release(ref definitions); }
-            const string dual = "%DI 6.50/6.35[.256/.250] DIA\rBARE .125 MUST STAY";
-            const string single = "%DI .256/.250 DIA\rBARE .125 MUST STAY";
+            const string dual = "%DI 6.50/6.35[.256/.250] DIA\rBARE .125 MUST STAY\r%DI %{%HS/DU} DRILL %ZH";
+            const string single = "%DI .256/.250 DIA\rBARE .125 MUST STAY\r%DI %HS DRILL %ZH";
             ((dynamic)note).BalloonText = dual;
             // Empty style catalog isolates text behavior regardless of which
             // styles the user's default template contains.

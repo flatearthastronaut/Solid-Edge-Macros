@@ -142,18 +142,18 @@ namespace DualDimensionToggle
                     int changed; string reason;
                     if (!CalloutText.Convert(before[field], toDual, out after[field], out changed, out reason))
                     { report.CalloutsSkipped++; report.Details.Add("Callout " + index + " unchanged: " + reason); return; }
-                    if (toDual && history != null && history.Dual[field] != history.Inch[field])
+                    if (toDual && history != null && !CalloutFields.SameValues(history.Dual[field], history.Inch[field]))
                     {
                         // Only restore a known conversion, never expand other
                         // bare decimal values in an inch-only note. An edited
                         // tracked field requires review rather than stale text.
-                        if (before[field] == history.Inch[field])
+                        if (CalloutFields.SameValues(before[field], history.Inch[field]))
                         {
                             after[field] = history.Dual[field];
                             string ignored;
                             CalloutText.Convert(history.Dual[field], false, out ignored, out changed, out reason);
                         }
-                        else if (before[field] != history.Dual[field])
+                        else if (!CalloutFields.SameValues(before[field], history.Dual[field]))
                         {
                             report.CalloutsSkipped++;
                             report.Details.Add("Callout " + index + " unchanged: text containing a saved pair was edited; review the note before restoring dual values.");
@@ -168,7 +168,7 @@ namespace DualDimensionToggle
                     // was edited. This avoids silently losing known pairs.
                     if (history != null)
                         for (int field = 0; field < before.Length; field++)
-                            if (history.Dual[field] != history.Inch[field] && before[field] != history.Dual[field])
+                            if (!CalloutFields.SameValues(history.Dual[field], history.Inch[field]) && !CalloutFields.SameValues(before[field], history.Dual[field]))
                             {
                                 report.CalloutsSkipped++;
                                 report.Details.Add("Callout " + index + " unchanged: existing saved pairs need review before another text conversion.");
@@ -185,6 +185,17 @@ namespace DualDimensionToggle
                     nextRecord = saved.Encode();
                 }
                 else if (toDual && history != null) nextRecord = null;
+                // Apply field formatting after restoring any saved literals.
+                // History remains dedicated to literal pairs; linked-only notes
+                // need no metadata, and old records remain compatible.
+                bool textChanged = false;
+                int formattedFields = 0;
+                for (int field = 0; field < after.Length; field++)
+                {
+                    after[field] = CalloutFields.Convert(after[field], toDual);
+                    if (after[field] != before[field]) textChanged = true;
+                    if (CalloutFields.Convert(before[field], toDual) != before[field]) formattedFields++;
+                }
                 if (CalloutText.IsAngleOnly(before[0]) && String.IsNullOrWhiteSpace(before[1]) && String.IsNullOrWhiteSpace(before[2]) && String.IsNullOrWhiteSpace(before[3]))
                 { report.CalloutsSkipped++; return; }
                 style = ((dynamic)note).Style;
@@ -198,7 +209,7 @@ namespace DualDimensionToggle
                 }
                 bool changeStyle = status == MatchStatus.Convert;
                 if (!changeStyle) targetStyle = sourceStyle;
-                if (!changeStyle && values == 0 && nextRecord == priorRecord) return;
+                if (!changeStyle && !textChanged && nextRecord == priorRecord) return;
                 try
                 {
                     if (nextRecord != priorRecord) CalloutHistoryStore.Write(note, nextRecord);
@@ -239,6 +250,7 @@ namespace DualDimensionToggle
                 report.CalloutsChanged++;
                 if (changeStyle) report.CalloutStylesChanged++;
                 report.CalloutValuesChanged += values;
+                report.CalloutFieldsChanged += formattedFields;
             }
             finally { Com.Release(ref style); }
         }
