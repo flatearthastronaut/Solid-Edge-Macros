@@ -31,7 +31,7 @@ internal static class LiveSmokeTests
                 styles = ((dynamic)scratch).DimensionStyles;
                 object first = ((dynamic)styles).Item(1); held.Add(first);
                 string parent = (string)((dynamic)first).Name;
-                string[] names = { "1 2 place", "1 3 place", "2 2 place m[i]", "2 3 place m[i]", "3 3 place (vert)", "4 3 place m[i] (vert)" };
+                string[] names = { "1 2 place", "1 3 place", "2 2 place m[i]", "2 3 place m[i]", "3 3 place (vert)", "4 3 place m[i] (vert)", "Vert 2 PLC", "Vert 2PLC m[i]", "Vert 3 PLC", "Vert 3PLC m[i]" };
                 HashSet<string> existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 for (int i = 1; i <= (int)((dynamic)styles).Count; i++)
                 {
@@ -46,13 +46,13 @@ internal static class LiveSmokeTests
                     ((dynamic)definition).DualDisplay = dual;
                     ((dynamic)definition).PrimaryUnits = dual ? 3 : 5; // SDK: mm / inches
                     ((dynamic)definition).SecondaryUnits = 5;
-                    int precision = name.Contains("2 place") ? 4 : 5; // SDK: .2 / .3
+                    int precision = StyleName.Parse(name).Places == 2 ? 4 : 5; // SDK: .2 / .3
                     ((dynamic)definition).PrimaryDecimalRoundOff = precision;
                     ((dynamic)definition).SecondaryDecimalRoundOff = precision;
                 }
                 lines = ((dynamic)sheet).Lines2d;
                 dimensions = ((dynamic)sheet).Dimensions;
-                string[] sources = { "2 2 place m[i]", "2 3 place m[i]", "4 3 place m[i] (vert)" };
+                string[] sources = { "2 2 place m[i]", "2 3 place m[i]", "4 3 place m[i] (vert)", "Vert 2PLC m[i]", "Vert 3PLC m[i]" };
                 List<object> dimStyles = new List<object>();
                 for (int i = 0; i < sources.Length; i++)
                 {
@@ -64,7 +64,7 @@ internal static class LiveSmokeTests
                 // Real angular dimensions sharing convertible style names must
                 // retain their names and local angular precision in both modes.
                 List<object> angularStyles = new List<object>();
-                string[] angularNames = { "2 3 place m[i]", "1 3 place" };
+                string[] angularNames = { "Vert 3PLC m[i]", "1 3 place" };
                 for (int i = 0; i < angularNames.Length; i++)
                 {
                     object line = ((dynamic)lines).AddBy2Points(0.02, 0.15 + i * 0.04, 0.08, 0.18 + i * 0.04); held.Add(line);
@@ -147,7 +147,7 @@ internal static class LiveSmokeTests
                 Check(CalloutHistoryStore.Read(counterbore) == null, "Linked-only note needs no metadata");
                 Check((string)((dynamic)angleNoteStyle).Name == "2 3 place m[i]", "Angle callout unchanged");
                 Check((string)((dynamic)otherNote).BalloonText == noteDual, "Other sheet callout unchanged");
-                Check(report.Changed == 3 && report.Failed == 0, "Three actual dimensions must convert to inches");
+                Check(report.Changed == sources.Length && report.Failed == 0, "All actual dimensions must convert to inches");
                 Check(report.FramesChanged == 2 && report.FrameRowsChanged == 5 && report.FramesFailed == 0, "Stacked and projected FCF tolerances convert to inches");
                 Check((string)((dynamic)stacked).PrimaryFrame == singleRows[0], "Primary FCF inch text");
                 Check((string)((dynamic)stacked).SecondaryFrame == singleRows[1], "Secondary FCF symbols and datum preserved");
@@ -163,13 +163,13 @@ internal static class LiveSmokeTests
                     Check((string)((dynamic)angularStyles[i]).Name == angularNames[i], "Angular name retained during inch conversion");
                     Check((int)((dynamic)angularStyles[i]).AngularDecimalRoundOff == 4, "Angular precision retained during inch conversion");
                 }
-                string[] targets = { "1 2 place", "1 3 place", "3 3 place (vert)" };
-                for (int i = 0; i < 3; i++)
+                string[] targets = { "1 2 place", "1 3 place", "3 3 place (vert)", "Vert 2 PLC", "Vert 3 PLC" };
+                for (int i = 0; i < sources.Length; i++)
                 {
                     dynamic style = dimStyles[i];
                     Check((string)style.Name == targets[i], "Inch style name " + i);
                     Check(!(bool)style.DualDisplay && (int)style.PrimaryUnits == 5, "Inch-only display " + i);
-                    Check((int)style.PrimaryDecimalRoundOff == (i == 0 ? 4 : 5), "Inch decimal precision " + i);
+                    Check((int)style.PrimaryDecimalRoundOff == (StyleName.Parse(sources[i]).Places == 2 ? 4 : 5), "Inch decimal precision " + i);
                 }
                 Check((string)((dynamic)otherStyle).Name == sources[0], "Other sheet must be untouched");
                 Check(Converter.ConvertDocument(scratch, false).Changed == 0, "Repeat must be idempotent");
@@ -186,7 +186,7 @@ internal static class LiveSmokeTests
                 Check((string)((dynamic)noteStyle).Name == "2 2 place m[i]", "Callout dual style");
                 Check(CalloutHistoryStore.Read(note) == null, "Completed pair record removed");
                 Check(Converter.ConvertDocument(scratch, true).CalloutsChanged == 0, "Repeated callout dual conversion idempotent");
-                Check(report.Changed == 3 && report.Failed == 0, "Three actual dimensions must convert to dual");
+                Check(report.Changed == sources.Length && report.Failed == 0, "All actual dimensions must convert to dual");
                 Check(report.FramesChanged == 3 && report.FrameRowsChanged == 6 && report.FramesFailed == 0, "Single, stacked and projected FCFs convert to dual");
                 Check((string)((dynamic)stacked).PrimaryFrame == dualRows[0], "Primary FCF metric rounding");
                 Check((string)((dynamic)stacked).SecondaryFrame == dualRows[1], "Secondary FCF metric rounding");
@@ -202,12 +202,12 @@ internal static class LiveSmokeTests
                     Check((string)((dynamic)angularStyles[i]).Name == angularNames[i], "Angular name retained during dual conversion");
                     Check((int)((dynamic)angularStyles[i]).AngularDecimalRoundOff == 4, "Angular precision retained during dual conversion");
                 }
-                for (int i = 0; i < 3; i++)
+                for (int i = 0; i < sources.Length; i++)
                 {
                     dynamic style = dimStyles[i];
                     Check((string)style.Name == sources[i], "Dual style name " + i);
                     Check((bool)style.DualDisplay, "Dual display " + i);
-                    Check((int)style.SecondaryDecimalRoundOff == (i == 0 ? 4 : 5), "Dual inch precision " + i);
+                    Check((int)style.SecondaryDecimalRoundOff == (StyleName.Parse(sources[i]).Places == 2 ? 4 : 5), "Dual inch precision " + i);
                 }
                 assertions += LiveCalloutHistory.Run(app);
                 Console.WriteLine("PASS: " + assertions + " live Solid Edge assertions in disposable drafts.");

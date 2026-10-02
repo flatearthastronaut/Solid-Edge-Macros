@@ -6,7 +6,7 @@ using System.Windows.Forms;
 [assembly: AssemblyTitle("Dual Dimension Toggle")]
 [assembly: AssemblyProduct("Dual Dimension Toggle")]
 [assembly: AssemblyDescription("Switch draft dimensions and Feature Control Frame tolerances between inch-only and dual units.")]
-[assembly: AssemblyVersion("1.7.0.0")]
+[assembly: AssemblyVersion("1.8.0.0")]
 
 namespace DualDimensionToggle
 {
@@ -31,7 +31,7 @@ namespace DualDimensionToggle
 
         internal ConverterForm()
         {
-            Text = "Dual Dimension Toggle v1.7";
+            Text = "Dual Dimension Toggle v1.8";
             // The same multi-resolution icon is embedded as a Windows resource
             // for Explorer and a managed resource for the window/taskbar.
             using (System.IO.Stream iconStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("DualDimensionToggle.ico"))
@@ -40,22 +40,41 @@ namespace DualDimensionToggle
             Icon = applicationIcon;
             Font = new Font("Segoe UI", 10);
             AutoScaleMode = AutoScaleMode.Dpi;
-            ClientSize = new Size(690, 480);
-            MinimumSize = new Size(610, 430);
+            ClientSize = new Size(760, 570);
+            MinimumSize = new Size(740, 550);
             StartPosition = FormStartPosition.CenterScreen;
-            TableLayoutPanel layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(18), ColumnCount = 1, RowCount = 7 };
-            for (int i = 0; i < 6; i++) layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            TableLayoutPanel layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(18), ColumnCount = 1, RowCount = 6 };
+            for (int i = 0; i < 5; i++) layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             layout.Controls.Add(new Label { Text = "Convert dimensions, Feature Control Frames, and callouts", AutoSize = true, Font = new Font(Font, FontStyle.Bold), Margin = new Padding(0, 0, 0, 12) });
             layout.Controls.Add(new Label { Text = "Active sheet only. Dimension styles keep their decimal places and orientation.\r\nFrames: .001 <-> .03[.001]. Callouts: styles, dual-unit fields, and metric[inch] pairs.", AutoSize = true, Margin = new Padding(0, 0, 0, 12) });
-            layout.Controls.Add(toInch);
-            layout.Controls.Add(toDual);
+            TableLayoutPanel choices = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 2, Margin = Padding.Empty };
+            choices.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            choices.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            choices.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            choices.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            AddChoice(choices, toInch, false, 0);
+            AddChoice(choices, toDual, true, 1);
+            layout.Controls.Add(choices);
             layout.Controls.Add(new Label { Text = "Activate the desired sheet in Solid Edge, then click Convert.\r\nAngular dimensions are unchanged. Review and save the draft afterward.", AutoSize = true, Margin = new Padding(0, 12, 0, 12) });
             convert.Margin = new Padding(0, 0, 0, 14);
             layout.Controls.Add(convert);
             layout.Controls.Add(results);
             Controls.Add(layout);
             convert.Click += ConvertClick;
+        }
+
+        private static void AddChoice(TableLayoutPanel choices, RadioButton radio, bool dual, int row)
+        {
+            // Both radios share this parent, preserving WinForms' exclusive
+            // selection and arrow-key navigation. The adjacent example is also
+            // clickable, but is not an extra stop in the keyboard tab order.
+            radio.Anchor = AnchorStyles.Left;
+            radio.Margin = new Padding(0, 0, 14, 0);
+            DimensionPreview picture = new DimensionPreview(dual) { Dock = DockStyle.Fill, Margin = Padding.Empty, Cursor = Cursors.Hand };
+            picture.Click += delegate { if (radio.Enabled) { radio.Checked = true; radio.Focus(); } };
+            choices.Controls.Add(radio, 0, row);
+            choices.Controls.Add(picture, 1, row);
         }
 
         protected override void Dispose(bool disposing)

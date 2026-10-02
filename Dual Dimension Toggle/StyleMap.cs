@@ -15,20 +15,29 @@ namespace DualDimensionToggle
         private static readonly Regex Pattern = new Regex(
             @"^\s*\d+\s+(\d+)\s+place(?:\s+(m\s*\[\s*i\s*\]))?(\s+\(vert\))?\s*$",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        private static readonly Regex VertPattern = new Regex(
+            @"^\s*Vert\s+(\d+)\s*PLC(?:\s+(m\s*\[\s*i\s*\]))?\s*$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         internal int Places;
         internal bool Dual;
         internal bool Vertical;
+        private bool vertPrefix;
         internal string Key(bool dual)
         {
-            return Places.ToString(CultureInfo.InvariantCulture) + ":" + dual + ":" + Vertical;
+            // Keep the two vertical naming families separate when a draft has
+            // both. Vert 3PLC must pair with Vert 3 PLC, not 3 3 place (vert).
+            return Places.ToString(CultureInfo.InvariantCulture) + ":" + dual + ":" + Vertical + ":" + vertPrefix;
         }
         internal static StyleName Parse(string name)
         {
             if (name == null) return null;
             Match match = Pattern.Match(name);
+            bool prefix = !match.Success;
+            if (prefix) match = VertPattern.Match(name);
             int places;
             if (!match.Success || !Int32.TryParse(match.Groups[1].Value, out places)) return null;
-            return new StyleName { Places = places, Dual = match.Groups[2].Success, Vertical = match.Groups[3].Success };
+            return new StyleName { Places = places, Dual = match.Groups[2].Success,
+                Vertical = prefix || match.Groups[3].Success, vertPrefix = prefix };
         }
     }
 

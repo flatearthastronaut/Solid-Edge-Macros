@@ -175,9 +175,57 @@ internal static class RegressionTests
             Equal(true, rejected, "non-draft rejected");
             assertions += FeatureFrameTests.Run();
             assertions += CalloutTests.Run();
+            VertStyles();
             Console.WriteLine("PASS: " + assertions + " regression assertions.");
             return 0;
         }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
+    }
+
+    private static void VertStyles()
+    {
+        // Both vertical naming families may coexist at the same precision.
+        // Neither should become ambiguous or cross over to the other family.
+        string[] catalog = { "1 2 place", "2 2 place m[i]", "3 2 place (vert)", "4 2 place m[i] (vert)",
+            "Vert 2 PLC", "Vert 2PLC m[i]", "Vert 3PLC", "Vert 3 PLC m[i]", "Vert 4 PLC", "Vert 4PLC m[i]" };
+        StyleMap map = new StyleMap(catalog);
+        Match(map, "Vert 2PLC m[i]", false, MatchStatus.Convert, "Vert 2 PLC");
+        Match(map, "Vert 2 PLC", true, MatchStatus.Convert, "Vert 2PLC m[i]");
+        Match(map, "  vErT  3 PLC M[ I ]  ", false, MatchStatus.Convert, "Vert 3PLC");
+        Match(map, "Vert 3PLC", true, MatchStatus.Convert, "Vert 3 PLC m[i]");
+        Match(map, "Vert 4PLC m[i]", false, MatchStatus.Convert, "Vert 4 PLC");
+        Match(map, "Vert 4 PLC", true, MatchStatus.Convert, "Vert 4PLC m[i]");
+        Match(map, "Vert 2PLC", false, MatchStatus.AlreadyTarget, null);
+        Match(map, "Vert 2 PLC m[i]", true, MatchStatus.AlreadyTarget, null);
+        Match(map, "4 2 place m[i] (vert)", false, MatchStatus.Convert, "3 2 place (vert)");
+        Match(map, "2 2 place m[i]", false, MatchStatus.Convert, "1 2 place");
+        Match(map, "Vert 5PLC m[i]", false, MatchStatus.Missing, null);
+        Match(new StyleMap(new[] { "1 2 place", "3 2 place (vert)" }), "Vert 2PLC m[i]", false, MatchStatus.Missing, null);
+        Match(new StyleMap(new[] { "Vert 2PLC", "Vert 2 PLC" }), "Vert 2PLC m[i]", false, MatchStatus.Ambiguous, null);
+        foreach (string invalid in new[] { "Vert fraction", "Vert 2PLC custom", "Vert 2PLC i[m]", "Vert 2.5PLC", "Vert 999999999999PLC", "Vert 2PLC (vert)", "Vertical 2PLC" })
+            Match(map, invalid, false, MatchStatus.Unrecognized, null);
+
+        FakeDimension vertical = new FakeDimension("Vert 2PLC m[i]");
+        FakeDimension angle = new FakeDimension("Vert 2PLC m[i]") { Kind = 3, ThrowOnStyleRead = true };
+        FakeDocument doc = Document(vertical, angle);
+        List<object> definitions = new List<object>();
+        foreach (string name in catalog) definitions.Add(new FakeStyle(name));
+        doc.DimensionStyles = new FakeCollection(definitions.ToArray());
+        FakeCallout callout = new FakeCallout("Vert 3 PLC m[i]", "%DI %{%HS/DU}");
+        doc.ActiveSheet.Balloons = new FakeCollection(callout);
+        ConversionReport report = Converter.ConvertDocument(doc, false);
+        Equal(1, report.Changed, "Vert dimension converted");
+        Equal(1, report.AngularSkipped, "Vert angular dimension still skipped");
+        Equal(0, report.Failed, "No angular style access");
+        Equal("Vert 2 PLC", vertical.Style.Name, "Vert two-place precision retained");
+        Equal("Vert 3PLC", callout.Style.Name, "Callout uses same Vert style mapping");
+        Equal("%DI %HS", callout.Text[0], "Vert callout fields converted together");
+        Equal(0, Converter.ConvertDocument(doc, false).Changed, "Vert inch repeat unchanged");
+        report = Converter.ConvertDocument(doc, true);
+        Equal(1, report.Changed, "Vert dimension reverses");
+        Equal("Vert 2PLC m[i]", vertical.Style.Name, "Vert original dual style restored");
+        Equal("Vert 3 PLC m[i]", callout.Style.Name, "Vert callout dual style restored");
+        Equal("%DI %{%HS/DU}", callout.Text[0], "Vert callout field restored");
+        Equal(1, report.AngularSkipped, "Vert angle skipped on reversal");
     }
 }
