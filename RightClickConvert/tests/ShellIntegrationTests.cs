@@ -22,13 +22,16 @@ internal static class ShellIntegrationTests
             Exercise(args[1], ".pdf", "PDF (.pdf)");
             Exercise(args[1], ".pdf", "PDF with Date", true);
             Exercise(args[2], ".par", "Solid Edge Part (.par)");
-            Console.WriteLine("PASS actual Shell multi-selection menus: STEP, PDF, dated PDF, and STEP to Part; all twelve source hashes preserved.");
+            string[] parasolid = CreateParasolidFixtures(args[0]);
+            Exercise(parasolid[0], ".par", "Solid Edge Part (.par)", false, parasolid[1]);
+            Exercise(parasolid[0], ".asm", "Solid Edge Assembly (.asm)", false, parasolid[1]);
+            Console.WriteLine("PASS actual Shell multi-selection menus: all six conversions; all eighteen source hashes preserved.");
             return 0;
         }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
     }
 
-    private static void Exercise(string fixture, string outputExtension, string label, bool dated = false)
+    private static void Exercise(string fixture, string outputExtension, string label, bool dated = false, string binaryFixture = null)
     {
         string folder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "work", "selection-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
@@ -37,9 +40,11 @@ internal static class ShellIntegrationTests
         for (int i = 0; i < paths.Length; i++)
         {
             // Include both STEP spellings in the same actual Explorer selection.
-            string extension = outputExtension == ".par" ? (i == 1 ? ".STEP" : ".stp") : Path.GetExtension(fixture);
+            string input = binaryFixture != null && i == 1 ? binaryFixture : fixture;
+            string extension = binaryFixture != null ? Path.GetExtension(input).ToUpperInvariant()
+                : outputExtension == ".par" ? (i == 1 ? ".STEP" : ".stp") : Path.GetExtension(fixture);
             paths[i] = Path.Combine(folder, "Selected " + i + " & é 100%" + extension);
-            File.Copy(fixture, paths[i]); hashes[i] = Hash(paths[i]);
+            File.Copy(input, paths[i]); hashes[i] = Hash(paths[i]);
         }
         Console.WriteLine("Invoking " + label + " on " + paths.Length + " files through IContextMenu.");
         string dateSuffix = dated ? " " + DateTime.Today.ToString("yyyyMMdd", System.Globalization.CultureInfo.InvariantCulture) : "";
@@ -57,7 +62,7 @@ internal static class ShellIntegrationTests
         {
             string output = expectedOutput(path);
             if (!File.Exists(output)) throw new Exception("Shell selection did not convert " + path);
-            if (outputExtension == ".par") { CheckNativePart(output); continue; }
+            if (outputExtension == ".par" || outputExtension == ".asm") { CheckNativePart(output, outputExtension == ".asm"); continue; }
             string text = Encoding.ASCII.GetString(File.ReadAllBytes(output));
             if (outputExtension == ".pdf" ? !text.StartsWith("%PDF-") || !text.Contains("%%EOF") : !text.StartsWith("ISO-10303-21;") || !text.Contains("END-ISO-10303-21;"))
                 throw new Exception("Incomplete export: " + output);
@@ -150,7 +155,7 @@ internal static class ShellIntegrationTests
         using (SHA256 hash = SHA256.Create())
         using (FileStream stream = File.OpenRead(path)) return Convert.ToBase64String(hash.ComputeHash(stream));
     }
-    private static void CheckNativePart(string path)
+    private static void CheckNativePart(string path, bool assembly = false)
     {
         using (OleMessageFilter filter = new OleMessageFilter())
         {
@@ -163,9 +168,31 @@ internal static class ShellIntegrationTests
                 object adapterBefore = null;
                 ((dynamic)app).GetGlobalParameter(458, ref adapterBefore);
                 part = ((dynamic)documents).Open(path);
-                if ((int)((dynamic)part).Type != 1) throw new Exception("Output is not a native part: " + path);
-                models = ((dynamic)part).Models;
-                if ((int)((dynamic)models).Count < 1) throw new Exception("Imported part has no model: " + path);
+                if ((int)((dynamic)part).Type != (assembly ? 3 : 1)) throw new Exception("Output is not the requested native type: " + path);
+                if (assembly)
+                {
+                    models = ((dynamic)part).Occurrences;
+                    if ((int)((dynamic)models).Count < 2) throw new Exception("Assembly lost its components: " + path);
+                    for (int i = 1; i <= (int)((dynamic)models).Count; i++)
+                    {
+                        object occurrence = null, child = null, childModels = null;
+                        try
+                        {
+                            occurrence = ((dynamic)models).Item(i);
+                            string file = ((dynamic)occurrence).OccurrenceFileName;
+                            if (!File.Exists(file)) throw new Exception("Missing assembly component: " + file);
+                            child = ((dynamic)occurrence).OccurrenceDocument;
+                            childModels = ((dynamic)child).Models;
+                            if ((int)((dynamic)childModels).Count < 1) throw new Exception("Empty assembly component: " + file);
+                        }
+                        finally { ComLifetime.Release(ref childModels); ComLifetime.Release(ref child); ComLifetime.Release(ref occurrence); }
+                    }
+                }
+                else
+                {
+                    models = ((dynamic)part).Models;
+                    if ((int)((dynamic)models).Count < 1) throw new Exception("Imported part has no model: " + path);
+                }
                 ComLifetime.Release(ref models);
                 ((dynamic)part).Close(false);
                 ComLifetime.Release(ref part);
@@ -180,6 +207,38 @@ internal static class ShellIntegrationTests
                 ComLifetime.Release(ref models);
                 try { if (part != null) ((dynamic)part).Close(false); }
                 finally { ComLifetime.Release(ref part); ComLifetime.Release(ref documents); ComLifetime.Release(ref app); }
+            }
+        }
+    }
+    private static string[] CreateParasolidFixtures(string cylinder)
+    {
+        using (OleMessageFilter filter = new OleMessageFilter())
+        {
+            object app = null, docs = null, assembly = null, occurrences = null, occurrence = null;
+            string folder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "work", "parasolid-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(folder);
+            string[] paths = { Path.Combine(folder, "Two cylinders.x_t"), Path.Combine(folder, "Two cylinders.x_b") };
+            try
+            {
+                app = Marshal.GetActiveObject("SolidEdge.Application");
+                docs = ((dynamic)app).Documents;
+                assembly = ((dynamic)docs).Add("SolidEdge.AssemblyDocument");
+                occurrences = ((dynamic)assembly).Occurrences;
+                for (int i = 0; i < 2; i++)
+                {
+                    occurrence = ((dynamic)occurrences).AddByFilename(cylinder);
+                    if (i == 1) ((dynamic)occurrence).Move(0.05, 0.0, 0.0);
+                    ComLifetime.Release(ref occurrence);
+                }
+                ((dynamic)assembly).SaveAs(Path.Combine(folder, "Two cylinders.asm"));
+                foreach (string path in paths) ((dynamic)assembly).SaveAs(path);
+                return paths;
+            }
+            finally
+            {
+                ComLifetime.Release(ref occurrence); ComLifetime.Release(ref occurrences);
+                try { if (assembly != null) ((dynamic)assembly).Close(false); }
+                finally { ComLifetime.Release(ref assembly); ComLifetime.Release(ref docs); ComLifetime.Release(ref app); }
             }
         }
     }

@@ -62,6 +62,16 @@ namespace SolidEdgeConvert
 
         internal static IEdgeDocument ImportStepPart(object documents, string path)
         {
+            return ImportWithTemplate(documents, path, "normal.par", 1);
+        }
+
+        public IEdgeDocument ImportParasolid(string path, bool assembly)
+        {
+            return ImportWithTemplate(documents, path, assembly ? "normal.asm" : "normal.par", assembly ? 3 : 1);
+        }
+
+        internal static IEdgeDocument ImportWithTemplate(object documents, string path, string template, int documentType)
+        {
             // Batch imports with OpenWithTemplate(source, "Normal.par"). Let
             // Solid Edge resolve its configured template instead of hard-coding
             // a workstation/version-specific Program Files path or using Add().
@@ -73,15 +83,15 @@ namespace SolidEdgeConvert
             {
                 int count = ((dynamic)documents).Count;
                 for (int index = 1; index <= count; index++) existing.Add(((dynamic)documents).Item(index));
-                imported = ((dynamic)documents).OpenWithTemplate(path, "normal.par");
-                if (imported == null) throw new IOException("Solid Edge did not return an imported part. Check the STEP file and normal.par template.");
+                imported = ((dynamic)documents).OpenWithTemplate(path, template);
+                if (imported == null) throw new IOException("Solid Edge did not return an imported document. Check the source file and " + template + " template.");
                 foreach (object open in existing)
                     if (SameDocument(open, imported))
-                        throw new IOException("Solid Edge returned an already-open document for this STEP file. Close that document and retry so normal.par can be applied to a fresh import.");
+                        throw new IOException("Solid Edge returned an already-open document for this file. Close that document and retry so " + template + " can be applied to a fresh import.");
                 owned = true;
-                // igPartDocument = 1, verified against Batch's Framework interop.
-                if ((int)((dynamic)imported).Type != 1)
-                    throw new IOException("The STEP import did not produce a Solid Edge part using normal.par.");
+                // Framework DocumentTypeConstants: part = 1, assembly = 3.
+                if ((int)((dynamic)imported).Type != documentType)
+                    throw new IOException("The import did not produce the requested document type using " + template + ".");
                 IEdgeDocument result = new SolidEdgeDocument(imported, true);
                 imported = null;
                 return result;

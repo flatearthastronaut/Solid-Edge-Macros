@@ -54,6 +54,14 @@ namespace SolidEdgeConvert
     public sealed class PartSelectionCommand : SelectionCommand
     { public PartSelectionCommand() : base(ConversionFormat.Part) { } }
 
+    [ComVisible(true), Guid(ShellMenu.ParasolidPartClass), ClassInterface(ClassInterfaceType.None)]
+    public sealed class ParasolidPartSelectionCommand : SelectionCommand
+    { public ParasolidPartSelectionCommand() : base(ConversionFormat.ParasolidPart) { } }
+
+    [ComVisible(true), Guid(ShellMenu.ParasolidAssemblyClass), ClassInterface(ClassInterfaceType.None)]
+    public sealed class ParasolidAssemblySelectionCommand : SelectionCommand
+    { public ParasolidAssemblySelectionCommand() : base(ConversionFormat.ParasolidAssembly) { } }
+
     internal sealed class ShellServer : ApplicationContext
     {
         private static ShellServer current;
@@ -76,6 +84,8 @@ namespace SolidEdgeConvert
                 cookies.Add(registration.RegisterTypeForComClients(typeof(PdfSelectionCommand), RegistrationClassContext.LocalServer, RegistrationConnectionType.MultipleUse));
                 cookies.Add(registration.RegisterTypeForComClients(typeof(DatedPdfSelectionCommand), RegistrationClassContext.LocalServer, RegistrationConnectionType.MultipleUse));
                 cookies.Add(registration.RegisterTypeForComClients(typeof(PartSelectionCommand), RegistrationClassContext.LocalServer, RegistrationConnectionType.MultipleUse));
+                cookies.Add(registration.RegisterTypeForComClients(typeof(ParasolidPartSelectionCommand), RegistrationClassContext.LocalServer, RegistrationConnectionType.MultipleUse));
+                cookies.Add(registration.RegisterTypeForComClients(typeof(ParasolidAssemblySelectionCommand), RegistrationClassContext.LocalServer, RegistrationConnectionType.MultipleUse));
                 // A small idle grace period lets Explorer finish using its proxy.
                 // No CAD work runs on this thread, and busy batches cannot expire.
                 idle.Interval = 1000;

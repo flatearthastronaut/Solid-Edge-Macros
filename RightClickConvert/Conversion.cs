@@ -5,7 +5,7 @@ using System.IO;
 
 namespace SolidEdgeConvert
 {
-    internal enum ConversionFormat { Step, Pdf, PdfWithDate, Part }
+    internal enum ConversionFormat { Step, Pdf, PdfWithDate, Part, ParasolidPart, ParasolidAssembly }
 
     // These small boundaries let regression tests exercise failure cleanup without
     // starting CAD or touching a user's open documents.
@@ -20,6 +20,7 @@ namespace SolidEdgeConvert
         object StepAdapter { get; set; }
         IEdgeDocument OpenDocument(string path);
         IEdgeDocument ImportStepPart(string path);
+        IEdgeDocument ImportParasolid(string path, bool assembly);
         void DoIdle();
     }
 
@@ -33,6 +34,8 @@ namespace SolidEdgeConvert
                 case ConversionFormat.Pdf: return "PDF";
                 case ConversionFormat.PdfWithDate: return "PDF with Date";
                 case ConversionFormat.Part: return "Solid Edge Part";
+                case ConversionFormat.ParasolidPart: return "Solid Edge Part";
+                case ConversionFormat.ParasolidAssembly: return "Solid Edge Assembly";
                 default: throw new ArgumentOutOfRangeException("format");
             }
         }
@@ -42,11 +45,15 @@ namespace SolidEdgeConvert
             string name = FormatName(format);
             string inputExtension = format == ConversionFormat.Step ? ".par" : ".dft";
             if (format == ConversionFormat.Part) inputExtension = ".stp or .step";
+            bool parasolid = format == ConversionFormat.ParasolidPart || format == ConversionFormat.ParasolidAssembly;
+            if (parasolid) inputExtension = ".x_t or .x_b";
             if (String.IsNullOrWhiteSpace(source))
                 throw new ArgumentException("Select a Solid Edge " + inputExtension + " file.");
             string fullPath = Path.GetFullPath(source);
             string extension = Path.GetExtension(fullPath);
-            bool supported = format == ConversionFormat.Part
+            bool supported = parasolid
+                ? String.Equals(extension, ".x_t", StringComparison.OrdinalIgnoreCase) || String.Equals(extension, ".x_b", StringComparison.OrdinalIgnoreCase)
+                : format == ConversionFormat.Part
                 ? String.Equals(extension, ".stp", StringComparison.OrdinalIgnoreCase) || String.Equals(extension, ".step", StringComparison.OrdinalIgnoreCase)
                 : String.Equals(extension, inputExtension, StringComparison.OrdinalIgnoreCase);
             if (!supported)
@@ -60,7 +67,9 @@ namespace SolidEdgeConvert
                 return Path.Combine(Path.GetDirectoryName(fullPath), Path.GetFileNameWithoutExtension(fullPath)
                     + " " + (exportDate ?? DateTime.Today).ToString("yyyyMMdd", CultureInfo.InvariantCulture) + ".pdf");
             }
-            return Path.ChangeExtension(fullPath, format == ConversionFormat.Step ? ".stp" : format == ConversionFormat.Part ? ".par" : ".pdf");
+            return Path.ChangeExtension(fullPath, format == ConversionFormat.Step ? ".stp"
+                : format == ConversionFormat.Part || format == ConversionFormat.ParasolidPart ? ".par"
+                : format == ConversionFormat.ParasolidAssembly ? ".asm" : ".pdf");
         }
 
         internal static string Run(string source, bool replaceExisting,
@@ -77,8 +86,24 @@ namespace SolidEdgeConvert
             // truncate an existing export or leave a partial file under its name.
             string temporary = Path.Combine(Path.GetDirectoryName(output),
                 "." + Path.GetFileNameWithoutExtension(output) + "." + Guid.NewGuid().ToString("N") + Path.GetExtension(output));
+            string componentFolder = null, importCopy = null;
             try
             {
+                if (format == ConversionFormat.ParasolidAssembly)
+                {
+                    // Solid Edge writes component files beside the imported source.
+                    // Import a copy in a unique, permanent folder so neither a failed
+                    // import nor an approved replacement can overwrite existing parts.
+                    // Keep this folder in place: the saved assembly references it.
+                    componentFolder = Path.Combine(Path.GetDirectoryName(output),
+                        Path.GetFileNameWithoutExtension(output) + " Components " + Guid.NewGuid().ToString("N"));
+                    Directory.CreateDirectory(componentFolder);
+                    // Assembly SaveAs also writes auxiliary files such as .cfg.
+                    // Stage inside the owned folder to keep those beside components.
+                    temporary = Path.Combine(componentFolder, Path.GetFileName(temporary));
+                    importCopy = Path.Combine(componentFolder, Path.GetFileName(source));
+                    File.Copy(source, importCopy, false);
+                }
                 progress("Connecting to Solid Edge...");
                 using (IEdgeSession session = connect())
                 {
@@ -94,7 +119,10 @@ namespace SolidEdgeConvert
                         // false values unconditionally, including on COM failures.
                         if (useStepAdapter) session.StepAdapter = true;
                         progress("Opening " + Path.GetFileName(source) + "...");
-                        part = format == ConversionFormat.Part ? session.ImportStepPart(source) : session.OpenDocument(source);
+                        part = format == ConversionFormat.Part ? session.ImportStepPart(source)
+                            : format == ConversionFormat.ParasolidPart ? session.ImportParasolid(source, false)
+                            : format == ConversionFormat.ParasolidAssembly ? session.ImportParasolid(importCopy, true)
+                            : session.OpenDocument(source);
                         session.DoIdle();
                         progress("Converting to " + formatName + "...");
                         part.SaveAs(temporary);
@@ -136,6 +164,18 @@ namespace SolidEdgeConvert
                 // Preserve the original diagnostic if removing a failed export
                 // is impossible (e.g. a disconnected network share).
                 try { if (File.Exists(temporary)) File.Delete(temporary); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+                // Delete only our copied input and an empty folder. Retain any
+                // generated components, even on failure, because an open document
+                // may reference them if CAD cleanup failed. Never recurse/delete
+                // another conversion's folder or the components of an older output.
+                try
+                {
+                    if (importCopy != null && File.Exists(importCopy)) File.Delete(importCopy);
+                    if (componentFolder != null && Directory.Exists(componentFolder)
+                        && Directory.GetFileSystemEntries(componentFolder).Length == 0) Directory.Delete(componentFolder);
+                }
                 catch (IOException) { }
                 catch (UnauthorizedAccessException) { }
             }

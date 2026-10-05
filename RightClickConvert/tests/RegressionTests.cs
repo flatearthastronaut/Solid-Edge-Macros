@@ -348,6 +348,74 @@ internal static class RegressionTests
             Test("part menu command quotes selected STEP path", delegate {
                 Equal("\"C:\\Tools & CAD\\SolidEdgeConvert.exe\" --part \"%1\"", ShellMenu.Command(@"C:\Tools & CAD\SolidEdgeConvert.exe", ConversionFormat.Part));
             });
+            string xt = Path.Combine(folder, "Parasolid & é.X_T");
+            string xb = Path.Combine(folder, "Parasolid & é.X_B");
+            File.WriteAllText(xt, "text Parasolid"); File.WriteAllText(xb, "binary Parasolid");
+            Test("both Parasolid extensions support both native output types", delegate {
+                foreach (string input in new[] { xt, xb }) {
+                    Equal(Path.ChangeExtension(input, ".par"), Conversion.OutputPath(input, ConversionFormat.ParasolidPart));
+                    Equal(Path.ChangeExtension(input, ".asm"), Conversion.OutputPath(input, ConversionFormat.ParasolidAssembly));
+                }
+                ExpectFailure(delegate { Conversion.OutputPath(stepSource, ConversionFormat.ParasolidPart); });
+                ExpectFailure(delegate { Conversion.OutputPath(draft, ConversionFormat.ParasolidAssembly); });
+                ExpectFailure(delegate { Conversion.OutputPath(xt, ConversionFormat.Part); });
+            });
+            Test("Parasolid imports use matching templates and reject wrong native types", delegate {
+                foreach (bool assembly in new[] { false, true }) {
+                    FakeDocument imported = new FakeDocument { Type = assembly ? 3 : 1 };
+                    FakeDocuments documents = new FakeDocuments { OpenResult = imported };
+                    string template = assembly ? "normal.asm" : "normal.par";
+                    using (IEdgeDocument result = SolidEdgeSession.ImportWithTemplate(documents, xt, template, assembly ? 3 : 1)) { result.CloseIfOwned(); }
+                    Equal(template, documents.Template); Check(imported.Closed && !imported.SaveOnClose, "Import left open");
+                    FakeDocument wrong = new FakeDocument { Type = assembly ? 1 : 3 };
+                    ExpectFailure(delegate { SolidEdgeSession.ImportWithTemplate(new FakeDocuments { OpenResult = wrong }, xb, template, assembly ? 3 : 1); });
+                    Check(wrong.Closed && !wrong.Saved, "Wrong type not cleaned up");
+                }
+            });
+            Test("Parasolid conversion saves both formats without accessing STEP settings", delegate {
+                foreach (string input in new[] { xt, xb }) foreach (bool assembly in new[] { false, true }) {
+                    FakeSession s = new FakeSession(false) { RejectStepAccess = true };
+                    ConversionFormat format = assembly ? ConversionFormat.ParasolidAssembly : ConversionFormat.ParasolidPart;
+                    string result = Conversion.Run(input, true, delegate { return s; }, delegate { }, format);
+                    Equal(assembly ? "ASM data" : "PAR data", File.ReadAllText(result));
+                    Check(s.Events.Contains(assembly ? "import-assembly" : "import-parasolid-part"), "Wrong import route");
+                    Check(s.PartClosed && s.PartDisposed && s.Disposed, "Parasolid cleanup incomplete");
+                    if (assembly) Check(!File.Exists(s.ImportPath) && !Directory.Exists(Path.GetDirectoryName(s.ImportPath)), "Unused copy/folder retained");
+                    else Equal(input, s.ImportPath);
+                }
+            });
+            Test("assembly components stay isolated and survive final publication and replacement", delegate {
+                string firstFolder = null;
+                for (int attempt = 0; attempt < 2; attempt++) {
+                    FakeSession s = new FakeSession(false) { RejectStepAccess = true, GenerateComponent = true };
+                    Conversion.Run(xt, true, delegate { return s; }, delegate { }, ConversionFormat.ParasolidAssembly);
+                    string components = Path.GetDirectoryName(s.ImportPath);
+                    Check(components != folder && File.Exists(Path.Combine(components, "component.par")), "Components lost or unisolated");
+                    Check(!File.Exists(s.ImportPath), "Input copy retained");
+                    if (firstFolder == null) firstFolder = components;
+                    else { Check(components != firstFolder, "Replacement reused old components"); Check(File.Exists(Path.Combine(firstFolder, "component.par")), "Old components deleted"); }
+                }
+            });
+            Test("failed Parasolid save preserves existing native output and original input", delegate {
+                foreach (ConversionFormat format in new[] { ConversionFormat.ParasolidPart, ConversionFormat.ParasolidAssembly }) {
+                    string result = Conversion.OutputPath(xb, format); File.WriteAllText(result, "existing native file");
+                    FakeSession s = new FakeSession(false) { RejectStepAccess = true, FailSave = true };
+                    ExpectFailure(delegate { Conversion.Run(xb, true, delegate { return s; }, delegate { }, format); });
+                    Equal("existing native file", File.ReadAllText(result)); Check(s.PartClosed && s.Disposed, "Failed import not cleaned up");
+                }
+                Equal("text Parasolid", File.ReadAllText(xt)); Equal("binary Parasolid", File.ReadAllText(xb));
+            });
+            Test("mixed Parasolid batch prevents same-basename output collisions", delegate {
+                foreach (ConversionFormat format in new[] { ConversionFormat.ParasolidPart, ConversionFormat.ParasolidAssembly }) {
+                    List<BatchItem> results = BatchConversion.Run(new[] { xt, xb }, format, ExistingOutput.Replace,
+                        delegate { return new FakeSession(false) { RejectStepAccess = true }; }, delegate { });
+                    Check(results[0].Error == null && results[1].Error != null, "Colliding Parasolid destinations accepted");
+                }
+            });
+            Test("Parasolid menu commands select the requested output type", delegate {
+                Equal("\"C:\\Tools & CAD\\SolidEdgeConvert.exe\" --parasolid-part \"%1\"", ShellMenu.Command(@"C:\Tools & CAD\SolidEdgeConvert.exe", ConversionFormat.ParasolidPart));
+                Equal("\"C:\\Tools & CAD\\SolidEdgeConvert.exe\" --parasolid-assembly \"%1\"", ShellMenu.Command(@"C:\Tools & CAD\SolidEdgeConvert.exe", ConversionFormat.ParasolidAssembly));
+            });
             Console.WriteLine("Passed " + passed + " regression tests.");
             return 0;
         }
@@ -356,8 +424,7 @@ internal static class RegressionTests
         {
             // This folder is freshly created by this process under tests/work.
             // Never recurse through a supplied path or remove arbitrary CAD data.
-            foreach (string file in Directory.GetFiles(folder)) File.Delete(file);
-            Directory.Delete(folder);
+            Directory.Delete(folder, true);
         }
     }
 
@@ -382,6 +449,8 @@ internal static class RegressionTests
         internal bool PartClosed, PartDisposed, Disposed;
         internal bool RejectStepAccess;
         internal string SavedExtension;
+        internal string ImportPath;
+        internal bool GenerateComponent;
         internal Action OnSave;
         internal List<string> Events = new List<string>();
         internal FakeSession(bool adapter) { Adapter = adapter; }
@@ -404,6 +473,14 @@ internal static class RegressionTests
             return new FakePart(this);
         }
         public void DoIdle() { Events.Add("idle"); }
+        public IEdgeDocument ImportParasolid(string path, bool assembly)
+        {
+            ImportPath = path;
+            Events.Add(assembly ? "import-assembly" : "import-parasolid-part");
+            if (FailOpen) throw new IOException("Parasolid import failed");
+            if (GenerateComponent) File.WriteAllText(Path.Combine(Path.GetDirectoryName(path), "component.par"), "component");
+            return new FakePart(this);
+        }
         public IEdgeDocument ImportStepPart(string path)
         {
             Events.Add("import");
@@ -419,7 +496,7 @@ internal static class RegressionTests
             {
                 owner.Events.Add("save");
                 owner.SavedExtension = Path.GetExtension(path);
-                if (!owner.MissingOutput) File.WriteAllText(path, owner.EmptyOutput ? "" : (owner.SavedExtension == ".pdf" ? "PDF data" : owner.SavedExtension == ".par" ? "PAR data" : "STEP data"));
+                if (!owner.MissingOutput) File.WriteAllText(path, owner.EmptyOutput ? "" : (owner.SavedExtension == ".pdf" ? "PDF data" : owner.SavedExtension == ".par" ? "PAR data" : owner.SavedExtension == ".asm" ? "ASM data" : "STEP data"));
                 if (owner.OnSave != null) owner.OnSave();
                 if (owner.FailSave) throw new IOException("Save failed after partial write");
             }
