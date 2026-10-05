@@ -17,15 +17,25 @@ internal static class ShellIntegrationTests
     {
         try
         {
+            if (args.Length == 4 && args[3] == "--step-assembly-only")
+            {
+                Exercise(args[2], ".asm", "Solid Edge Assembly (.asm)");
+                Console.WriteLine("PASS STEP assembly selection: both extensions, three assemblies, component geometry/links, and source hashes.");
+                return 0;
+            }
             if (args.Length != 3) throw new ArgumentException("Pass generated .par, .dft, and .stp fixture paths.");
             Exercise(args[0], ".stp", "STEP (.stp)");
             Exercise(args[1], ".pdf", "PDF (.pdf)");
             Exercise(args[1], ".pdf", "PDF with Date", true);
+            string[] imports = CreateImportFixtures(args[0]);
+            // STEP can encode even a single exported part inside assembly
+            // structure. Solid Edge may request a flattening confirmation here.
+            // Use --step-assembly-only to verify assembly import unattended.
             Exercise(args[2], ".par", "Solid Edge Part (.par)");
-            string[] parasolid = CreateParasolidFixtures(args[0]);
-            Exercise(parasolid[0], ".par", "Solid Edge Part (.par)", false, parasolid[1]);
-            Exercise(parasolid[0], ".asm", "Solid Edge Assembly (.asm)", false, parasolid[1]);
-            Console.WriteLine("PASS actual Shell multi-selection menus: all six conversions; all eighteen source hashes preserved.");
+            Exercise(imports[2], ".asm", "Solid Edge Assembly (.asm)");
+            Exercise(imports[0], ".par", "Solid Edge Part (.par)", false, imports[1]);
+            Exercise(imports[0], ".asm", "Solid Edge Assembly (.asm)", false, imports[1]);
+            Console.WriteLine("PASS actual Shell multi-selection menus: all seven conversions; all twenty-one source hashes preserved.");
             return 0;
         }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
@@ -42,7 +52,8 @@ internal static class ShellIntegrationTests
             // Include both STEP spellings in the same actual Explorer selection.
             string input = binaryFixture != null && i == 1 ? binaryFixture : fixture;
             string extension = binaryFixture != null ? Path.GetExtension(input).ToUpperInvariant()
-                : outputExtension == ".par" ? (i == 1 ? ".STEP" : ".stp") : Path.GetExtension(fixture);
+                : Path.GetExtension(fixture).Equals(".stp", StringComparison.OrdinalIgnoreCase)
+                    ? (i == 1 ? ".STEP" : ".stp") : Path.GetExtension(fixture);
             paths[i] = Path.Combine(folder, "Selected " + i + " & é 100%" + extension);
             File.Copy(input, paths[i]); hashes[i] = Hash(paths[i]);
         }
@@ -210,14 +221,14 @@ internal static class ShellIntegrationTests
             }
         }
     }
-    private static string[] CreateParasolidFixtures(string cylinder)
+    private static string[] CreateImportFixtures(string cylinder)
     {
         using (OleMessageFilter filter = new OleMessageFilter())
         {
             object app = null, docs = null, assembly = null, occurrences = null, occurrence = null;
-            string folder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "work", "parasolid-" + Guid.NewGuid().ToString("N"));
+            string folder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "work", "imports-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(folder);
-            string[] paths = { Path.Combine(folder, "Two cylinders.x_t"), Path.Combine(folder, "Two cylinders.x_b") };
+            string[] paths = { Path.Combine(folder, "Two cylinders.x_t"), Path.Combine(folder, "Two cylinders.x_b"), Path.Combine(folder, "Two cylinders.stp") };
             try
             {
                 app = Marshal.GetActiveObject("SolidEdge.Application");
@@ -231,7 +242,16 @@ internal static class ShellIntegrationTests
                     ComLifetime.Release(ref occurrence);
                 }
                 ((dynamic)assembly).SaveAs(Path.Combine(folder, "Two cylinders.asm"));
-                foreach (string path in paths) ((dynamic)assembly).SaveAs(path);
+                ((dynamic)assembly).SaveAs(paths[0]);
+                ((dynamic)assembly).SaveAs(paths[1]);
+                object previousAdapter = null;
+                ((dynamic)app).GetGlobalParameter(458, ref previousAdapter);
+                try
+                {
+                    ((dynamic)app).SetGlobalParameter(458, true);
+                    ((dynamic)assembly).SaveAs(paths[2]);
+                }
+                finally { ((dynamic)app).SetGlobalParameter(458, previousAdapter); }
                 return paths;
             }
             finally

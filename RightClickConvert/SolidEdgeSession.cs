@@ -65,6 +65,11 @@ namespace SolidEdgeConvert
             return ImportWithTemplate(documents, path, "normal.par", 1);
         }
 
+        public IEdgeDocument ImportStepAssembly(string path)
+        {
+            return ImportWithTemplate(documents, path, "normal.asm", 3);
+        }
+
         public IEdgeDocument ImportParasolid(string path, bool assembly)
         {
             return ImportWithTemplate(documents, path, assembly ? "normal.asm" : "normal.par", assembly ? 3 : 1);
@@ -72,7 +77,7 @@ namespace SolidEdgeConvert
 
         internal static IEdgeDocument ImportWithTemplate(object documents, string path, string template, int documentType)
         {
-            // Batch imports with OpenWithTemplate(source, "Normal.par"). Let
+            // Batch imports with OpenWithTemplate and Normal.par/Normal.asm. Let
             // Solid Edge resolve its configured template instead of hard-coding
             // a workstation/version-specific Program Files path or using Add().
             // A translated document need not have the STEP source's FullName.

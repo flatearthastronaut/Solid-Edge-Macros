@@ -11,7 +11,9 @@ $menus = @(
     @{ Path='Software\Classes\SystemFileAssociations\.x_t\shell\SolidEdgeMacros.Convert'; Verb='01Part'; Label='Solid Edge Part (.par)'; Argument='--parasolid-part'; Class='{263031DD-6A5B-4776-B4BC-39EB97D16A95}' },
     @{ Path='Software\Classes\SystemFileAssociations\.x_b\shell\SolidEdgeMacros.Convert'; Verb='01Part'; Label='Solid Edge Part (.par)'; Argument='--parasolid-part'; Class='{263031DD-6A5B-4776-B4BC-39EB97D16A95}' },
     @{ Path='Software\Classes\SystemFileAssociations\.x_t\shell\SolidEdgeMacros.Convert'; Verb='02Assembly'; Label='Solid Edge Assembly (.asm)'; Argument='--parasolid-assembly'; Class='{826FDBF0-726C-4EE8-B8B2-AE63E63ACAF9}' },
-    @{ Path='Software\Classes\SystemFileAssociations\.x_b\shell\SolidEdgeMacros.Convert'; Verb='02Assembly'; Label='Solid Edge Assembly (.asm)'; Argument='--parasolid-assembly'; Class='{826FDBF0-726C-4EE8-B8B2-AE63E63ACAF9}' }
+    @{ Path='Software\Classes\SystemFileAssociations\.x_b\shell\SolidEdgeMacros.Convert'; Verb='02Assembly'; Label='Solid Edge Assembly (.asm)'; Argument='--parasolid-assembly'; Class='{826FDBF0-726C-4EE8-B8B2-AE63E63ACAF9}' },
+    @{ Path='Software\Classes\SystemFileAssociations\.stp\shell\SolidEdgeMacros.Convert'; Verb='02Assembly'; Label='Solid Edge Assembly (.asm)'; Argument='--step-assembly'; Class='{B5CC13CF-4069-451E-87E6-6E74686DD5AF}' },
+    @{ Path='Software\Classes\SystemFileAssociations\.step\shell\SolidEdgeMacros.Convert'; Verb='02Assembly'; Label='Solid Edge Assembly (.asm)'; Argument='--step-assembly'; Class='{B5CC13CF-4069-451E-87E6-6E74686DD5AF}' }
 )
 $user = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::CurrentUser, [Microsoft.Win32.RegistryView]::Registry64)
 function Invoke-Installer([string] $argument) {
@@ -63,6 +65,6 @@ try {
     }
     Invoke-Installer '--install'
     Test-InstalledMenu
-    Write-Output 'PASS install, reinstall, uninstall, and final registration for all six conversions and six source extensions.'
+    Write-Output 'PASS install, reinstall, uninstall, and final registration for all seven conversions and six source extensions.'
 }
 finally { $user.Dispose() }

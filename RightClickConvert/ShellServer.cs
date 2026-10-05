@@ -62,6 +62,10 @@ namespace SolidEdgeConvert
     public sealed class ParasolidAssemblySelectionCommand : SelectionCommand
     { public ParasolidAssemblySelectionCommand() : base(ConversionFormat.ParasolidAssembly) { } }
 
+    [ComVisible(true), Guid(ShellMenu.StepAssemblyClass), ClassInterface(ClassInterfaceType.None)]
+    public sealed class StepAssemblySelectionCommand : SelectionCommand
+    { public StepAssemblySelectionCommand() : base(ConversionFormat.StepAssembly) { } }
+
     internal sealed class ShellServer : ApplicationContext
     {
         private static ShellServer current;
@@ -86,6 +90,7 @@ namespace SolidEdgeConvert
                 cookies.Add(registration.RegisterTypeForComClients(typeof(PartSelectionCommand), RegistrationClassContext.LocalServer, RegistrationConnectionType.MultipleUse));
                 cookies.Add(registration.RegisterTypeForComClients(typeof(ParasolidPartSelectionCommand), RegistrationClassContext.LocalServer, RegistrationConnectionType.MultipleUse));
                 cookies.Add(registration.RegisterTypeForComClients(typeof(ParasolidAssemblySelectionCommand), RegistrationClassContext.LocalServer, RegistrationConnectionType.MultipleUse));
+                cookies.Add(registration.RegisterTypeForComClients(typeof(StepAssemblySelectionCommand), RegistrationClassContext.LocalServer, RegistrationConnectionType.MultipleUse));
                 // A small idle grace period lets Explorer finish using its proxy.
                 // No CAD work runs on this thread, and busy batches cannot expire.
                 idle.Interval = 1000;

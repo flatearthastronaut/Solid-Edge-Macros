@@ -416,6 +416,58 @@ internal static class RegressionTests
                 Equal("\"C:\\Tools & CAD\\SolidEdgeConvert.exe\" --parasolid-part \"%1\"", ShellMenu.Command(@"C:\Tools & CAD\SolidEdgeConvert.exe", ConversionFormat.ParasolidPart));
                 Equal("\"C:\\Tools & CAD\\SolidEdgeConvert.exe\" --parasolid-assembly \"%1\"", ShellMenu.Command(@"C:\Tools & CAD\SolidEdgeConvert.exe", ConversionFormat.ParasolidAssembly));
             });
+            Test("STEP assembly accepts both extensions and rejects other source formats", delegate {
+                Equal(Path.ChangeExtension(stepSource, ".asm"), Conversion.OutputPath(stepSource, ConversionFormat.StepAssembly));
+                Equal(Path.ChangeExtension(longStepSource, ".asm"), Conversion.OutputPath(longStepSource, ConversionFormat.StepAssembly));
+                ExpectFailure(delegate { Conversion.OutputPath(xt, ConversionFormat.StepAssembly); });
+                ExpectFailure(delegate { Conversion.OutputPath(draft, ConversionFormat.StepAssembly); });
+            });
+            Test("STEP assembly uses normal.asm and protects already-open documents", delegate {
+                FakeDocument imported = new FakeDocument { Type = 3 };
+                FakeDocuments documents = new FakeDocuments { OpenResult = imported };
+                using (IEdgeDocument result = SolidEdgeSession.ImportWithTemplate(documents, stepSource, "normal.asm", 3)) { result.CloseIfOwned(); }
+                Equal("normal.asm", documents.Template); Check(imported.Closed && !imported.SaveOnClose, "Assembly ownership incorrect");
+                FakeDocument existing = new FakeDocument { Type = 3, Dirty = true };
+                ExpectFailure(delegate { SolidEdgeSession.ImportWithTemplate(new FakeDocuments { Existing = existing, OpenResult = existing }, stepSource, "normal.asm", 3); });
+                Check(!existing.Saved && !existing.Closed, "Existing assembly touched");
+            });
+            Test("STEP assembly isolates components and restores enabled or disabled adapter", delegate {
+                string previousFolder = null;
+                foreach (bool enabled in new[] { false, true }) {
+                    FakeSession s = new FakeSession(enabled) { GenerateComponent = true };
+                    string result = Conversion.Run(stepSource, true, delegate { return s; }, delegate { }, ConversionFormat.StepAssembly);
+                    Equal("ASM data", File.ReadAllText(result)); Equal(enabled, s.Adapter);
+                    Check(s.Events.Contains("import-step-assembly") && !s.Events.Contains("open"), "Wrong opening route");
+                    Check(s.PartClosed && s.PartDisposed && s.Disposed, "STEP assembly cleanup incomplete");
+                    string components = Path.GetDirectoryName(s.ImportPath);
+                    Check(components != folder && File.Exists(Path.Combine(components, "component.par")) && !File.Exists(s.ImportPath), "Isolated components/copy incorrect");
+                    if (previousFolder != null) Check(components != previousFolder && File.Exists(Path.Combine(previousFolder, "component.par")), "Replacement damaged earlier components");
+                    previousFolder = components;
+                }
+            });
+            Test("failed STEP assembly retains old output and restores translator", delegate {
+                string result = Conversion.OutputPath(longStepSource, ConversionFormat.StepAssembly);
+                File.WriteAllText(result, "existing assembly");
+                foreach (FakeSession s in new[] { new FakeSession(false) { FailOpen = true }, new FakeSession(false) { FailSave = true, GenerateComponent = true }, new FakeSession(false) { FailClose = true }, new FakeSession(false) { EmptyOutput = true } }) {
+                    ExpectFailure(delegate { Conversion.Run(longStepSource, true, delegate { return s; }, delegate { }, ConversionFormat.StepAssembly); });
+                    Equal("existing assembly", File.ReadAllText(result)); Equal(false, s.Adapter);
+                    Check(s.Disposed && !File.Exists(s.ImportPath), "Failed STEP import leaked session/input copy");
+                    if (s.GenerateComponent) Check(File.Exists(Path.Combine(Path.GetDirectoryName(s.ImportPath), "component.par")), "Recovery component removed");
+                }
+                Equal("STEP source", File.ReadAllText(longStepSource));
+            });
+            Test("STEP assembly skip and same-name collision avoid a second import", delegate {
+                List<BatchItem> skipped = BatchConversion.Run(new[] { stepSource }, ConversionFormat.StepAssembly, ExistingOutput.Skip,
+                    delegate { throw new Exception("Skipped assembly must not connect"); }, delegate { });
+                Check(skipped[0].Skipped && skipped[0].Error == null, "Assembly skip failed");
+                int connected = 0;
+                List<BatchItem> results = BatchConversion.Run(new[] { stepSource, longStepSource }, ConversionFormat.StepAssembly, ExistingOutput.Replace,
+                    delegate { connected++; return new FakeSession(false); }, delegate { });
+                Equal(1, connected); Check(results[0].Error == null && results[1].Error != null, "STEP assembly collision accepted");
+            });
+            Test("STEP assembly menu quotes the selected file", delegate {
+                Equal("\"C:\\Tools & CAD\\SolidEdgeConvert.exe\" --step-assembly \"%1\"", ShellMenu.Command(@"C:\Tools & CAD\SolidEdgeConvert.exe", ConversionFormat.StepAssembly));
+            });
             Console.WriteLine("Passed " + passed + " regression tests.");
             return 0;
         }
@@ -485,6 +537,14 @@ internal static class RegressionTests
         {
             Events.Add("import");
             if (FailOpen) throw new IOException("Import or template failed");
+            return new FakePart(this);
+        }
+        public IEdgeDocument ImportStepAssembly(string path)
+        {
+            ImportPath = path;
+            Events.Add("import-step-assembly");
+            if (FailOpen) throw new IOException("STEP assembly import failed");
+            if (GenerateComponent) File.WriteAllText(Path.Combine(Path.GetDirectoryName(path), "component.par"), "component");
             return new FakePart(this);
         }
         public void Dispose() { Events.Add("session-dispose"); Disposed = true; }

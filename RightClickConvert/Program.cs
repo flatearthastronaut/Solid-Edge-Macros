@@ -7,7 +7,7 @@ using System.Windows.Forms;
 using Microsoft.Win32;
 
 [assembly: System.Reflection.AssemblyTitle("Solid Edge Convert")]
-[assembly: System.Reflection.AssemblyVersion("1.5.0.0")]
+[assembly: System.Reflection.AssemblyVersion("1.6.0.0")]
 
 namespace SolidEdgeConvert
 {
@@ -36,9 +36,9 @@ namespace SolidEdgeConvert
                     ShellMenu.NotifyExplorer();
                     return 0;
                 }
-                if (args.Length < 2 || (args[0] != "--step" && args[0] != "--pdf" && args[0] != "--pdf-date" && args[0] != "--part" && args[0] != "--parasolid-part" && args[0] != "--parasolid-assembly"))
-                    throw new ArgumentException("Usage:\nSolidEdgeConvert.exe --step \"part1.par\" \"part2.par\" ...\nSolidEdgeConvert.exe --pdf \"drawing1.dft\" \"drawing2.dft\" ...\nSolidEdgeConvert.exe --pdf-date \"drawing1.dft\" \"drawing2.dft\" ...\nSolidEdgeConvert.exe --part \"file1.stp\" \"file2.step\" ...\nSolidEdgeConvert.exe --parasolid-part \"file1.x_t\" \"file2.x_b\" ...\nSolidEdgeConvert.exe --parasolid-assembly \"file1.x_t\" \"file2.x_b\" ...\n\nRun without arguments to install or remove the right-click menus.");
-                ConversionFormat format = args[0] == "--step" ? ConversionFormat.Step : args[0] == "--pdf" ? ConversionFormat.Pdf : args[0] == "--part" ? ConversionFormat.Part : args[0] == "--parasolid-part" ? ConversionFormat.ParasolidPart : args[0] == "--parasolid-assembly" ? ConversionFormat.ParasolidAssembly : ConversionFormat.PdfWithDate;
+                if (args.Length < 2 || (args[0] != "--step" && args[0] != "--pdf" && args[0] != "--pdf-date" && args[0] != "--part" && args[0] != "--parasolid-part" && args[0] != "--parasolid-assembly" && args[0] != "--step-assembly"))
+                    throw new ArgumentException("Usage:\nSolidEdgeConvert.exe --step \"part1.par\" \"part2.par\" ...\nSolidEdgeConvert.exe --pdf \"drawing1.dft\" \"drawing2.dft\" ...\nSolidEdgeConvert.exe --pdf-date \"drawing1.dft\" \"drawing2.dft\" ...\nSolidEdgeConvert.exe --part \"file1.stp\" \"file2.step\" ...\nSolidEdgeConvert.exe --parasolid-part \"file1.x_t\" \"file2.x_b\" ...\nSolidEdgeConvert.exe --parasolid-assembly \"file1.x_t\" \"file2.x_b\" ...\nSolidEdgeConvert.exe --step-assembly \"file1.stp\" \"file2.step\" ...\n\nRun without arguments to install or remove the right-click menus.");
+                ConversionFormat format = args[0] == "--step" ? ConversionFormat.Step : args[0] == "--pdf" ? ConversionFormat.Pdf : args[0] == "--part" ? ConversionFormat.Part : args[0] == "--parasolid-part" ? ConversionFormat.ParasolidPart : args[0] == "--parasolid-assembly" ? ConversionFormat.ParasolidAssembly : args[0] == "--step-assembly" ? ConversionFormat.StepAssembly : ConversionFormat.PdfWithDate;
 
                 return RunBatch(new List<string>(args).GetRange(1, args.Length - 1).ToArray(), format);
             }
@@ -112,7 +112,7 @@ namespace SolidEdgeConvert
             StartPosition = FormStartPosition.CenterScreen;
             Font = new Font("Segoe UI", 10);
             Controls.Add(new Label { Left = 20, Top = 18, Width = 510, Height = 185,
-                Text = "Select one or more files, then right-click Convert:\nParts (.par) > STEP (.stp)\nDrafts (.dft) > PDF or PDF with Date\nSTEP (.stp / .step) > Solid Edge Part (.par)\nParasolid (.x_t / .x_b) > Part (.par) or Assembly (.asm)\n\nOutputs are saved beside the original files.\nOn Windows 11, choose Show more options first.\nKeep this executable in its current folder after installing." });
+                Text = "Select one or more files, then right-click Convert:\nParts (.par) > STEP (.stp)\nDrafts (.dft) > PDF or PDF with Date\nSTEP (.stp / .step) > Part (.par) or Assembly (.asm)\nParasolid (.x_t / .x_b) > Part (.par) or Assembly (.asm)\n\nOutputs are saved beside the original files.\nOn Windows 11, choose Show more options first.\nKeep this executable in its current folder after installing." });
             Button install = new Button { Text = "Install menus", Left = 20, Top = 220, Width = 140, Height = 35 };
             Button remove = new Button { Text = "Remove menus", Left = 175, Top = 220, Width = 140, Height = 35 };
             Button close = new Button { Text = "Close", Left = 360, Top = 220, Width = 120, Height = 35 };
@@ -191,7 +191,7 @@ namespace SolidEdgeConvert
                 finished = true;
                 int converted = 0, skipped = 0, failed = 0;
                 List<string> lines = new List<string>();
-                if (format == ConversionFormat.ParasolidAssembly)
+                if (Conversion.IsAssembly(format))
                     lines.Add("Keep each assembly with its matching Components folder when moving or sharing it.");
                 if (results != null) foreach (BatchItem item in results)
                 {

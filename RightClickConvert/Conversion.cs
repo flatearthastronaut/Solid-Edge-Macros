@@ -5,7 +5,7 @@ using System.IO;
 
 namespace SolidEdgeConvert
 {
-    internal enum ConversionFormat { Step, Pdf, PdfWithDate, Part, ParasolidPart, ParasolidAssembly }
+    internal enum ConversionFormat { Step, Pdf, PdfWithDate, Part, ParasolidPart, ParasolidAssembly, StepAssembly }
 
     // These small boundaries let regression tests exercise failure cleanup without
     // starting CAD or touching a user's open documents.
@@ -20,6 +20,7 @@ namespace SolidEdgeConvert
         object StepAdapter { get; set; }
         IEdgeDocument OpenDocument(string path);
         IEdgeDocument ImportStepPart(string path);
+        IEdgeDocument ImportStepAssembly(string path);
         IEdgeDocument ImportParasolid(string path, bool assembly);
         void DoIdle();
     }
@@ -36,6 +37,7 @@ namespace SolidEdgeConvert
                 case ConversionFormat.Part: return "Solid Edge Part";
                 case ConversionFormat.ParasolidPart: return "Solid Edge Part";
                 case ConversionFormat.ParasolidAssembly: return "Solid Edge Assembly";
+                case ConversionFormat.StepAssembly: return "Solid Edge Assembly";
                 default: throw new ArgumentOutOfRangeException("format");
             }
         }
@@ -44,7 +46,8 @@ namespace SolidEdgeConvert
         {
             string name = FormatName(format);
             string inputExtension = format == ConversionFormat.Step ? ".par" : ".dft";
-            if (format == ConversionFormat.Part) inputExtension = ".stp or .step";
+            bool stepImport = format == ConversionFormat.Part || format == ConversionFormat.StepAssembly;
+            if (stepImport) inputExtension = ".stp or .step";
             bool parasolid = format == ConversionFormat.ParasolidPart || format == ConversionFormat.ParasolidAssembly;
             if (parasolid) inputExtension = ".x_t or .x_b";
             if (String.IsNullOrWhiteSpace(source))
@@ -53,7 +56,7 @@ namespace SolidEdgeConvert
             string extension = Path.GetExtension(fullPath);
             bool supported = parasolid
                 ? String.Equals(extension, ".x_t", StringComparison.OrdinalIgnoreCase) || String.Equals(extension, ".x_b", StringComparison.OrdinalIgnoreCase)
-                : format == ConversionFormat.Part
+                : stepImport
                 ? String.Equals(extension, ".stp", StringComparison.OrdinalIgnoreCase) || String.Equals(extension, ".step", StringComparison.OrdinalIgnoreCase)
                 : String.Equals(extension, inputExtension, StringComparison.OrdinalIgnoreCase);
             if (!supported)
@@ -69,7 +72,12 @@ namespace SolidEdgeConvert
             }
             return Path.ChangeExtension(fullPath, format == ConversionFormat.Step ? ".stp"
                 : format == ConversionFormat.Part || format == ConversionFormat.ParasolidPart ? ".par"
-                : format == ConversionFormat.ParasolidAssembly ? ".asm" : ".pdf");
+                : IsAssembly(format) ? ".asm" : ".pdf");
+        }
+
+        internal static bool IsAssembly(ConversionFormat format)
+        {
+            return format == ConversionFormat.ParasolidAssembly || format == ConversionFormat.StepAssembly;
         }
 
         internal static string Run(string source, bool replaceExisting,
@@ -77,7 +85,7 @@ namespace SolidEdgeConvert
         {
             string output = OutputPath(source, format, exportDate);
             string formatName = FormatName(format);
-            bool useStepAdapter = format == ConversionFormat.Step || format == ConversionFormat.Part;
+            bool useStepAdapter = format == ConversionFormat.Step || format == ConversionFormat.Part || format == ConversionFormat.StepAssembly;
             source = Path.GetFullPath(source);
             if (File.Exists(output) && !replaceExisting)
                 throw new IOException("The " + formatName + " file already exists. Conversion was cancelled.");
@@ -89,7 +97,7 @@ namespace SolidEdgeConvert
             string componentFolder = null, importCopy = null;
             try
             {
-                if (format == ConversionFormat.ParasolidAssembly)
+                if (IsAssembly(format))
                 {
                     // Solid Edge writes component files beside the imported source.
                     // Import a copy in a unique, permanent folder so neither a failed
@@ -120,6 +128,7 @@ namespace SolidEdgeConvert
                         if (useStepAdapter) session.StepAdapter = true;
                         progress("Opening " + Path.GetFileName(source) + "...");
                         part = format == ConversionFormat.Part ? session.ImportStepPart(source)
+                            : format == ConversionFormat.StepAssembly ? session.ImportStepAssembly(importCopy)
                             : format == ConversionFormat.ParasolidPart ? session.ImportParasolid(source, false)
                             : format == ConversionFormat.ParasolidAssembly ? session.ImportParasolid(importCopy, true)
                             : session.OpenDocument(source);
