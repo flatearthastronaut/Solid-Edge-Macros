@@ -5,7 +5,7 @@ using System.IO;
 
 namespace SolidEdgeConvert
 {
-    internal enum ConversionFormat { Step, Pdf, PdfWithDate, Part, ParasolidPart, ParasolidAssembly, StepAssembly }
+    internal enum ConversionFormat { Step, Pdf, PdfWithDate, Part, ParasolidPart, ParasolidAssembly, StepAssembly, ParasolidExport }
 
     // These small boundaries let regression tests exercise failure cleanup without
     // starting CAD or touching a user's open documents.
@@ -38,6 +38,7 @@ namespace SolidEdgeConvert
                 case ConversionFormat.ParasolidPart: return "Solid Edge Part";
                 case ConversionFormat.ParasolidAssembly: return "Solid Edge Assembly";
                 case ConversionFormat.StepAssembly: return "Solid Edge Assembly";
+                case ConversionFormat.ParasolidExport: return "Parasolid";
                 default: throw new ArgumentOutOfRangeException("format");
             }
         }
@@ -45,7 +46,7 @@ namespace SolidEdgeConvert
         internal static string OutputPath(string source, ConversionFormat format = ConversionFormat.Step, DateTime? exportDate = null)
         {
             string name = FormatName(format);
-            string inputExtension = format == ConversionFormat.Step ? ".par" : ".dft";
+            string inputExtension = format == ConversionFormat.Step || format == ConversionFormat.ParasolidExport ? ".par" : ".dft";
             bool stepImport = format == ConversionFormat.Part || format == ConversionFormat.StepAssembly;
             if (stepImport) inputExtension = ".stp or .step";
             bool parasolid = format == ConversionFormat.ParasolidPart || format == ConversionFormat.ParasolidAssembly;
@@ -71,6 +72,7 @@ namespace SolidEdgeConvert
                     + " " + (exportDate ?? DateTime.Today).ToString("yyyyMMdd", CultureInfo.InvariantCulture) + ".pdf");
             }
             return Path.ChangeExtension(fullPath, format == ConversionFormat.Step ? ".stp"
+                : format == ConversionFormat.ParasolidExport ? ".x_t"
                 : format == ConversionFormat.Part || format == ConversionFormat.ParasolidPart ? ".par"
                 : IsAssembly(format) ? ".asm" : ".pdf");
         }

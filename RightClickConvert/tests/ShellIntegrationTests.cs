@@ -17,6 +17,12 @@ internal static class ShellIntegrationTests
     {
         try
         {
+            if (args.Length == 4 && args[3] == "--parasolid-export-only")
+            {
+                Exercise(args[0], ".x_t", "Parasolid (.x_t)");
+                Console.WriteLine("PASS Parasolid export selection: three exports reopened with geometry; source hashes unchanged.");
+                return 0;
+            }
             if (args.Length == 4 && args[3] == "--step-assembly-only")
             {
                 Exercise(args[2], ".asm", "Solid Edge Assembly (.asm)");
@@ -25,6 +31,7 @@ internal static class ShellIntegrationTests
             }
             if (args.Length != 3) throw new ArgumentException("Pass generated .par, .dft, and .stp fixture paths.");
             Exercise(args[0], ".stp", "STEP (.stp)");
+            Exercise(args[0], ".x_t", "Parasolid (.x_t)");
             Exercise(args[1], ".pdf", "PDF (.pdf)");
             Exercise(args[1], ".pdf", "PDF with Date", true);
             string[] imports = CreateImportFixtures(args[0]);
@@ -35,7 +42,7 @@ internal static class ShellIntegrationTests
             Exercise(imports[2], ".asm", "Solid Edge Assembly (.asm)");
             Exercise(imports[0], ".par", "Solid Edge Part (.par)", false, imports[1]);
             Exercise(imports[0], ".asm", "Solid Edge Assembly (.asm)", false, imports[1]);
-            Console.WriteLine("PASS actual Shell multi-selection menus: all seven conversions; all twenty-one source hashes preserved.");
+            Console.WriteLine("PASS actual Shell multi-selection menus: all eight conversions; all twenty-four source hashes preserved.");
             return 0;
         }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
@@ -73,7 +80,7 @@ internal static class ShellIntegrationTests
         {
             string output = expectedOutput(path);
             if (!File.Exists(output)) throw new Exception("Shell selection did not convert " + path);
-            if (outputExtension == ".par" || outputExtension == ".asm") { CheckNativePart(output, outputExtension == ".asm"); continue; }
+            if (outputExtension == ".par" || outputExtension == ".asm" || outputExtension == ".x_t") { CheckNativePart(output, outputExtension == ".asm"); continue; }
             string text = Encoding.ASCII.GetString(File.ReadAllBytes(output));
             if (outputExtension == ".pdf" ? !text.StartsWith("%PDF-") || !text.Contains("%%EOF") : !text.StartsWith("ISO-10303-21;") || !text.Contains("END-ISO-10303-21;"))
                 throw new Exception("Incomplete export: " + output);
@@ -178,7 +185,11 @@ internal static class ShellIntegrationTests
                 int before = ((dynamic)documents).Count;
                 object adapterBefore = null;
                 ((dynamic)app).GetGlobalParameter(458, ref adapterBefore);
-                part = ((dynamic)documents).Open(path);
+                // Validate the exported Parasolid by importing into an explicit
+                // part template; do not invoke the STEP assembly-flattening path.
+                part = path.EndsWith(".x_t", StringComparison.OrdinalIgnoreCase)
+                    ? ((dynamic)documents).OpenWithTemplate(path, "normal.par")
+                    : ((dynamic)documents).Open(path);
                 if ((int)((dynamic)part).Type != (assembly ? 3 : 1)) throw new Exception("Output is not the requested native type: " + path);
                 if (assembly)
                 {

@@ -1,4 +1,6 @@
-# Solid Edge Convert 1.6
+# Solid Edge Convert 1.7
+
+Solid Edge parts now offer **Convert > Parasolid (.x_t)**. Select one or more `.par` files; each text Parasolid file is saved beside its source with the same base name. Existing outputs use the normal replace/skip/cancel prompt. The original parts are not saved or modified.
 
 A small Windows Explorer converter based on the Siemens Batch sample. Supports parts (`.par`) to STEP (`.stp`), drafts (`.dft`) to PDF, and STEP files (`.stp` or `.step`) to Solid Edge parts (`.par`) using `normal.par`. Select one or more files supported by the same conversion; `.stp` and `.step` may be selected together.
 
@@ -18,7 +20,7 @@ Parasolid files (`.x_t` text or `.x_b` binary) have two choices: **Convert > Sol
 
 Solid Edge must be installed and licensed. The converter connects to the running application or starts it if needed. Solid Edge remains running afterwards, as it does with Batch.
 
-Run the executable again and click **Remove menus** to uninstall all six file-extension menus and their seven COM registrations. If you move the executable, run it from the new location and click **Install menus** again. No file associations or other programs' menus are changed. Run **Install menus** after upgrading to add the STEP Assembly option.
+Run the executable again and click **Remove menus** to uninstall all six file-extension menus and their eight COM registrations. If you move the executable, run it from the new location and click **Install menus** again. No file associations or other programs' menus are changed. Run **Install menus** after upgrading to add the Parasolid export option.
 
 Command-line alternatives (quote paths containing spaces):
 
@@ -26,6 +28,7 @@ Command-line alternatives (quote paths containing spaces):
 SolidEdgeConvert.exe --install
 SolidEdgeConvert.exe --uninstall
 SolidEdgeConvert.exe --step "C:\CAD\Bracket.par"
+SolidEdgeConvert.exe --parasolid "C:\CAD\Part1.par" "C:\CAD\Part2.par"
 SolidEdgeConvert.exe --pdf "C:\CAD\Drawing.dft"
 SolidEdgeConvert.exe --step "C:\CAD\Part1.par" "C:\CAD\Part2.par"
 SolidEdgeConvert.exe --pdf "C:\CAD\Drawing1.dft" "C:\CAD\Drawing2.dft"
@@ -39,6 +42,8 @@ SolidEdgeConvert.exe --parasolid-assembly "C:\CAD\Imported1.x_t" "C:\CAD\Importe
 The two installation commands complete silently on success. Conversion remains interactive and prompts before replacement. Direct command-line conversion returns 0 when no files failed (including skipped/cancelled work), and 1 when a file failed. Explorer launches a reusable local server; consult the results list for each batch's outcome.
 
 ## Conversion behavior and references
+
+Part-to-Parasolid export opens or reuses the saved part, calls ordinary `SaveAs` with a `.x_t` extension, and uses the existing staging, replacement, and owned-document cleanup workflow. It does not access the STEP translator setting. A saved part already open in Solid Edge stays open; unsaved edits must be saved before exporting. This option exports text Parasolid; it does not add binary `.x_b` export.
 
 The implementation follows `Batch_frm.vb` in the supplied `Documents\Codex\Batch` sample: remember `seApplicationGlobalSTEPAdapterKey`, enable it, call `Documents.Open`, `DoIdle`, `SaveAs` with a `.stp` extension, then `Close(false)` and `DoIdle`. The original translator setting is restored on both success and failure, including when its original value was false. The enum value 458 was verified against that sample's `Bin\Interop.SolidEdgeFramework.dll`.
 
@@ -58,6 +63,7 @@ The per-user cascading menus use `HKCU\Software\Classes\SystemFileAssociations\.
 
 Server class IDs under `HKCU\Software\Classes\CLSID`:
 - STEP: `{B84A6BE1-A4D2-4CD2-A1AE-60EAA476AD11}`
+- Part to Parasolid: `{BE83A0E7-B71A-416E-B129-7E798A0D14C7}`
 - PDF: `{AF39D53D-3C70-4055-8197-442F4C5180B2}`
 - PDF with Date: `{D8F750C4-A88D-4F7A-BD12-590D6813B742}`
 - STEP to Part (both extensions): `{46FDDBA1-7601-445B-A3A6-7F7624B196C2}`
@@ -65,7 +71,7 @@ Server class IDs under `HKCU\Software\Classes\CLSID`:
 - Parasolid to Part: `{263031DD-6A5B-4776-B4BC-39EB97D16A95}`
 - Parasolid to Assembly: `{826FDBF0-726C-4EE8-B8B2-AE63E63ACAF9}`
 
-The `LocalServer32` command is the quoted executable path followed by `--shell-server`. Registration and removal affect only those seven classes and the converter's six menu keys. This internal server switch is not a user-facing conversion command.
+The `LocalServer32` command is the quoted executable path followed by `--shell-server`. Registration and removal affect only those eight classes and the converter's six menu keys. This internal server switch is not a user-facing conversion command.
 
 References: [Microsoft ExecuteCommand sample](https://learn.microsoft.com/en-us/windows/win32/shell/samples-executecommandverb), [verb selection models](https://learn.microsoft.com/en-us/windows/win32/shell/how-to-employ-the-verb-selection-model), [cascading menus](https://learn.microsoft.com/en-us/windows/win32/shell/how-to-create-cascading-menus-with-the-extendedsubcommandskey-registry-entry), and [Windows 11 context menus](https://blogs.windows.com/blog/2021/07/19/extending-the-context-menu-and-share-dialog-in-windows-11/).
 
@@ -77,12 +83,14 @@ Run `powershell -NoProfile -ExecutionPolicy Bypass -File .\Test.ps1` to build th
 
 Optional integration checks:
 
+- `ShellTest.ps1 -ParasolidExportOnly` tests just the new Part-to-Parasolid menu using three copies of a generated cylinder. It verifies source hashes and reimports each `.x_t` with `normal.par` to check that geometry is present. It does not run the STEP import tests or their flattening confirmations.
+
 - `LiveTest.ps1` requires an open, idle Solid Edge session and the Solid Edge 2026 part interop library used by the existing SketchToModels build. It creates its own cylinder under `tests\work`, exports it, checks STEP solid records and the source's SHA-256 hash, repeats with the part already open, and retains the fixture for inspection. It never modifies existing user documents.
 - `LivePdfTest.ps1` requires an open, idle Solid Edge session. It creates a draft containing a rectangle and circle, exports a PDF, checks its header/end marker and the source's SHA-256 hash, and repeats with the draft already open and output already present. It also verifies the STEP setting is unchanged and retains the fixture under `tests\work` for inspection.
 - `TestMenu.ps1` runs the release executable's install/reinstall/uninstall commands, verifies all six extensions' registry values, and leaves the menus installed at the current executable location.
-- `ShellTest.ps1` requires the generated fixtures from both live tests and installed menus. It invokes the actual Windows `IContextMenu` on three files for each option (STEP, PDF, PDF with Date, STEP to Part, STEP to Assembly, Parasolid to Part, Parasolid to Assembly), checks all twenty-one exports and source hashes, and closes only the converter's completed three-file results windows. The STEP selections mix `.stp` and `.step` for both Part and Assembly. Tests generate a two-component assembly and export STEP plus true text/binary Parasolid fixtures, then mix `.x_t` and `.x_b` for Parasolid selections. Native outputs are reopened to check part models or assembly occurrences, component file existence, and component geometry. This tests selection delivery, dated filenames, and COM server activation as well as CAD conversion.
+- `ShellTest.ps1` requires the generated fixtures from both live tests and installed menus. It invokes the actual Windows `IContextMenu` on three files for each option (STEP, Parasolid export, PDF, PDF with Date, STEP to Part, STEP to Assembly, Parasolid to Part, Parasolid to Assembly), checks all twenty-four exports and source hashes, and closes only the converter's completed three-file results windows. The STEP selections mix `.stp` and `.step` for both Part and Assembly. Tests generate a two-component assembly and export STEP plus true text/binary Parasolid fixtures, then mix `.x_t` and `.x_b` for Parasolid selections. Native outputs are reopened to check part models or assembly occurrences, component file existence, and component geometry. This tests selection delivery, dated filenames, and COM server activation as well as CAD conversion.
 
-Validation: all 64 regression tests and menu installation/reinstallation/removal checks passed. The full seven-option live suite was stopped at Solid Edge's assembly-to-Part confirmation; it is not recorded as a completed run. The targeted STEP Assembly test passed for a mixed .stp/.step selection: three assemblies reopened with component links and geometry intact, and all source hashes were unchanged. The earlier release passed all six existing conversion options. Use ShellTest.ps1 -StepAssemblyOnly with a generated Two cylinders.stp fixture to test only the new assembly import. Production geometry, units, drawing layout, and sheet coverage still require acceptance checks.
+Validation: all 69 regression tests and menu installation/reinstallation/removal checks passed. The targeted Parasolid export menu test passed on three parts; each .x_t reimported with geometry and all three source hashes were unchanged. During version 1.6 testing, the full seven-option live suite was stopped at Solid Edge's assembly-to-Part confirmation; it is not recorded as a completed run. The targeted STEP Assembly test passed for a mixed .stp/.step selection: three assemblies reopened with component links and geometry intact, and all source hashes were unchanged. The earlier release passed all six existing conversion options. Use ShellTest.ps1 -StepAssemblyOnly with a generated Two cylinders.stp fixture to test only the new assembly import. Production geometry, units, drawing layout, and sheet coverage still require acceptance checks.
 
 Manual acceptance checks:
 

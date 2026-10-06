@@ -22,6 +22,7 @@ namespace SolidEdgeConvert
         internal const string ParasolidPartClass = "263031DD-6A5B-4776-B4BC-39EB97D16A95";
         internal const string ParasolidAssemblyClass = "826FDBF0-726C-4EE8-B8B2-AE63E63ACAF9";
         internal const string StepAssemblyClass = "B5CC13CF-4069-451E-87E6-6E74686DD5AF";
+        internal const string ParasolidExportClass = "BE83A0E7-B71A-416E-B129-7E798A0D14C7";
 
         internal static string Command(string executable, ConversionFormat format = ConversionFormat.Step)
         {
@@ -32,7 +33,8 @@ namespace SolidEdgeConvert
             Conversion.FormatName(format); // reject unsupported formats before registry changes
             string argument = format == ConversionFormat.Step ? "--step" : format == ConversionFormat.Pdf ? "--pdf" : format == ConversionFormat.Part ? "--part"
                 : format == ConversionFormat.ParasolidPart ? "--parasolid-part" : format == ConversionFormat.ParasolidAssembly ? "--parasolid-assembly"
-                : format == ConversionFormat.StepAssembly ? "--step-assembly" : "--pdf-date";
+                : format == ConversionFormat.StepAssembly ? "--step-assembly"
+                : format == ConversionFormat.ParasolidExport ? "--parasolid" : "--pdf-date";
             return "\"" + executable + "\" " + argument + " \"%1\"";
         }
 
@@ -46,7 +48,9 @@ namespace SolidEdgeConvert
             RegisterServer(root, executable, ParasolidPartClass);
             RegisterServer(root, executable, ParasolidAssemblyClass);
             RegisterServer(root, executable, StepAssemblyClass);
+            RegisterServer(root, executable, ParasolidExportClass);
             InstallFormat(root, executable, MenuKey, "01Step", "STEP (.stp)", ConversionFormat.Step);
+            InstallFormat(root, executable, MenuKey, "02Parasolid", "Parasolid (.x_t)", ConversionFormat.ParasolidExport);
             InstallFormat(root, executable, DraftMenuKey, "01Pdf", "PDF (.pdf)", ConversionFormat.Pdf);
             InstallFormat(root, executable, DraftMenuKey, "02PdfWithDate", "PDF with Date", ConversionFormat.PdfWithDate);
             InstallFormat(root, executable, StpMenuKey, "01Part", "Solid Edge Part (.par)", ConversionFormat.Part);
@@ -91,7 +95,8 @@ namespace SolidEdgeConvert
                         action.SetValue("", command);
                         string id = format == ConversionFormat.Step ? StepClass : format == ConversionFormat.Pdf ? PdfClass : format == ConversionFormat.Part ? PartClass
                             : format == ConversionFormat.ParasolidPart ? ParasolidPartClass : format == ConversionFormat.ParasolidAssembly ? ParasolidAssemblyClass
-                            : format == ConversionFormat.StepAssembly ? StepAssemblyClass : DatedPdfClass;
+                            : format == ConversionFormat.StepAssembly ? StepAssemblyClass
+                            : format == ConversionFormat.ParasolidExport ? ParasolidExportClass : DatedPdfClass;
                         action.SetValue("DelegateExecute", "{" + id + "}");
                     }
                 }
@@ -115,6 +120,7 @@ namespace SolidEdgeConvert
             root.DeleteSubKeyTree(@"Software\Classes\CLSID\{" + ParasolidPartClass + "}", false);
             root.DeleteSubKeyTree(@"Software\Classes\CLSID\{" + ParasolidAssemblyClass + "}", false);
             root.DeleteSubKeyTree(@"Software\Classes\CLSID\{" + StepAssemblyClass + "}", false);
+            root.DeleteSubKeyTree(@"Software\Classes\CLSID\{" + ParasolidExportClass + "}", false);
         }
 
         internal static void NotifyExplorer() { SHChangeNotify(0x08000000, 0, IntPtr.Zero, IntPtr.Zero); }

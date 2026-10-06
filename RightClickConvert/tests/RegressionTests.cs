@@ -468,6 +468,39 @@ internal static class RegressionTests
             Test("STEP assembly menu quotes the selected file", delegate {
                 Equal("\"C:\\Tools & CAD\\SolidEdgeConvert.exe\" --step-assembly \"%1\"", ShellMenu.Command(@"C:\Tools & CAD\SolidEdgeConvert.exe", ConversionFormat.StepAssembly));
             });
+            Test("Parasolid export accepts parts and preserves full output basename", delegate {
+                Equal(Path.ChangeExtension(source, ".x_t"), Conversion.OutputPath(source, ConversionFormat.ParasolidExport));
+                ExpectFailure(delegate { Conversion.OutputPath(draft, ConversionFormat.ParasolidExport); });
+                ExpectFailure(delegate { Conversion.OutputPath(stepSource, ConversionFormat.ParasolidExport); });
+            });
+            Test("Parasolid export uses ordinary SaveAs without STEP settings", delegate {
+                FakeSession s = new FakeSession(false) { RejectStepAccess = true };
+                string result = Conversion.Run(source, false, delegate { return s; }, delegate { }, ConversionFormat.ParasolidExport);
+                Equal(".x_t", s.SavedExtension); Equal("Parasolid data", File.ReadAllText(result));
+                Equal("open,idle,save,close,idle,part-dispose,session-dispose", String.Join(",", s.Events));
+            });
+            Test("failed Parasolid export preserves prior output and source", delegate {
+                string result = Conversion.OutputPath(source, ConversionFormat.ParasolidExport);
+                File.WriteAllText(result, "old Parasolid");
+                foreach (FakeSession s in new[] { new FakeSession(false) { RejectStepAccess = true, FailSave = true }, new FakeSession(false) { RejectStepAccess = true, EmptyOutput = true }, new FakeSession(false) { RejectStepAccess = true, FailClose = true } }) {
+                    ExpectFailure(delegate { Conversion.Run(source, true, delegate { return s; }, delegate { }, ConversionFormat.ParasolidExport); });
+                    Equal("old Parasolid", File.ReadAllText(result)); Check(s.Disposed && s.PartClosed, "Parasolid export cleanup incomplete");
+                }
+                Equal("source must never change", File.ReadAllText(source)); Equal(0, Directory.GetFiles(folder, ".*.x_t").Length);
+            });
+            Test("Parasolid export batch supports skip and replacement for multiple parts", delegate {
+                string second = Path.Combine(folder, "Second part.par");
+                List<BatchItem> skipped = BatchConversion.Run(new[] { source }, ConversionFormat.ParasolidExport, ExistingOutput.Skip,
+                    delegate { throw new Exception("Skipped export must not connect"); }, delegate { });
+                Check(skipped[0].Skipped && skipped[0].Error == null, "Parasolid skip failed");
+                List<BatchItem> results = BatchConversion.Run(new[] { source, second }, ConversionFormat.ParasolidExport, ExistingOutput.Replace,
+                    delegate { return new FakeSession(false) { RejectStepAccess = true }; }, delegate { });
+                Check(results.Count == 2 && results.TrueForAll(x => x.Error == null && !x.Skipped), "Parasolid batch failed");
+                foreach (BatchItem result in results) Equal("Parasolid data", File.ReadAllText(result.Output));
+            });
+            Test("Parasolid export command quotes selected part", delegate {
+                Equal("\"C:\\Tools & CAD\\SolidEdgeConvert.exe\" --parasolid \"%1\"", ShellMenu.Command(@"C:\Tools & CAD\SolidEdgeConvert.exe", ConversionFormat.ParasolidExport));
+            });
             Console.WriteLine("Passed " + passed + " regression tests.");
             return 0;
         }
@@ -556,7 +589,7 @@ internal static class RegressionTests
             {
                 owner.Events.Add("save");
                 owner.SavedExtension = Path.GetExtension(path);
-                if (!owner.MissingOutput) File.WriteAllText(path, owner.EmptyOutput ? "" : (owner.SavedExtension == ".pdf" ? "PDF data" : owner.SavedExtension == ".par" ? "PAR data" : owner.SavedExtension == ".asm" ? "ASM data" : "STEP data"));
+                if (!owner.MissingOutput) File.WriteAllText(path, owner.EmptyOutput ? "" : (owner.SavedExtension == ".pdf" ? "PDF data" : owner.SavedExtension == ".par" ? "PAR data" : owner.SavedExtension == ".asm" ? "ASM data" : owner.SavedExtension == ".x_t" ? "Parasolid data" : "STEP data"));
                 if (owner.OnSave != null) owner.OnSave();
                 if (owner.FailSave) throw new IOException("Save failed after partial write");
             }
