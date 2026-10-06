@@ -17,6 +17,13 @@ internal static class ShellIntegrationTests
     {
         try
         {
+            if (args.Length == 4 && args[3] == "--assembly-export-only")
+            {
+                Exercise(args[2], ".stp", "STEP (.stp)", false, null, true);
+                Exercise(args[2], ".x_t", "Parasolid (.x_t)", false, null, true);
+                Console.WriteLine("PASS assembly exports: six STEP/Parasolid outputs reimported with two component occurrences and geometry; assembly hashes unchanged.");
+                return 0;
+            }
             if (args.Length == 4 && args[3] == "--parasolid-export-only")
             {
                 Exercise(args[0], ".x_t", "Parasolid (.x_t)");
@@ -48,7 +55,7 @@ internal static class ShellIntegrationTests
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
     }
 
-    private static void Exercise(string fixture, string outputExtension, string label, bool dated = false, string binaryFixture = null)
+    private static void Exercise(string fixture, string outputExtension, string label, bool dated = false, string binaryFixture = null, bool assemblyExport = false)
     {
         string folder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "work", "selection-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
@@ -80,6 +87,7 @@ internal static class ShellIntegrationTests
         {
             string output = expectedOutput(path);
             if (!File.Exists(output)) throw new Exception("Shell selection did not convert " + path);
+            if (assemblyExport) { CheckAssemblyExport(output); continue; }
             if (outputExtension == ".par" || outputExtension == ".asm" || outputExtension == ".x_t") { CheckNativePart(output, outputExtension == ".asm"); continue; }
             string text = Encoding.ASCII.GetString(File.ReadAllBytes(output));
             if (outputExtension == ".pdf" ? !text.StartsWith("%PDF-") || !text.Contains("%%EOF") : !text.StartsWith("ISO-10303-21;") || !text.Contains("END-ISO-10303-21;"))
@@ -231,6 +239,25 @@ internal static class ShellIntegrationTests
                 finally { ComLifetime.Release(ref part); ComLifetime.Release(ref documents); ComLifetime.Release(ref app); }
             }
         }
+    }
+    private static void CheckAssemblyExport(string output)
+    {
+        // Reimport a copy in an isolated test folder. Always select normal.asm
+        // through the assembly path; never trigger assembly-to-Part prompts.
+        // Keep the verification path short: assembly import adds a component
+        // folder and staged filename, and native SaveAs has legacy path limits.
+        string folder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "work", "verify-" + Guid.NewGuid().ToString("N").Substring(0, 12));
+        Directory.CreateDirectory(folder);
+        string copy = Path.Combine(folder, "model" + Path.GetExtension(output));
+        File.Copy(output, copy);
+        string native;
+        using (OleMessageFilter filter = new OleMessageFilter())
+        {
+            ConversionFormat format = Path.GetExtension(output) == ".stp" ? ConversionFormat.StepAssembly : ConversionFormat.ParasolidAssembly;
+            native = Conversion.Run(copy, false, delegate { return new SolidEdgeSession(); }, delegate { }, format);
+        }
+        // CheckNativePart owns its own message filter; do not nest COM filters.
+        CheckNativePart(native, true);
     }
     private static string[] CreateImportFixtures(string cylinder)
     {

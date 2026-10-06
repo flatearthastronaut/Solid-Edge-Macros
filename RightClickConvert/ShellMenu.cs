@@ -11,6 +11,7 @@ namespace SolidEdgeConvert
         // remains effective even if another app becomes the default opener.
         internal const string MenuKey = @"Software\Classes\SystemFileAssociations\.par\shell\SolidEdgeMacros.Convert";
         internal const string DraftMenuKey = @"Software\Classes\SystemFileAssociations\.dft\shell\SolidEdgeMacros.Convert";
+        internal const string AssemblyMenuKey = @"Software\Classes\SystemFileAssociations\.asm\shell\SolidEdgeMacros.Convert";
         internal const string StpMenuKey = @"Software\Classes\SystemFileAssociations\.stp\shell\SolidEdgeMacros.Convert";
         internal const string StepMenuKey = @"Software\Classes\SystemFileAssociations\.step\shell\SolidEdgeMacros.Convert";
         internal const string StepClass = "B84A6BE1-A4D2-4CD2-A1AE-60EAA476AD11";
@@ -51,6 +52,10 @@ namespace SolidEdgeConvert
             RegisterServer(root, executable, ParasolidExportClass);
             InstallFormat(root, executable, MenuKey, "01Step", "STEP (.stp)", ConversionFormat.Step);
             InstallFormat(root, executable, MenuKey, "02Parasolid", "Parasolid (.x_t)", ConversionFormat.ParasolidExport);
+            // Use the same export handlers for parts and assemblies. This also
+            // lets Explorer deliver a mixed .par/.asm selection in one batch.
+            InstallFormat(root, executable, AssemblyMenuKey, "01Step", "STEP (.stp)", ConversionFormat.Step);
+            InstallFormat(root, executable, AssemblyMenuKey, "02Parasolid", "Parasolid (.x_t)", ConversionFormat.ParasolidExport);
             InstallFormat(root, executable, DraftMenuKey, "01Pdf", "PDF (.pdf)", ConversionFormat.Pdf);
             InstallFormat(root, executable, DraftMenuKey, "02PdfWithDate", "PDF with Date", ConversionFormat.PdfWithDate);
             InstallFormat(root, executable, StpMenuKey, "01Part", "Solid Edge Part (.par)", ConversionFormat.Part);
@@ -109,6 +114,7 @@ namespace SolidEdgeConvert
             // its association, or other programs' Convert commands.
             root.DeleteSubKeyTree(MenuKey, false);
             root.DeleteSubKeyTree(DraftMenuKey, false);
+            root.DeleteSubKeyTree(AssemblyMenuKey, false);
             root.DeleteSubKeyTree(StpMenuKey, false);
             root.DeleteSubKeyTree(StepMenuKey, false);
             root.DeleteSubKeyTree(XtMenuKey, false);

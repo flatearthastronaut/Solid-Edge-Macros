@@ -46,7 +46,8 @@ namespace SolidEdgeConvert
         internal static string OutputPath(string source, ConversionFormat format = ConversionFormat.Step, DateTime? exportDate = null)
         {
             string name = FormatName(format);
-            string inputExtension = format == ConversionFormat.Step || format == ConversionFormat.ParasolidExport ? ".par" : ".dft";
+            bool nativeExport = format == ConversionFormat.Step || format == ConversionFormat.ParasolidExport;
+            string inputExtension = nativeExport ? ".par or .asm" : ".dft";
             bool stepImport = format == ConversionFormat.Part || format == ConversionFormat.StepAssembly;
             if (stepImport) inputExtension = ".stp or .step";
             bool parasolid = format == ConversionFormat.ParasolidPart || format == ConversionFormat.ParasolidAssembly;
@@ -55,7 +56,9 @@ namespace SolidEdgeConvert
                 throw new ArgumentException("Select a Solid Edge " + inputExtension + " file.");
             string fullPath = Path.GetFullPath(source);
             string extension = Path.GetExtension(fullPath);
-            bool supported = parasolid
+            bool supported = nativeExport
+                ? String.Equals(extension, ".par", StringComparison.OrdinalIgnoreCase) || String.Equals(extension, ".asm", StringComparison.OrdinalIgnoreCase)
+                : parasolid
                 ? String.Equals(extension, ".x_t", StringComparison.OrdinalIgnoreCase) || String.Equals(extension, ".x_b", StringComparison.OrdinalIgnoreCase)
                 : stepImport
                 ? String.Equals(extension, ".stp", StringComparison.OrdinalIgnoreCase) || String.Equals(extension, ".step", StringComparison.OrdinalIgnoreCase)

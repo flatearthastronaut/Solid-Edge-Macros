@@ -14,7 +14,9 @@ $menus = @(
     @{ Path='Software\Classes\SystemFileAssociations\.x_b\shell\SolidEdgeMacros.Convert'; Verb='02Assembly'; Label='Solid Edge Assembly (.asm)'; Argument='--parasolid-assembly'; Class='{826FDBF0-726C-4EE8-B8B2-AE63E63ACAF9}' },
     @{ Path='Software\Classes\SystemFileAssociations\.stp\shell\SolidEdgeMacros.Convert'; Verb='02Assembly'; Label='Solid Edge Assembly (.asm)'; Argument='--step-assembly'; Class='{B5CC13CF-4069-451E-87E6-6E74686DD5AF}' },
     @{ Path='Software\Classes\SystemFileAssociations\.step\shell\SolidEdgeMacros.Convert'; Verb='02Assembly'; Label='Solid Edge Assembly (.asm)'; Argument='--step-assembly'; Class='{B5CC13CF-4069-451E-87E6-6E74686DD5AF}' },
-    @{ Path='Software\Classes\SystemFileAssociations\.par\shell\SolidEdgeMacros.Convert'; Verb='02Parasolid'; Label='Parasolid (.x_t)'; Argument='--parasolid'; Class='{BE83A0E7-B71A-416E-B129-7E798A0D14C7}' }
+    @{ Path='Software\Classes\SystemFileAssociations\.par\shell\SolidEdgeMacros.Convert'; Verb='02Parasolid'; Label='Parasolid (.x_t)'; Argument='--parasolid'; Class='{BE83A0E7-B71A-416E-B129-7E798A0D14C7}' },
+    @{ Path='Software\Classes\SystemFileAssociations\.asm\shell\SolidEdgeMacros.Convert'; Verb='01Step'; Label='STEP (.stp)'; Argument='--step'; Class='{B84A6BE1-A4D2-4CD2-A1AE-60EAA476AD11}' },
+    @{ Path='Software\Classes\SystemFileAssociations\.asm\shell\SolidEdgeMacros.Convert'; Verb='02Parasolid'; Label='Parasolid (.x_t)'; Argument='--parasolid'; Class='{BE83A0E7-B71A-416E-B129-7E798A0D14C7}' }
 )
 $user = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::CurrentUser, [Microsoft.Win32.RegistryView]::Registry64)
 function Invoke-Installer([string] $argument) {
@@ -66,6 +68,6 @@ try {
     }
     Invoke-Installer '--install'
     Test-InstalledMenu
-    Write-Output 'PASS install, reinstall, uninstall, and final registration for all eight conversions and six source extensions.'
+    Write-Output 'PASS install, reinstall, uninstall, and final registration for eight conversion handlers and seven source extensions.'
 }
 finally { $user.Dispose() }

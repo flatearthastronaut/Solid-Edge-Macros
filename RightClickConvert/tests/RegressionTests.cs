@@ -501,6 +501,58 @@ internal static class RegressionTests
             Test("Parasolid export command quotes selected part", delegate {
                 Equal("\"C:\\Tools & CAD\\SolidEdgeConvert.exe\" --parasolid \"%1\"", ShellMenu.Command(@"C:\Tools & CAD\SolidEdgeConvert.exe", ConversionFormat.ParasolidExport));
             });
+            string assemblySource = Path.Combine(folder, "Assembly & é.ASM");
+            File.WriteAllText(assemblySource, "assembly must never change");
+            Test("assembly export accepts uppercase ASM for STEP and Parasolid", delegate {
+                Equal(Path.ChangeExtension(assemblySource, ".stp"), Conversion.OutputPath(assemblySource, ConversionFormat.Step));
+                Equal(Path.ChangeExtension(assemblySource, ".x_t"), Conversion.OutputPath(assemblySource, ConversionFormat.ParasolidExport));
+                ExpectFailure(delegate { Conversion.OutputPath(assemblySource, ConversionFormat.Pdf); });
+                ExpectFailure(delegate { Conversion.OutputPath(assemblySource, ConversionFormat.Part); });
+            });
+            Test("assembly export uses SaveAs and restores STEP settings only when needed", delegate {
+                foreach (ConversionFormat format in new[] { ConversionFormat.Step, ConversionFormat.ParasolidExport }) foreach (bool enabled in new[] { false, true }) {
+                    FakeSession s = new FakeSession(enabled) { RejectStepAccess = format == ConversionFormat.ParasolidExport };
+                    string result = Conversion.Run(assemblySource, true, delegate { return s; }, delegate { }, format);
+                    Equal(format == ConversionFormat.Step ? "STEP data" : "Parasolid data", File.ReadAllText(result));
+                    Equal(enabled, s.Adapter);
+                    Check(s.Events.Contains("open") && s.ImportPath == null && s.PartClosed && s.PartDisposed && s.Disposed, "Wrong assembly export/cleanup route");
+                }
+                Equal("assembly must never change", File.ReadAllText(assemblySource));
+            });
+            Test("failed assembly exports retain old outputs and clean up", delegate {
+                foreach (ConversionFormat format in new[] { ConversionFormat.Step, ConversionFormat.ParasolidExport }) {
+                    string result = Conversion.OutputPath(assemblySource, format); File.WriteAllText(result, "previous output");
+                    foreach (FakeSession s in new[] { new FakeSession(false) { FailSave = true }, new FakeSession(false) { FailClose = true }, new FakeSession(false) { EmptyOutput = true } }) {
+                        s.RejectStepAccess = format == ConversionFormat.ParasolidExport;
+                        ExpectFailure(delegate { Conversion.Run(assemblySource, true, delegate { return s; }, delegate { }, format); });
+                        Equal("previous output", File.ReadAllText(result)); Equal(false, s.Adapter);
+                        Check(s.PartClosed && s.PartDisposed && s.Disposed, "Assembly failure cleanup incomplete");
+                    }
+                }
+                Equal("assembly must never change", File.ReadAllText(assemblySource));
+            });
+            Test("open saved assemblies are reused while dirty assemblies are rejected", delegate {
+                FakeDocument document = new FakeDocument { FullName = assemblySource, Type = 3 };
+                FakeDocuments documents = new FakeDocuments { Existing = document };
+                using (IEdgeDocument borrowed = SolidEdgeSession.OpenDocument(documents, assemblySource)) { borrowed.CloseIfOwned(); }
+                document.Dirty = true;
+                ExpectFailure(delegate { SolidEdgeSession.OpenDocument(documents, assemblySource); });
+                Check(!documents.OpenCalled && !document.Closed && !document.Saved, "User assembly touched");
+            });
+            Test("assembly export batches support mixed native types, skipping and collisions", delegate {
+                foreach (ConversionFormat format in new[] { ConversionFormat.Step, ConversionFormat.ParasolidExport }) {
+                    List<BatchItem> results = BatchConversion.Run(new[] { assemblySource, source }, format, ExistingOutput.Replace,
+                        delegate { return new FakeSession(false) { RejectStepAccess = format == ConversionFormat.ParasolidExport }; }, delegate { });
+                    Check(results.Count == 2 && results.TrueForAll(x => x.Error == null && !x.Skipped), "Native batch failed");
+                    List<BatchItem> skipped = BatchConversion.Run(new[] { assemblySource }, format, ExistingOutput.Skip,
+                        delegate { throw new Exception("Skipped assembly must not connect"); }, delegate { });
+                    Check(skipped[0].Skipped && skipped[0].Error == null, "Assembly skip failed");
+                    string sameNamePart = Path.ChangeExtension(assemblySource, ".par"); File.WriteAllText(sameNamePart, "part");
+                    results = BatchConversion.Run(new[] { assemblySource, sameNamePart }, format, ExistingOutput.Replace,
+                        delegate { return new FakeSession(false); }, delegate { });
+                    Check(results[0].Error == null && results[1].Error != null, "Part/assembly output collision not detected");
+                }
+            });
             Console.WriteLine("Passed " + passed + " regression tests.");
             return 0;
         }
