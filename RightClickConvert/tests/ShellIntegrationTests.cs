@@ -17,6 +17,12 @@ internal static class ShellIntegrationTests
     {
         try
         {
+            if (args.Length == 4 && args[3] == "--stl-only")
+            {
+                Exercise(args[0], ".stl", "STL (.stl)");
+                Console.WriteLine("PASS STL selection: three triangle meshes validated; source hashes unchanged.");
+                return 0;
+            }
             if (args.Length == 4 && args[3] == "--assembly-export-only")
             {
                 Exercise(args[2], ".stp", "STEP (.stp)", false, null, true);
@@ -39,6 +45,7 @@ internal static class ShellIntegrationTests
             if (args.Length != 3) throw new ArgumentException("Pass generated .par, .dft, and .stp fixture paths.");
             Exercise(args[0], ".stp", "STEP (.stp)");
             Exercise(args[0], ".x_t", "Parasolid (.x_t)");
+            Exercise(args[0], ".stl", "STL (.stl)");
             Exercise(args[1], ".pdf", "PDF (.pdf)");
             Exercise(args[1], ".pdf", "PDF with Date", true);
             string[] imports = CreateImportFixtures(args[0]);
@@ -49,7 +56,7 @@ internal static class ShellIntegrationTests
             Exercise(imports[2], ".asm", "Solid Edge Assembly (.asm)");
             Exercise(imports[0], ".par", "Solid Edge Part (.par)", false, imports[1]);
             Exercise(imports[0], ".asm", "Solid Edge Assembly (.asm)", false, imports[1]);
-            Console.WriteLine("PASS actual Shell multi-selection menus: all eight conversions; all twenty-four source hashes preserved.");
+            Console.WriteLine("PASS actual Shell multi-selection menus: all nine conversions; all twenty-seven source hashes preserved.");
             return 0;
         }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
@@ -88,6 +95,7 @@ internal static class ShellIntegrationTests
             string output = expectedOutput(path);
             if (!File.Exists(output)) throw new Exception("Shell selection did not convert " + path);
             if (assemblyExport) { CheckAssemblyExport(output); continue; }
+            if (outputExtension == ".stl") { CheckStl(output); continue; }
             if (outputExtension == ".par" || outputExtension == ".asm" || outputExtension == ".x_t") { CheckNativePart(output, outputExtension == ".asm"); continue; }
             string text = Encoding.ASCII.GetString(File.ReadAllBytes(output));
             if (outputExtension == ".pdf" ? !text.StartsWith("%PDF-") || !text.Contains("%%EOF") : !text.StartsWith("ISO-10303-21;") || !text.Contains("END-ISO-10303-21;"))
@@ -176,6 +184,51 @@ internal static class ShellIntegrationTests
         }
         return UInt32.MaxValue;
     }
+    private static void CheckStl(string path)
+    {
+        // Solid Edge's saved export options can select binary or ASCII STL.
+        // Validate triangle records directly so this test needs no CAD import
+        // dialog and detects empty/truncated meshes, not merely nonempty files.
+        byte[] bytes = File.ReadAllBytes(path);
+        List<double[]> vertices = new List<double[]>();
+        if (bytes.Length >= 84 && 84L + 50L * BitConverter.ToUInt32(bytes, 80) == bytes.LongLength)
+        {
+            uint count = BitConverter.ToUInt32(bytes, 80);
+            for (int offset = 84; offset < bytes.Length; offset += 50)
+                for (int vertex = 0; vertex < 3; vertex++) {
+                    int at = offset + 12 + vertex * 12;
+                    vertices.Add(new[] { (double)BitConverter.ToSingle(bytes, at), (double)BitConverter.ToSingle(bytes, at + 4), (double)BitConverter.ToSingle(bytes, at + 8) });
+                }
+            if (count == 0) throw new Exception("Empty STL: " + path);
+        }
+        else
+        {
+            string text = Encoding.ASCII.GetString(bytes).Trim();
+            if (!text.StartsWith("solid", StringComparison.OrdinalIgnoreCase) || text.IndexOf("endsolid", StringComparison.OrdinalIgnoreCase) < 0)
+                throw new Exception("Incomplete STL: " + path);
+            int facets = 0;
+            foreach (string line in text.Split('\n')) {
+                string[] fields = line.Trim().Split((char[])null, StringSplitOptions.RemoveEmptyEntries);
+                if (fields.Length == 1 && fields[0] == "endfacet") facets++;
+                if (fields.Length == 4 && fields[0] == "vertex") vertices.Add(new[] {
+                    Double.Parse(fields[1], System.Globalization.CultureInfo.InvariantCulture),
+                    Double.Parse(fields[2], System.Globalization.CultureInfo.InvariantCulture),
+                    Double.Parse(fields[3], System.Globalization.CultureInfo.InvariantCulture) });
+            }
+            if (facets == 0 || vertices.Count != facets * 3) throw new Exception("Invalid STL triangle records: " + path);
+        }
+        for (int axis = 0; axis < 3; axis++) {
+            double min = Double.PositiveInfinity, max = Double.NegativeInfinity;
+            foreach (double[] vertex in vertices) {
+                double value = vertex[axis];
+                if (Double.IsNaN(value) || Double.IsInfinity(value)) throw new Exception("Invalid STL coordinate: " + path);
+                min = Math.Min(min, value); max = Math.Max(max, value);
+            }
+            // The generated cylinder has positive extent along every axis.
+            if (!(max > min)) throw new Exception("STL lost cylinder geometry: " + path);
+        }
+    }
+
     private static string Hash(string path)
     {
         using (SHA256 hash = SHA256.Create())

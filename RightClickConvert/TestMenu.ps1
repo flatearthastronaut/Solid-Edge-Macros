@@ -3,6 +3,7 @@
 $ErrorActionPreference = 'Stop'
 $executable = Join-Path $PSScriptRoot 'Compiled Executables\SolidEdgeConvert.exe'
 $menus = @(
+    @{ Path='Software\Classes\SystemFileAssociations\.par\shell\SolidEdgeMacros.Convert'; Verb='03Stl'; Label='STL (.stl)'; Argument='--stl'; Class='{91A68B80-217F-4B8F-B6B4-F49391163E7F}' },
     @{ Path='Software\Classes\SystemFileAssociations\.par\shell\SolidEdgeMacros.Convert'; Verb='01Step'; Label='STEP (.stp)'; Argument='--step'; Class='{B84A6BE1-A4D2-4CD2-A1AE-60EAA476AD11}' },
     @{ Path='Software\Classes\SystemFileAssociations\.dft\shell\SolidEdgeMacros.Convert'; Verb='01Pdf'; Label='PDF (.pdf)'; Argument='--pdf'; Class='{AF39D53D-3C70-4055-8197-442F4C5180B2}' },
     @{ Path='Software\Classes\SystemFileAssociations\.dft\shell\SolidEdgeMacros.Convert'; Verb='02PdfWithDate'; Label='PDF with Date'; Argument='--pdf-date'; Class='{D8F750C4-A88D-4F7A-BD12-590D6813B742}' },
@@ -24,6 +25,8 @@ function Invoke-Installer([string] $argument) {
     if ($process.ExitCode -ne 0) { throw "Menu command failed: $argument" }
 }
 function Test-InstalledMenu {
+    $assemblyStl = $user.OpenSubKey('Software\Classes\SystemFileAssociations\.asm\shell\SolidEdgeMacros.Convert\shell\03Stl')
+    if ($null -ne $assemblyStl) { $assemblyStl.Dispose(); throw 'STL must be offered only for parts.' }
     foreach ($entry in $menus) {
     $menu = $user.OpenSubKey($entry.Path)
     if ($null -eq $menu) { throw 'Convert menu was not registered.' }
@@ -68,6 +71,6 @@ try {
     }
     Invoke-Installer '--install'
     Test-InstalledMenu
-    Write-Output 'PASS install, reinstall, uninstall, and final registration for eight conversion handlers and seven source extensions.'
+    Write-Output 'PASS install, reinstall, uninstall, and final registration for nine conversion handlers and seven source extensions.'
 }
 finally { $user.Dispose() }

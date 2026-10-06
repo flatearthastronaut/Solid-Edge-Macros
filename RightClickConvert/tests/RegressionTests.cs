@@ -553,6 +553,53 @@ internal static class RegressionTests
                     Check(results[0].Error == null && results[1].Error != null, "Part/assembly output collision not detected");
                 }
             });
+            Test("STL accepts parts and rejects other CAD types", delegate {
+                Equal("STL", Conversion.FormatName(ConversionFormat.Stl));
+                Equal(Path.ChangeExtension(source, ".stl"), Conversion.OutputPath(source, ConversionFormat.Stl));
+                string uppercase = Path.Combine(folder, "Upper.PAR"); File.WriteAllText(uppercase, "part");
+                Equal(Path.ChangeExtension(uppercase, ".stl"), Conversion.OutputPath(uppercase, ConversionFormat.Stl));
+                foreach (string extension in new[] { ".asm", ".dft", ".stp", ".step", ".x_t", ".x_b" }) {
+                    string wrong = Path.Combine(folder, "Wrong" + extension); File.WriteAllText(wrong, "wrong type");
+                    ExpectFailure(delegate { Conversion.OutputPath(wrong, ConversionFormat.Stl); });
+                }
+            });
+            Test("STL uses native export and never accesses STEP settings", delegate {
+                string original = File.ReadAllText(source);
+                foreach (bool enabled in new[] { false, true }) {
+                    FakeSession s = new FakeSession(enabled) { RejectStepAccess = true };
+                    string result = Conversion.Run(source, true, delegate { return s; }, delegate { }, ConversionFormat.Stl);
+                    Equal("STL data", File.ReadAllText(result)); Equal(".stl", s.SavedExtension); Equal(enabled, s.Adapter);
+                    Check(s.Events.Contains("open") && s.ImportPath == null && s.PartClosed && s.PartDisposed && s.Disposed, "STL route/cleanup failed");
+                }
+                Equal(original, File.ReadAllText(source));
+            });
+            Test("STL failures preserve existing outputs and remove partial exports", delegate {
+                string stlOutput = Conversion.OutputPath(source, ConversionFormat.Stl); File.WriteAllText(stlOutput, "old STL");
+                foreach (FakeSession s in new[] { new FakeSession(false) { FailSave = true }, new FakeSession(false) { FailClose = true }, new FakeSession(false) { EmptyOutput = true }, new FakeSession(false) { MissingOutput = true } }) {
+                    s.RejectStepAccess = true;
+                    ExpectFailure(delegate { Conversion.Run(source, true, delegate { return s; }, delegate { }, ConversionFormat.Stl); });
+                    Equal("old STL", File.ReadAllText(stlOutput));
+                    Check(s.PartClosed && s.PartDisposed && s.Disposed, "STL failure leaked resources");
+                    Equal(0, Directory.GetFiles(folder, "." + Path.GetFileNameWithoutExtension(source) + ".*.stl").Length);
+                }
+            });
+            Test("STL existing outputs skip without connecting or require replacement", delegate {
+                List<BatchItem> skipped = BatchConversion.Run(new[] { source }, ConversionFormat.Stl, ExistingOutput.Skip,
+                    delegate { throw new Exception("Skipped STL must not connect"); }, delegate { });
+                Check(skipped[0].Skipped && skipped[0].Error == null, "STL skip failed");
+                ExpectFailure(delegate { Conversion.Run(source, false, delegate { throw new Exception("Existing output must not connect"); }, delegate { }, ConversionFormat.Stl); });
+                Equal("old STL", File.ReadAllText(Conversion.OutputPath(source, ConversionFormat.Stl)));
+            });
+            Test("STL multi-selection continues after invalid inputs", delegate {
+                string second = Path.Combine(folder, "Second STL.par"); File.WriteAllText(second, "part");
+                List<BatchItem> results = BatchConversion.Run(new[] { source, assemblySource, second }, ConversionFormat.Stl, ExistingOutput.Replace,
+                    delegate { return new FakeSession(false) { RejectStepAccess = true }; }, delegate { });
+                Check(results.Count == 3 && results[0].Error == null && results[1].Error != null && results[2].Error == null, "STL batch did not continue");
+                Equal("STL data", File.ReadAllText(results[2].Output));
+            });
+            Test("STL command quotes executable and selection", delegate {
+                Equal("\"C:\\Tools & CAD\\SolidEdgeConvert.exe\" --stl \"%1\"", ShellMenu.Command(@"C:\Tools & CAD\SolidEdgeConvert.exe", ConversionFormat.Stl));
+            });
             Console.WriteLine("Passed " + passed + " regression tests.");
             return 0;
         }
@@ -641,7 +688,7 @@ internal static class RegressionTests
             {
                 owner.Events.Add("save");
                 owner.SavedExtension = Path.GetExtension(path);
-                if (!owner.MissingOutput) File.WriteAllText(path, owner.EmptyOutput ? "" : (owner.SavedExtension == ".pdf" ? "PDF data" : owner.SavedExtension == ".par" ? "PAR data" : owner.SavedExtension == ".asm" ? "ASM data" : owner.SavedExtension == ".x_t" ? "Parasolid data" : "STEP data"));
+                if (!owner.MissingOutput) File.WriteAllText(path, owner.EmptyOutput ? "" : (owner.SavedExtension == ".pdf" ? "PDF data" : owner.SavedExtension == ".par" ? "PAR data" : owner.SavedExtension == ".asm" ? "ASM data" : owner.SavedExtension == ".x_t" ? "Parasolid data" : owner.SavedExtension == ".stl" ? "STL data" : "STEP data"));
                 if (owner.OnSave != null) owner.OnSave();
                 if (owner.FailSave) throw new IOException("Save failed after partial write");
             }

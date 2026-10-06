@@ -5,7 +5,7 @@ using System.IO;
 
 namespace SolidEdgeConvert
 {
-    internal enum ConversionFormat { Step, Pdf, PdfWithDate, Part, ParasolidPart, ParasolidAssembly, StepAssembly, ParasolidExport }
+    internal enum ConversionFormat { Step, Pdf, PdfWithDate, Part, ParasolidPart, ParasolidAssembly, StepAssembly, ParasolidExport, Stl }
 
     // These small boundaries let regression tests exercise failure cleanup without
     // starting CAD or touching a user's open documents.
@@ -39,6 +39,7 @@ namespace SolidEdgeConvert
                 case ConversionFormat.ParasolidAssembly: return "Solid Edge Assembly";
                 case ConversionFormat.StepAssembly: return "Solid Edge Assembly";
                 case ConversionFormat.ParasolidExport: return "Parasolid";
+                case ConversionFormat.Stl: return "STL";
                 default: throw new ArgumentOutOfRangeException("format");
             }
         }
@@ -48,6 +49,8 @@ namespace SolidEdgeConvert
             string name = FormatName(format);
             bool nativeExport = format == ConversionFormat.Step || format == ConversionFormat.ParasolidExport;
             string inputExtension = nativeExport ? ".par or .asm" : ".dft";
+            // STL is offered for parts only; do not broaden the assembly menus.
+            if (format == ConversionFormat.Stl) inputExtension = ".par";
             bool stepImport = format == ConversionFormat.Part || format == ConversionFormat.StepAssembly;
             if (stepImport) inputExtension = ".stp or .step";
             bool parasolid = format == ConversionFormat.ParasolidPart || format == ConversionFormat.ParasolidAssembly;
@@ -76,6 +79,7 @@ namespace SolidEdgeConvert
             }
             return Path.ChangeExtension(fullPath, format == ConversionFormat.Step ? ".stp"
                 : format == ConversionFormat.ParasolidExport ? ".x_t"
+                : format == ConversionFormat.Stl ? ".stl"
                 : format == ConversionFormat.Part || format == ConversionFormat.ParasolidPart ? ".par"
                 : IsAssembly(format) ? ".asm" : ".pdf");
         }
@@ -120,8 +124,8 @@ namespace SolidEdgeConvert
                 progress("Connecting to Solid Edge...");
                 using (IEdgeSession session = connect())
                 {
-                    // PDF follows Batch's ordinary SaveAs(.pdf) path. It must
-                    // not depend on, read, or change the STEP translator setting.
+                    // PDF, Parasolid and STL use ordinary SaveAs with the target
+                    // extension and must not read/change the STEP translator setting.
                     object previousAdapter = useStepAdapter ? session.StepAdapter : null;
                     IEdgeDocument part = null;
                     List<Exception> failures = new List<Exception>();
