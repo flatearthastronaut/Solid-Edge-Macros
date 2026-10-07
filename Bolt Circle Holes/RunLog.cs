@@ -11,6 +11,9 @@ namespace BoltCircleHoles
 {
     public static class RunLog
     {
+        // Persist beside the executing assembly so a copied macro carries its own
+        // diagnostic location. Session IDs separate appended runs; stage names connect
+        // a BEGIN entry to its OK/error result when investigating a partial operation.
         static readonly object gate = new object();
         static readonly string session = DateTime.UtcNow.ToString("yyyyMMddTHHmmssfff") + "-" + Process.GetCurrentProcess().Id;
         public static readonly string PathName = Path.Combine(Path.GetDirectoryName(typeof(RunLog).Assembly.Location), "BoltCircleHoles-run.log");
@@ -28,6 +31,10 @@ namespace BoltCircleHoles
         }
         public static void Write(string stage,string detail)
         {
+            // Serialize writers within this process and close/flush each record promptly.
+            // FileShare.ReadWrite lets the live viewer read while modeling continues.
+            // Logging failures are exposed through WriteFailure rather than replacing
+            // the original modeling exception or recursively trying to log themselves.
             lock(gate)
             {
                 try
@@ -46,6 +53,9 @@ namespace BoltCircleHoles
         }
         public static T Call<T>(string stage,Func<T> action)
         {
+            // Wrap synchronous COM stages with timing and preserve the original stack
+            // through bare rethrow. This wrapper logs once per attempt; the OLE message
+            // filter handles transient busy retries separately on the calling STA.
             Write(stage,"BEGIN");
             var elapsed=Stopwatch.StartNew();
             try {T result=action();Write(stage,"OK elapsed_ms="+elapsed.ElapsedMilliseconds);return result;}
@@ -54,6 +64,9 @@ namespace BoltCircleHoles
         public static void Call(string stage,Action action) {Call<int>(stage,delegate {action();return 0;});}
         public static string Tail()
         {
+            // Bound UI refresh work to 256 KiB, leaving the full on-disk history intact.
+            // Seeking into UTF-8 may start mid-character/line; discard that first partial
+            // line before displaying the remaining complete log records.
             try
             {
                 using(var stream=new FileStream(PathName,FileMode.Open,FileAccess.Read,FileShare.ReadWrite))
@@ -85,6 +98,8 @@ namespace BoltCircleHoles
         }
         void RefreshLog()
         {
+            // Avoid resetting selection/scroll and redrawing a large text box when no
+            // new records arrived. Pausing Live updates stops refresh, not file logging.
             string content=RunLog.Tail();
             if(text.Text==content)return;
             text.Text=content;text.SelectionStart=text.TextLength;text.ScrollToCaret();

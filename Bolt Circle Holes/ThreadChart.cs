@@ -6,6 +6,9 @@ namespace BoltCircleHoles
 {
     public sealed class ThreadSpec
     {
+        // NominalInches and FullDepthInches are always inches. Pitch is mm/revolution
+        // for Metric=true, but threads/inch for UNC. NominalText is the native table
+        // key (for example M10), while HoleSize.Screw is the complete UI callout.
         public bool Metric;
         public double NominalInches, Pitch, FullDepthInches;
         public string NominalText;
@@ -16,6 +19,10 @@ namespace BoltCircleHoles
         // consistently; do not mix them with independently rounded metric depths.
         public static List<HoleSize> Load(bool metric)
         {
+            // Arrays share the PDF's row order; keep all columns aligned when editing.
+            // These are published rounded depths, not values recomputed at runtime.
+            // HoleSize.Depth stores drill depth to the full-diameter shoulder, which
+            // must exceed FullDepthInches and excludes the extra conical drill point.
             string[] names=metric ? new[]{"M3","M3.5","M4","M5","M6","M7","M8","M10","M12","M14","M16","M18","M20"}
                 : new[]{"#8","#10","#12","1/4","5/16","3/8","7/16","1/2","9/16","5/8","3/4","7/8","1"};
             double[] diam=metric ? new[]{3.0,3.5,4,5,6,7,8,10,12,14,16,18,20}
@@ -41,6 +48,11 @@ namespace BoltCircleHoles
         }
         public static double[][] Centers(double[] start,double[] normal,int count)
         {
+            // Pure geometry, with no COM calls. Rotate the original XY vector at each
+            // angle instead of repeatedly rotating the last point (avoids accumulated
+            // drift). Clone the first point exactly and keep Z constant for every hole.
+            // Multiple positions stay on the same support only when its normal is Z;
+            // either normal sign is accepted. A single hole needs no circular layout.
             double step=HoleEngine.PatternSpacing(count);
             foreach(double v in start)if(Double.IsNaN(v)||Double.IsInfinity(v))throw new InvalidOperationException("Invalid thread center.");
             double norm=Math.Sqrt(HoleEngine.Dot(normal,normal));
@@ -59,6 +71,10 @@ namespace BoltCircleHoles
         }
         public static Part.HoleData AddData(Part.PartDocument part,HoleSize size)
         {
+            // Return the owned HoleData before configuring it. The caller records the
+            // handle immediately, so a failed table/readback check can delete it during
+            // rollback. IgnoreSavedDefaultValues prevents prior interactive hole options
+            // from silently changing this macro's chosen definition.
             // Current Solid Edge tables are selected by standard and size. The legacy
             // ThreadDataByDescription setter silently returned all zeros in SE 2026.
             // ISO Metric coarse entries use M10, not M10x1.5; UNC includes its pitch.
@@ -94,6 +110,9 @@ namespace BoltCircleHoles
             // HoleDiameter must remain the NOMINAL thread diameter. Setting it to the
             // tap drill makes Solid Edge reselect a different thread or clear its identity.
             data.ThreadDepthMethod=Part.FeaturePropertyConstants.igFinite;
+            // Full thread depth is independent of drilling depth: AddFinite receives
+            // HoleSize.Depth later. igVBottomDimToFlat makes that depth end at the
+            // cylindrical shoulder, with the 120-degree point extending beyond it.
             data.ThreadDepth=spec.FullDepthInches*.0254;
             data.BottomAngle=120.0;
             data.VBottomDimType=Part.FeaturePropertyConstants.igVBottomDimToFlat;

@@ -8,6 +8,10 @@ namespace BoltCircleHoles
         // Button Hole Dia / Dp describe the drive button, NOT the mounting counterbore.
         public static List<HoleSize> Load(List<HoleSize> standard)
         {
+            // Each adapter produces adjacent Counterbore and Button Hole options.
+            // Counterbores borrow dimensions from the matched metric standard row;
+            // button diameters/depths come directly from the adapter PDF. New records
+            // keep A2 radius/availability metadata off the reusable standard entries.
             string[] adapters={"A2-5","A2-6","A2-8","A2-11","A2-15","A2-20","A2-28"};
             string[] screws={"M10","M12","M16","M20","M24","M24","M30"};
             double?[] radii={2.063,2.625,3.375,4.625,null,null,null};
@@ -17,6 +21,9 @@ namespace BoltCircleHoles
             for(int i=0;i<adapters.Length;i++)
             {
                 HoleSize match=null;
+                // Require a space after the nominal size to avoid prefix collisions
+                // such as M10 versus M100. Multiple matching pitches are ambiguous;
+                // fail visibly rather than choose the first row of an edited chart.
                 foreach(var row in standard)
                     if(row.Screw.StartsWith(screws[i]+" ",StringComparison.OrdinalIgnoreCase))
                     {
@@ -26,6 +33,8 @@ namespace BoltCircleHoles
                 var item=new HoleSize {Adapter=adapters[i],Screw=match==null?screws[i]:match.Screw,
                     Drill=match==null?0:match.Drill,Bore=match==null?0:match.Bore,Depth=match==null?null:match.Depth,Radius=radii[i]};
                 if(!radii[i].HasValue)item.Unavailable="The A2 chart does not specify a Z radius for "+adapters[i]+".";
+                // Retain incomplete PDF rows for visibility, but mark them unavailable.
+                // The 15-degree note below cannot supply a missing radius or size.
                 if(match==null)item.Unavailable=(item.Unavailable??"")+" No "+screws[i]+" counterbore is listed in the size chart.";
                 result.Add(item);
                 var button=new HoleSize {Adapter=adapters[i],ButtonHole=true,Screw="Button Hole",

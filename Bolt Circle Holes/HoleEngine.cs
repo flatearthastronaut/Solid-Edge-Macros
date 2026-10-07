@@ -8,8 +8,14 @@ namespace BoltCircleHoles
 {
     public static class HoleEngine
     {
+        // Geometry helpers use base-CSYS XYZ and meters, except parameters explicitly
+        // named Inches. Angles sent to pattern APIs are radians; HoleData.BottomAngle
+        // uses degrees. Keep those API conventions separate from the inch-based UI.
         public static double[] Dimensions(HoleSize size)
         {
+            // Result slots: drill/nominal diameter, counterbore diameter (or unused
+            // regular-hole placeholder), and counterbore/shoulder depth. This checks
+            // the chart before any model edits; ThreadChart later selects the tap drill.
             if(size!=null && size.Unavailable!=null)throw new InvalidOperationException(size.Unavailable);
             if (size == null || !size.Depth.HasValue)
                 throw new InvalidOperationException("This screw size has no counterbore depth in the chart. Enter its depth in C'bore Chart.xls and restart the macro.");
@@ -24,6 +30,8 @@ namespace BoltCircleHoles
         }
         public static double[] Vector(Array values)
         {
+            // COM SAFEARRAYs need not start at zero. Normalize the three coordinates
+            // once at the boundary so subsequent vector math can use ordinary arrays.
             int k = values.GetLowerBound(0);
             return new[] { Convert.ToDouble(values.GetValue(k)), Convert.ToDouble(values.GetValue(k+1)), Convert.ToDouble(values.GetValue(k+2)) };
         }
@@ -31,6 +39,9 @@ namespace BoltCircleHoles
         public static double[] Difference(double[] a, double[] b) { return new[] {a[0]-b[0],a[1]-b[1],a[2]-b[2]}; }
         public static double[] Intersect(double[] origin, double[] direction, double[] root, double[] normal)
         {
+            // Solve normal dot (origin + t*direction - root) = 0. The parallelism
+            // threshold is scaled by both vector lengths, so normalization is not
+            // required and nearly edge-on views cannot produce enormous false centers.
             double denominator = Dot(direction, normal);
             if (Math.Abs(denominator) < 1e-10 * Math.Sqrt(Dot(direction,direction)*Dot(normal,normal)))
                 throw new InvalidOperationException("The support is edge-on. Rotate the view and click the center again.");
@@ -45,6 +56,9 @@ namespace BoltCircleHoles
         }
         public static void RequireCoincidentPlanes(double[] firstRoot,double[] firstNormal,double[] secondRoot,double[] secondNormal)
         {
+            // Opposite normals still describe the same plane. Test absolute alignment
+            // and normal distance rather than equal roots: roots may differ tangentially.
+            // Reject offsets above one micron before generating a hole at the wrong Z.
             double a=Math.Sqrt(Dot(firstNormal,firstNormal)),b=Math.Sqrt(Dot(secondNormal,secondNormal));
             double alignment=Math.Abs(Dot(firstNormal,secondNormal))/(a*b);
             double distance=Math.Abs(Dot(Difference(secondRoot,firstRoot),firstNormal))/a;
@@ -53,6 +67,9 @@ namespace BoltCircleHoles
         }
         public static double[] BaseZTarget(double[] center,double[] root,double[] normal)
         {
+            // Substitute (0,0,z) into the support-plane equation to find its base-Z
+            // intersection. A plane containing the entire axis uses the nearest point
+            // at the hole's Z; a parallel displaced plane has no valid in-plane endpoint.
             double length=Math.Sqrt(Dot(normal,normal));
             if(double.IsNaN(length) || double.IsInfinity(length) || length<1e-12)
                 throw new InvalidOperationException("Cannot determine the hole profile plane.");
@@ -70,6 +87,10 @@ namespace BoltCircleHoles
         }
         static void AddBaseZConstruction(Part.PartDocument part,Part.Profile profile,Part.Hole2d holeCenter,double[] center,double u,double v)
         {
+            // Convert through the actual profile basis, not an assumed XY orientation.
+            // Tie the hole endpoint by coincidence and fix only the axis endpoint;
+            // the native length/angle dimensions can then drive the hole position.
+            // Thread selections intentionally bypass this complete construction path.
             var origin=OnProfile(profile,0,0);
             var a=Difference(OnProfile(profile,1,0),origin);
             var b=Difference(OnProfile(profile,0,1),origin);
@@ -165,6 +186,8 @@ namespace BoltCircleHoles
         }
         public static double PatternSpacing(int count)
         {
+            // Quantity includes the clicked seed: six holes means 60-degree increments,
+            // not six copies plus a seed. Count=1 is valid and creates no extra positions.
             if(count<1 || count>999)throw new ArgumentOutOfRangeException("count","Enter a whole number of holes from 1 to 999.");
             return 2*Math.PI/count;
         }
@@ -182,6 +205,8 @@ namespace BoltCircleHoles
         }
         public static double[] A2Center(double[] clicked,double[] normal,double radiusInches)
         {
+            // A2 uses the click only for azimuth. Scale XY to the chart's Z radius and
+            // preserve the support elevation; do not move the point along the face normal.
             double norm=Math.Sqrt(Dot(normal,normal));
             if(norm<1e-12 || Double.IsNaN(norm) || Math.Abs(normal[2])/norm<1-1e-8)
                 throw new InvalidOperationException("A2 holes require a Create From face perpendicular to the base Z axis.");
@@ -193,6 +218,13 @@ namespace BoltCircleHoles
         }
         public static object Create(Part.PartDocument part, Part.Model model, object support, double[] center, HoleSize size, bool reverse, int totalHoles)
         {
+            // Transaction-like sequence: validate -> create owned support/profile/data
+            // -> cut seed -> group threads or pattern other holes -> verify -> hide aids.
+            // Success leaves the document unsaved. Failure removes only objects owned
+            // by this attempt, in dependency order; collection baselines detect ambiguous
+            // COM calls that modified the document without returning an ownership handle.
+            // Return type is object because a multi-position thread Hole is represented
+            // by UserDefinedPattern, while a single position returns the seed Hole.
             RunLog.Write("HOLE.request","size="+size+" center_m="+RunLog.Value(center)+" reverse="+reverse+" support="+(support is Geometry.Face ? "Face" : "RefPlane"));
             if(size!=null && size.Unavailable!=null)throw new InvalidOperationException(size.Unavailable);
             if(size!=null && size.Radius.HasValue)
@@ -215,6 +247,9 @@ namespace BoltCircleHoles
             if (part.ReadOnly) throw new InvalidOperationException("The part is read-only. Obtain write access before creating a hole.");
             double before = body.Volume;
             int holeCount = model.Holes.Count;
+            // Snapshot counts before any creation, not midway through the operation.
+            // Rollback uses these only to verify cascade deletion/ownership, never as
+            // instructions to delete arbitrary collection members by index.
             int setCount=part.ProfileSets.Count, planeCount=part.RefPlanes.Count, dataCount=part.HoleDataCollection.Count;
             Part.RefPlane localPlane = null;
             Part.ProfileSet set = null;
@@ -281,6 +316,9 @@ namespace BoltCircleHoles
                 RunLog.Write("PROFILE.validation","return_code="+profileStatus);
                 if (profileStatus!=0) throw new InvalidOperationException("Solid Edge could not validate the hole profile (code "+profileStatus+").");
                 var side = Part.FeaturePropertyConstants.igRight;
+                // igRight follows the profile normal. For a selected face, use its
+                // topological outward normal (which can oppose the surface normal) to
+                // cut into material by default; the user's reverse option flips once.
                 if (face != null)
                 {
                     // Face normals account for face orientation, unlike the underlying surface normal.
@@ -329,6 +367,9 @@ namespace BoltCircleHoles
                 if (featureStatus!=Part.FeatureStatusConstants.igFeatureOK)
                     throw new InvalidOperationException("Solid Edge returned "+featureStatus+" ("+(int)featureStatus+"). "+Convert.ToString(description)+" See View log for the hole inputs and direction.");
                 var after=(Geometry.Body)model.Body;
+                // A successful COM return is not enough: require OK feature status,
+                // a valid remaining solid, measurable material removal, and dimension
+                // readback. The volume threshold combines an absolute and relative floor.
                 RunLog.Write("HOLE.volume","before_m3="+RunLog.Value(before)+" after_m3="+RunLog.Value(after.Volume)+" removed_m3="+RunLog.Value(before-after.Volume)+" isSolid="+after.IsSolid);
                 if (!after.IsSolid || after.Volume<=0 || before-after.Volume<=Math.Max(1e-16,before*1e-10))
                     throw new InvalidOperationException("The hole did not remove material from a valid solid. Try reversing direction or choosing another center.");
@@ -392,6 +433,9 @@ namespace BoltCircleHoles
                 }
                 if(totalHoles>1 && size.Thread==null)
                 {
+                    // Counterbores and A2 button holes retain the requested editable
+                    // native circular pattern. Threads use explicit chart-driven centers
+                    // in one Hole group above, without a separate circular Pattern.
                     var patternPlane=RunLog.Call("PATTERN.base-XY",delegate {return FindBaseXYPlane(part);});
                     Array features=new object[]{hole};Array axisPoint=new double[]{0,0,0};
                     double seedVolume=after.Volume;
@@ -443,6 +487,8 @@ namespace BoltCircleHoles
             }
             finally
             {
+                // Restore the user's modeling mode even after failure. Restoration
+                // errors are logged separately so they do not hide the original error.
                 if(previousMode!=Part.ModelingModeConstants.seModelingModeOrdered)
                     try {RunLog.Call("MODE.restore."+previousMode,delegate {part.ModelingMode=previousMode;});} catch(Exception ex){Program.Log(ex);}
             }
@@ -459,6 +505,9 @@ namespace BoltCircleHoles
         }
         static bool RemoveOwned(string name,Action remove,Func<bool> restored,List<string> errors)
         {
+            // Returning false tells the caller to stop deleting lower-level dependencies.
+            // A stale COM handle alone is not proof of successful removal: require the
+            // corresponding live collection to match the saved baseline before ignoring it.
             try {RunLog.Call("CLEANUP.delete."+name,remove);return true;}
             catch(Exception ex)
             {

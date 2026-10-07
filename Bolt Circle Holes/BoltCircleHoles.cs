@@ -15,6 +15,11 @@ namespace BoltCircleHoles
 {
     public sealed class HoleSize
     {
+        // Shared selection record for all five dropdowns. Linear dimensions are inches,
+        // including metric screw rows; conversion to Solid Edge's meters happens in
+        // HoleEngine/ThreadChart. Null Depth/Radius means the source omitted a value,
+        // not zero. Unavailable explains why a visible chart entry cannot be created.
+        // For threads, Drill is nominal size until the native thread table is resolved.
         public string Screw;
         public double Drill, Bore;
         public double? Depth, Radius;
@@ -26,6 +31,9 @@ namespace BoltCircleHoles
 
     public static class Chart
     {
+        // Prefer the fingerprint-matched embedded chart so the distributed macro can
+        // run without Excel/ACE. Only an edited workbook reaches LoadWorkbook; never
+        // silently substitute old embedded sizes for an unrecognized workbook.
         public static List<HoleSize> Load(string path)
         {
             if (!File.Exists(path)) throw new FileNotFoundException("Keep C'bore Chart.xls beside the macro.", path);
@@ -39,6 +47,9 @@ namespace BoltCircleHoles
         }
         public static List<HoleSize> LoadWorkbook(string path)
         {
+            // HDR=NO lets us validate the exact header ourselves. IMEX=1 accommodates
+            // mixed screw labels and numbers; ReadOnly and scoped disposal avoid
+            // changing the standard or leaving the workbook locked between runs.
             var builder = new OleDbConnectionStringBuilder();
             builder.Provider = "Microsoft.ACE.OLEDB.12.0";
             builder.DataSource = path;
@@ -86,6 +97,9 @@ namespace BoltCircleHoles
 
     public sealed class MainWindow : Form
     {
+        // Selection flow: choose size -> locate support -> locate center -> stop the
+        // custom command -> build geometry. Retain the original document and support
+        // throughout; a new active document must not redirect a pending placement.
         readonly ComboBox sizes = new ComboBox(), metricSizes = new ComboBox(), a2Sizes = new ComboBox();
         readonly ComboBox metricThreads=new ComboBox(), inchThreads=new ComboBox();
         readonly HoleSymbol a2Symbol=new HoleSymbol();
@@ -107,6 +121,8 @@ namespace BoltCircleHoles
         Part.Model selectedModel;
         double[] supportRoot, supportNormal;
         int generation;
+        // Every StopPick increments generation. Deferred callbacks carry the previous
+        // value and are discarded after cancellation or a new selection session.
         readonly bool preview;
         public MainWindow(bool previewOnly)
         {
@@ -222,6 +238,10 @@ namespace BoltCircleHoles
         }
         void SelectSize(ComboBox changed)
         {
+            // Clearing another dropdown raises its event synchronously. The guard
+            // prevents those nested events from clearing the user's new selection.
+            // A2 counterbores also display the corresponding metric screw; SelectedSize
+            // prioritizes the A2 record so its preset radius is not lost.
             if(updatingSelection)return;
             updatingSelection=true;
             try
@@ -262,6 +282,9 @@ namespace BoltCircleHoles
         static string Format(double n) { return n.ToString("0.000", CultureInfo.InvariantCulture) + " in"; }
         static bool Same(object a, object b)
         {
+            // Different managed wrappers may represent the same COM object. Compare
+            // IUnknown identity rather than wrapper references, releasing only the
+            // temporary AddRef pointers acquired here, not the shared RCWs themselves.
             if (a == null || b == null) return false;
             IntPtr x = Marshal.GetIUnknownForObject(a), y = Marshal.GetIUnknownForObject(b);
             try { return x == y; } finally { Marshal.Release(x); Marshal.Release(y); }
@@ -272,6 +295,9 @@ namespace BoltCircleHoles
         }
         void BeginPick()
         {
+            // This command gathers input only. Geometry is created after StopPick so
+            // Solid Edge is not still executing the mouse command during feature edits.
+            // Validate dimensions first and lock size/count until this attempt ends.
             if (preview) return;
             try
             {
@@ -306,11 +332,17 @@ namespace BoltCircleHoles
         }
         void Queue(Action action)
         {
+            // Leave Solid Edge's COM event callback before changing command state or
+            // creating features. BeginInvoke returns work to the same WinForms STA;
+            // a worker thread would violate the automation objects' apartment usage.
             if (!closing && IsHandleCreated && !IsDisposed)
                 try { BeginInvoke(action); } catch (InvalidOperationException) { }
         }
         void OnSupportClick(short button, short shift, double x, double y, double z, object window, int keyPoint, object graphic)
         {
+            // Capture transient locate information immediately, but defer modeling.
+            // The queued stage/generation checks also reject an extra rapid click that
+            // was received for the previous stage before the UI processed it.
             RunLog.Write("MOUSE.click","button="+button+" stage="+(awaitingCenter?"center":"support")+" xyz="+RunLog.Value(new[]{x,y,z})+" graphic="+(graphic is Geometry.Face?"Face":graphic is Part.RefPlane?"RefPlane":graphic==null?"null":graphic.GetType().FullName)+" keyPoint="+keyPoint);
             int current = generation;
             bool centerStage = awaitingCenter;
@@ -398,6 +430,10 @@ namespace BoltCircleHoles
         }
         double[] LocateCenter(double x,double y,double z,object window,object graphic)
         {
+            // A face pick must hit that exact bounded face: generic click XYZ can lie
+            // on the view plane instead. A reference plane has no bounded face hit, so
+            // construct a view ray and intersect it with the chosen mathematical plane.
+            // Distances here are meters; the face round-trip tolerance is one micron.
             if(selectedSupport is Geometry.Face)
             {
                 if(!Same(graphic,selectedSupport)) throw new InvalidOperationException("Click the center on the selected flat face.");
@@ -427,6 +463,10 @@ namespace BoltCircleHoles
         }
         void StopPick()
         {
+            // Invalidate queued work before disconnecting event handlers. Completing
+            // a command can itself trigger termination, so unsubscribe before Done.
+            // Keep local references alive until teardown finishes, then let the CLR
+            // manage wrapper lifetimes; force-releasing shared COM objects is unsafe.
             RunLog.Write("PICK.stop","hadCommand="+(command!=null)+" centerStage="+awaitingCenter);
             picking = false; awaitingCenter=false;
             generation++;
@@ -473,6 +513,9 @@ namespace BoltCircleHoles
     }
     sealed class BusyFilter : IMessageFilter
     {
+        // Following the SDK OleMessageFilter pattern, retry only SERVERCALL_RETRYLATER
+        // (2), at 150 ms intervals for up to five seconds. Other rejections and a busy
+        // application beyond that window propagate as errors instead of hanging forever.
         public int HandleInComingCall(int type, IntPtr caller, int ticks, IntPtr info) { return 0; }
         public int RetryRejectedCall(IntPtr callee, int ticks, int type)
         {
@@ -492,6 +535,10 @@ namespace BoltCircleHoles
         }
         [STAThread] static int Main(string[] args)
         {
+            // All UI, event handling, and Solid Edge automation share this STA thread.
+            // The local-session mutex prevents two macro windows from competing for
+            // selection events. Restore the previous OLE filter on every exit path;
+            // the macro owns neither the running Solid Edge process nor its document.
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.ThreadException+=delegate(object sender,System.Threading.ThreadExceptionEventArgs e){Log(e.Exception);MessageBox.Show(e.Exception.Message+"\r\nSee BoltCircleHoles-run.log.","Bolt Circle Holes");};

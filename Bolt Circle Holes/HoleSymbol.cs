@@ -12,6 +12,9 @@ namespace BoltCircleHoles
         public HoleSymbol(){DoubleBuffered=true;TabStop=false;Size=new Size(42,28);}
         protected override void OnPaint(PaintEventArgs e)
         {
+            // Draw in a fixed 42x28 coordinate space and scale to the current control.
+            // These are explanatory section symbols, not dimensioned previews: the
+            // chosen chart values appear in the text summary and drive the model itself.
             base.OnPaint(e);
             e.Graphics.SmoothingMode=SmoothingMode.AntiAlias;
             e.Graphics.ScaleTransform(Width/42f,Height/28f);
