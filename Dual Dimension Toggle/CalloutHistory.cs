@@ -3,11 +3,23 @@ using System.Text;
 
 namespace DualDimensionToggle
 {
+    /// <summary>
+    /// Stores whole-field snapshots so only known literal pairs can be restored
+    /// on a later inch-to-dual run. Array positions are main, lower, prefix, and
+    /// suffix text, matching CalloutConverter.ReadText/WriteText. Linked-field
+    /// formatting is normalized separately and needs no restoration history.
+    /// </summary>
     internal sealed class CalloutHistory
     {
         internal readonly string[] Inch = new string[4], Dual = new string[4];
         internal string Encode()
         {
+            // Format: version.Inch0.Dual0.Inch1.Dual1.Inch2.Dual2.Inch3.Dual3.
+            // UTF-8 Base64 has no periods, so embedded decimal points, line
+            // breaks, and symbols cannot collide with the record delimiter.
+            // '~' preserves null distinctly from an empty-string Base64 field.
+            // This is serialization, not encryption; the attribute stays local
+            // to the annotation and persists when the user saves the draft.
             string result = "1";
             for (int i = 0; i < 4; i++) result += "." + Pack(Inch[i]) + "." + Pack(Dual[i]);
             return result;
@@ -51,6 +63,10 @@ namespace DualDimensionToggle
         }
         internal static void Write(object note, string value)
         {
+            // null means remove this macro's record; an empty string is an
+            // actual attribute value and may need to be restored during rollback.
+            // The caller owns read-back verification and recovery because this
+            // write is one step in the larger style/text/history operation.
             object sets = null, set = null, attribute = null;
             try
             {
@@ -80,6 +96,10 @@ namespace DualDimensionToggle
         }
         private static object Find(object collection, string name, bool sets)
         {
+            // Use the same indexed traversal as other SDK collections. Ownership
+            // of a matching COM reference transfers to the caller: nulling the
+            // local variable prevents this finally block from releasing it early.
+            // Every nonmatching reference is released during the scan.
             int count = (int)((dynamic)collection).Count;
             for (int i = 1; i <= count; i++)
             {

@@ -12,6 +12,9 @@ namespace DualDimensionToggle
 {
     internal static class Program
     {
+        // WinForms and Solid Edge automation share this STA for the entire run.
+        // Moving conversion to a thread-pool task would change the COM apartment
+        // and would also require a separate message-filter/lifetime strategy.
         [STAThread]
         private static void Main()
         {
@@ -21,6 +24,11 @@ namespace DualDimensionToggle
         }
     }
 
+    /// <summary>
+    /// Owns direction selection, illustrative previews, and the result report.
+    /// Opening this window does not access a drawing: the active Solid Edge
+    /// document and sheet are resolved only when the user clicks Convert.
+    /// </summary>
     internal sealed class ConverterForm : Form
     {
         private readonly Icon applicationIcon;
@@ -37,12 +45,17 @@ namespace DualDimensionToggle
             using (System.IO.Stream iconStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("DualDimensionToggle.ico"))
             using (Icon embeddedIcon = new Icon(iconStream))
                 applicationIcon = (Icon)embeddedIcon.Clone();
+            // The clone outlives the temporary stream/icon and is owned by the
+            // form. Dispose releases it after the native window/child controls.
             Icon = applicationIcon;
             Font = new Font("Segoe UI", 10);
             AutoScaleMode = AutoScaleMode.Dpi;
             ClientSize = new Size(760, 570);
             MinimumSize = new Size(740, 550);
             StartPosition = FormStartPosition.CenterScreen;
+            // Let descriptive rows size themselves, leaving the remaining space
+            // to the scrolling report. Radio choices stay in one shared container
+            // so introducing the pictures does not create independent radio groups.
             TableLayoutPanel layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(18), ColumnCount = 1, RowCount = 6 };
             for (int i = 0; i < 5; i++) layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
@@ -85,6 +98,9 @@ namespace DualDimensionToggle
 
         private void ConvertClick(object sender, EventArgs args)
         {
+            // Lock both direction and action for the complete operation. Refresh
+            // paints the status before synchronous COM work begins; it does not
+            // pump arbitrary queued clicks the way Application.DoEvents would.
             convert.Enabled = toInch.Enabled = toDual.Enabled = false;
             UseWaitCursor = true;
             results.Text = "Converting dimensions on the active sheet...";
@@ -97,6 +113,9 @@ namespace DualDimensionToggle
             }
             catch (Exception error)
             {
+                // A fatal connection/collection error does not undo successful
+                // edits from earlier in the run. Keep that visible to the user
+                // instead of implying the entire sheet was rolled back or saved.
                 results.Text = "Conversion could not complete.\r\n" + error.Message +
                     "\r\nIf no draft is active, open it and select the desired sheet. " +
                     "If Solid Edge is busy, finish its current command and retry.\r\n" +

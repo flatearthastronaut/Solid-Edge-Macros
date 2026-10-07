@@ -7,6 +7,11 @@ namespace DualDimensionToggle
 {
     internal enum MatchStatus { Convert, AlreadyTarget, Unrecognized, Missing, Ambiguous }
 
+    /// <summary>
+    /// Parses only the supported naming conventions into a matching key.
+    /// This describes a style's name, not its actual Solid Edge unit settings:
+    /// the draft must already contain correctly configured counterpart styles.
+    /// </summary>
     internal sealed class StyleName
     {
         // The leading integer is a sorting group, not a unit or precision.
@@ -34,6 +39,10 @@ namespace DualDimensionToggle
         }
         internal static StyleName Parse(string name)
         {
+            // Both patterns use group 1 for decimal places and group 2 for
+            // m[i]. Only the numbered pattern has group 3, the (vert) suffix;
+            // the prefix check short-circuits that access for Vert names.
+            // TryParse also rejects a precision number too large for an int.
             if (name == null) return null;
             Match match = Pattern.Match(name);
             bool prefix = !match.Success;
@@ -45,6 +54,11 @@ namespace DualDimensionToggle
         }
     }
 
+    /// <summary>
+    /// Indexes the document's style names once per conversion. No COM objects
+    /// are retained here, so each dimension and callout can resolve its target
+    /// without rescanning the shared style collection through automation.
+    /// </summary>
     internal sealed class StyleMap
     {
         private readonly Dictionary<string, List<string>> names = new Dictionary<string, List<string>>();
@@ -55,6 +69,9 @@ namespace DualDimensionToggle
                 StyleName parsed = StyleName.Parse(name);
                 if (parsed == null) continue;
                 string key = parsed.Key(parsed.Dual);
+                // Retain every distinct spelling for a key. Two definitions
+                // with equivalent names may have different formatting; choosing
+                // whichever appears first would silently guess the user's intent.
                 List<string> matches;
                 if (!names.TryGetValue(key, out matches)) names.Add(key, matches = new List<string>());
                 if (!matches.Contains(name)) matches.Add(name);
@@ -62,6 +79,10 @@ namespace DualDimensionToggle
         }
         internal MatchStatus Resolve(string source, bool toDual, out string target)
         {
+            // The requested direction is absolute, not a per-object toggle.
+            // AlreadyTarget makes repeated runs safe on a partly converted sheet.
+            // Only Convert returns a usable target; all other statuses leave
+            // target null for the caller to report or skip without writing.
             target = null;
             StyleName parsed = StyleName.Parse(source);
             if (parsed == null) return MatchStatus.Unrecognized;

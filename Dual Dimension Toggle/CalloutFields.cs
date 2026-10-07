@@ -4,6 +4,12 @@ using System.Text.RegularExpressions;
 
 namespace DualDimensionToggle
 {
+    /// <summary>
+    /// Changes raw model-reference formatting without evaluating the reference.
+    /// Literal metric[inch] pairs are handled separately by CalloutText. This
+    /// separation keeps model links associative and prevents literal conversion
+    /// from accidentally editing numbers inside formatting options.
+    /// </summary>
     internal static class CalloutFields
     {
         // Single length references documented by Siemens: hole size/depth,
@@ -13,11 +19,16 @@ namespace DualDimensionToggle
         private static readonly Regex LengthField = new Regex(
             @"\A(?<code>%(?:HS|HD|BS|BD|SS|TD|BR))(?<options>/[^{}%|]*)?\z",
             RegexOptions.CultureInvariant);
+        // Require a whole option: removing /DU must not damage /DUMMY or text
+        // that merely starts with the same letters. Other options keep their order.
         private static readonly Regex DualOption = new Regex(@"/DU(?=/|\z)",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
         internal static string Convert(string source, bool toDual)
         {
+            // A forward-only scan consumes every complete token once. Unknown
+            // expressions are copied verbatim, and malformed braces throw before
+            // the caller begins writing any of the note's four text fields.
             if (String.IsNullOrEmpty(source)) return source;
             StringBuilder result = new StringBuilder(source.Length);
             for (int index = 0; index < source.Length;)
@@ -69,6 +80,10 @@ namespace DualDimensionToggle
 
         internal static bool SameValues(string left, string right)
         {
+            // This is textual compatibility, not numeric equivalence: whitespace,
+            // literal values, field identities, and precision modifiers must still
+            // match exactly after removing supported /DU formatting. Do not make
+            // this a general whitespace/case normalizer or it could hide user edits.
             // v1.5 history may still contain /DU on its inch snapshot. Compare
             // using a common unit format, tolerating only this new transformation
             // while retaining the existing protection against edited literal text.

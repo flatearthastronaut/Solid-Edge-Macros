@@ -11,11 +11,16 @@ namespace DualDimensionToggle
         private readonly bool toDual;
         internal DimensionPreview(bool dual)
         {
+            // This control is an illustration, not a preview of the active draft.
+            // The fixed inch value deliberately keeps two decimal places in both
+            // modes; actual drawing precision is determined by StyleMap's target.
             toDual = dual;
             Size = new Size(300, 82);
             MinimumSize = Size;
             TabStop = false;
             AccessibleRole = AccessibleRole.Graphic;
+            // The label describes the same information without relying on color.
+            // The owning form routes picture clicks to the adjacent radio button.
             AccessibleName = dual ? "Example: 1.00 inch to 25.4 millimeters [1.00 inch]"
                 : "Example: 25.4 millimeters [1.00 inch] to 1.00 inch";
             SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
@@ -26,6 +31,8 @@ namespace DualDimensionToggle
         {
             base.OnPaint(e);
             GraphicsState state = e.Graphics.Save();
+            // Graphics belongs to the paint event, not this control. Restore our
+            // transformations afterward and never dispose the borrowed Graphics.
             try
             {
                 // Center a fixed-aspect illustration; layout may give it extra
@@ -35,6 +42,9 @@ namespace DualDimensionToggle
                 e.Graphics.TranslateTransform((ClientSize.Width - 300 * scale) / 2, (ClientSize.Height - 82 * scale) / 2);
                 e.Graphics.ScaleTransform(scale, scale);
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                // Read each example left to right: source, conversion arrow,
+                // destination. Reversing the requested mode swaps the units, not
+                // the conversion arrow's direction or the displayed inch value.
                 DrawDimension(e.Graphics, 4, !toDual);
                 DrawDimension(e.Graphics, 184, toDual);
                 using (Pen arrow = new Pen(Color.FromArgb(173, 104, 12), 2.5f))

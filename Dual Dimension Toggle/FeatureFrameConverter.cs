@@ -6,6 +6,12 @@ namespace DualDimensionToggle
 {
     internal enum FrameTextStatus { Empty, Preserved, Changed, AlreadyTarget, Unsupported }
 
+    /// <summary>
+    /// Rewrites only a frame row's tolerance cell. The symbol cell and datum
+    /// cells remain byte-for-byte text copies; their numbers are not lengths to
+    /// convert. Unlike free-form callouts, a bare decimal in this known tolerance
+    /// cell is explicitly defined by the user as an inch-only tolerance.
+    /// </summary>
     internal static class FeatureFrameText
     {
         // Restrict matching to the tolerance compartment, never datum cells
@@ -26,6 +32,9 @@ namespace DualDimensionToggle
 
         internal static FrameTextStatus Convert(string row, bool toDual, out string converted, out string reason)
         {
+            // Keep the original output until validation succeeds. Empty and
+            // projected-height rows are preserved, and Unsupported causes the
+            // caller to skip the complete frame before changing any of its rows.
             converted = row;
             reason = null;
             if (String.IsNullOrWhiteSpace(row)) return FrameTextStatus.Empty;
@@ -39,6 +48,9 @@ namespace DualDimensionToggle
                 return FrameTextStatus.Unsupported;
             }
             int start = firstSeparator.Index + firstSeparator.Length;
+            // The first separator ends the geometric-characteristic cell; the
+            // second, if present, begins the datums. Limit matching to this slice
+            // so datum identifiers such as A1 cannot become conversion candidates.
             Match nextSeparator = Separator.Match(row, start);
             int length = (nextSeparator.Success ? nextSeparator.Index : row.Length) - start;
             string cell = row.Substring(start, length);
@@ -49,6 +61,9 @@ namespace DualDimensionToggle
                 return FrameTextStatus.Unsupported;
             }
             bool dual = tolerance.Groups["inch"].Success;
+            // Requesting an already displayed mode is a no-op for frame rows.
+            // Existing metric values are not recalculated in this branch, unlike
+            // explicit callout pairs which support metric-value normalization.
             if (dual == toDual) return FrameTextStatus.AlreadyTarget;
             string inch = tolerance.Groups[dual ? "inch" : "first"].Value;
             string value = inch;
@@ -64,6 +79,11 @@ namespace DualDimensionToggle
         }
     }
 
+    /// <summary>
+    /// Bridges pure frame parsing to the four COM row properties. Validation is
+    /// all-or-nothing per frame; applying or restoring rows is best-effort because
+    /// Solid Edge exposes individual setters rather than a single atomic update.
+    /// </summary>
     internal static class FeatureFrameConverter
     {
         private static readonly string[] RowNames = { "primary", "secondary", "tertiary", "quaternary" };
@@ -150,6 +170,10 @@ namespace DualDimensionToggle
             catch (Exception error)
             {
                 bool restored = true;
+                // Restore from primary to quaternary, the same order as applying
+                // edits, so an early setter's clearing of later rows is repaired.
+                // Continue through all rows after a failure and then verify every
+                // value; a successful setter call alone does not prove recovery.
                 for (int row = 0; row < before.Length; row++)
                 {
                     try
@@ -167,11 +191,16 @@ namespace DualDimensionToggle
                     " Could not restore all original frame text; inspect this frame before saving."), error);
             }
             report.FramesChanged++;
+            // Count only validated tolerance changes, not extra setter calls
+            // needed to reapply a projected height or another preserved row.
             report.FrameRowsChanged += changed;
         }
 
         private static string ReadRow(object frame, int row)
         {
+            // Row indices are shared with RowNames and the before/after arrays.
+            // Do not read ProjectedToleranceFrame as a fifth independent row:
+            // Solid Edge exposes it through TertiaryFrame on these annotations.
             switch (row)
             {
                 case 0: return (string)((dynamic)frame).PrimaryFrame;

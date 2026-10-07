@@ -4,6 +4,12 @@ using System.Text.RegularExpressions;
 
 namespace DualDimensionToggle
 {
+    /// <summary>
+    /// Pure text conversion for explicit metric[inch] pairs, including slash-
+    /// separated limits. Never interprets a bare decimal as an inch length.
+    /// It is deliberately independent of COM so parsing and preservation rules
+    /// can be tested without opening or changing a Solid Edge document.
+    /// </summary>
     internal static class CalloutText
     {
         private const string Number = @"[+-]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)";
@@ -20,9 +26,15 @@ namespace DualDimensionToggle
 
         internal static bool Convert(string source, bool toDual, out string result, out int count, out string reason)
         {
+            // Build the complete replacement before publishing result. On false,
+            // the caller must discard all outputs except reason and leave the
+            // entire note alone; count may describe work preceding the failure.
             result = source; count = 0; reason = null;
             if (String.IsNullOrEmpty(source)) return true;
             char[] scan = source.ToCharArray();
+            // Replace excluded spans with spaces instead of deleting them.
+            // Match offsets therefore remain valid against the original source,
+            // which is used for copying all untouched characters into the result.
             // Mask property expressions before scanning numbers. Work on raw
             // BalloonText, never evaluated BalloonDisplayedText, so holes and
             // other linked model fields remain associative. Nested fields and
@@ -53,6 +65,10 @@ namespace DualDimensionToggle
             int cursor = 0;
             foreach (Match match in values)
             {
+                // Masked text could make numbers on either side of a property
+                // appear contiguous. Reject such a span instead of deleting the
+                // embedded reference. Both lists must also have equal arity:
+                // 6.50/6.35[.256/.250] is two values, not one arithmetic fraction.
                 if (source.Substring(match.Index, match.Length).IndexOf('%') >= 0)
                 { reason = "A numeric pair overlaps a symbol or property expression."; return false; }
                 if (Numbers.Matches(match.Groups["metric"].Value).Count != Numbers.Matches(match.Groups["inch"].Value).Count)
@@ -93,6 +109,12 @@ namespace DualDimensionToggle
 
     }
 
+    /// <summary>
+    /// Coordinates style selection, literal pairs, /DU fields, and persistent
+    /// history for active-sheet callouts. Each note is preflighted before edits;
+    /// a failed write triggers best-effort recovery of that note, while earlier
+    /// successful notes stay changed and unsaved for the user to review.
+    /// </summary>
     internal static class CalloutConverter
     {
         internal static void ConvertSheet(object sheet, StyleMap map, bool toDual, ConversionReport report)
@@ -128,6 +150,9 @@ namespace DualDimensionToggle
 
         private static void ConvertNote(object note, StyleMap map, bool toDual, int index, ConversionReport report)
         {
+            // Order matters: snapshot and validate literals/history; prepare
+            // field formatting; resolve the target style; then write and verify.
+            // No mutation occurs during preflight, including on a stale record.
             object style = null;
             try
             {
@@ -135,6 +160,9 @@ namespace DualDimensionToggle
                 string priorRecord = CalloutHistoryStore.Read(note);
                 CalloutHistory history = CalloutHistory.Decode(priorRecord);
                 string nextRecord = priorRecord;
+                // Keep the exact prior serialized string for rollback, including
+                // an empty record. Decode treats that empty value as no history,
+                // allowing the current explicit pairs to seed a valid new record.
                 int values = 0;
                 for (int field = 0; field < before.Length; field++)
                 {
@@ -208,10 +236,18 @@ namespace DualDimensionToggle
                     return;
                 }
                 bool changeStyle = status == MatchStatus.Convert;
+                // A custom/unrecognized style remains as-is, but explicit pairs
+                // and supported field codes can still be changed. AlreadyTarget
+                // also must not suppress text repairs after a previous style-only
+                // conversion. Missing/ambiguous recognized counterparts skip above.
                 if (!changeStyle) targetStyle = sourceStyle;
                 if (!changeStyle && !textChanged && nextRecord == priorRecord) return;
                 try
                 {
+                    // Save the restoration data before removing bracketed pairs.
+                    // If metadata cannot be written, do not start style/text edits.
+                    // Verify all three components afterward: COM setters can return
+                    // successfully while ignoring or altering the requested value.
                     if (nextRecord != priorRecord) CalloutHistoryStore.Write(note, nextRecord);
                     if (changeStyle) ((dynamic)style).Name = targetStyle;
                     // Reapply raw fields after the style assignment if needed;
@@ -225,6 +261,10 @@ namespace DualDimensionToggle
                 }
                 catch (Exception error)
                 {
+                    // Restore style first because selecting a style may affect
+                    // raw text, then restore the four fields and original record.
+                    // Attempt each component even if another fails. This is not a
+                    // document-wide undo transaction; report incomplete recovery.
                     bool restored = true;
                     try { if ((string)((dynamic)style).Name != sourceStyle) ((dynamic)style).Name = sourceStyle; }
                     catch { restored = false; }
@@ -256,6 +296,9 @@ namespace DualDimensionToggle
         }
         private static string ReadText(object note, int field)
         {
+            // Keep this mapping synchronized with WriteText and CalloutHistory.
+            // Read raw text only: displayed text would replace model references
+            // with fixed values and lose their connection to the model.
             switch (field)
             {
                 case 0: return (string)((dynamic)note).BalloonText;

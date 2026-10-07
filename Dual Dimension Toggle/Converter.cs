@@ -5,6 +5,12 @@ using System.Text;
 
 namespace DualDimensionToggle
 {
+    /// <summary>
+    /// Accumulates one run's outcomes without saving the document. Changed counts
+    /// represent verified object changes; skips and failures have separate counts.
+    /// Per-object failures and collection-read failures are both reported, so an
+    /// error total is not necessarily a count of distinct annotations.
+    /// </summary>
     internal sealed class ConversionReport
     {
         internal string SheetName;
@@ -31,10 +37,20 @@ namespace DualDimensionToggle
         }
     }
 
+    /// <summary>
+    /// Entry point for existing-draft conversion. Run connects to Solid Edge;
+    /// ConvertDocument accepts a document explicitly so regression tests can use
+    /// fake objects and live tests can isolate changes in disposable drafts.
+    /// Direction is absolute: true requests dual units, false requests inches.
+    /// </summary>
     internal static class Converter
     {
         internal static ConversionReport Run(bool toDual)
         {
+            // Attach to the running application rather than starting another
+            // session or creating a draft. MK_E_UNAVAILABLE (0x800401E3) means
+            // no running instance could be obtained; other COM errors propagate.
+            // The UI establishes the STA message filter for the duration of Run.
             object application = null, document = null;
             try
             {
@@ -52,6 +68,9 @@ namespace DualDimensionToggle
 
         internal static ConversionReport ConvertDocument(object document, bool toDual)
         {
+            // The document is borrowed from the caller and is never released
+            // here. Only references acquired inside this method are balanced in
+            // finally blocks. Using object/dynamic avoids shipping interop DLLs.
             // igDraftDocument = 2, verified against the supplied SDK interop.
             if (document == null || (int)((dynamic)document).Type != 2)
                 throw new InvalidOperationException("Activate a Solid Edge draft (.dft) before running this macro.");
@@ -126,6 +145,10 @@ namespace DualDimensionToggle
                         // Do not copy metric round-off values into inch settings:
                         // the matching N-place style defines the correct units.
                         writeAttempted = true;
+                        // Mark the attempt BEFORE invoking COM: a setter may
+                        // partially mutate its object and then throw. Recovery
+                        // should still run in that case. Reading the name back
+                        // detects silent rejection as well as explicit exceptions.
                         ((dynamic)style).Name = target;
                         if (!String.Equals((string)((dynamic)style).Name, target, StringComparison.OrdinalIgnoreCase))
                             throw new InvalidOperationException("Solid Edge did not retain the requested style.");
@@ -137,6 +160,9 @@ namespace DualDimensionToggle
                     }
                     catch (Exception error)
                     {
+                        // Isolate failure to this dimension and continue the
+                        // collection. Restoring a named style cannot reconstruct
+                        // arbitrary former local overrides, hence the review note.
                         report.Failed++;
                         string recovery = "";
                         if (writeAttempted)
@@ -158,6 +184,9 @@ namespace DualDimensionToggle
                 foreach (KeyValuePair<string, int> change in changes)
                     report.Details.Add(change.Value + " x " + change.Key);
                 FeatureFrameConverter.ConvertSheet(sheet, toDual, report);
+                // All annotation passes share the captured sheet and style map.
+                // No automatic Save or Close follows: a user reviews the combined
+                // report before deciding whether to retain the drawing changes.
                 CalloutConverter.ConvertSheet(sheet, map, toDual, report);
                 return report;
             }
@@ -169,6 +198,8 @@ namespace DualDimensionToggle
     {
         internal static void Release(ref object reference)
         {
+            // Clear the caller's slot before releasing so a second cleanup path
+            // is harmless. Managed regression-test fakes require no COM release.
             object acquired = reference;
             reference = null;
             // Balance only our acquisition. FinalReleaseComObject could sever
@@ -193,15 +224,24 @@ namespace DualDimensionToggle
     internal sealed class OleMessageFilter : IOleMessageFilter, IDisposable
     {
         private IOleMessageFilter previous;
+        // Message filters are installed per COM apartment/thread. Save and restore
+        // the old filter instead of assuming the caller had none registered.
         internal OleMessageFilter() { Marshal.ThrowExceptionForHR(CoRegisterMessageFilter(this, out previous)); }
+        // SERVERCALL_ISHANDLED (0) accepts incoming calls normally.
         public int HandleInComingCall(int type, IntPtr caller, int ticks, IntPtr info) { return 0; }
+        // Only SERVERCALL_RETRYLATER (2) is retried, every 250 ms, for at most
+        // 10 seconds of elapsed call time. -1 ends the retry so the UI can report
+        // an error rather than remaining blocked behind a modal command forever.
         public int RetryRejectedCall(IntPtr callee, int ticks, int rejectType) { return rejectType == 2 && ticks < 10000 ? 250 : -1; }
+        // PENDINGMSG_WAITDEFPROCESS (2) permits normal OLE message processing
+        // while waiting. This does not introduce an application DoEvents loop.
         public int MessagePending(IntPtr callee, int ticks, int pendingType) { return 2; }
         public void Dispose()
         {
             IOleMessageFilter removed;
             Marshal.ThrowExceptionForHR(CoRegisterMessageFilter(previous, out removed));
             previous = null;
+            // Keep the managed filter alive through the native unregister call.
             GC.KeepAlive(this);
         }
         [DllImport("ole32.dll")]
