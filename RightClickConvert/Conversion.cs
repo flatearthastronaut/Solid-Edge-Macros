@@ -5,12 +5,18 @@ using System.IO;
 
 namespace SolidEdgeConvert
 {
+    // These values describe conversion routes, not just output extensions.
+    // Part and ParasolidPart both write .par, but require different import paths;
+    // Step exports native documents, while StepAssembly imports STEP into .asm.
+    // A new route also needs CLI dispatch, menu/COM registration and tests.
     internal enum ConversionFormat { Step, Pdf, PdfWithDate, Part, ParasolidPart, ParasolidAssembly, StepAssembly, ParasolidExport, Stl }
 
     // These small boundaries let regression tests exercise failure cleanup without
     // starting CAD or touching a user's open documents.
     internal interface IEdgeDocument : IDisposable
     {
+        // Closing a document and releasing our COM reference are separate duties:
+        // a borrowed user document must stay open even when this wrapper is disposed.
         void SaveAs(string path);
         void CloseIfOwned();
     }
@@ -46,6 +52,10 @@ namespace SolidEdgeConvert
 
         internal static string OutputPath(string source, ConversionFormat format = ConversionFormat.Step, DateTime? exportDate = null)
         {
+            // Shared by overwrite prompts, batch collision checks and conversion.
+            // Keep all naming/extension rules here so the previewed destination
+            // is exactly the path that receives the completed file. No CAD calls
+            // occur here, so invalid source types fail before connecting to COM.
             string name = FormatName(format);
             bool nativeExport = format == ConversionFormat.Step || format == ConversionFormat.ParasolidExport;
             string inputExtension = nativeExport ? ".par or .asm" : ".dft";
@@ -86,12 +96,17 @@ namespace SolidEdgeConvert
 
         internal static bool IsAssembly(ConversionFormat format)
         {
+            // Means a native assembly OUTPUT requiring persistent component files.
+            // Exporting a source .asm to STEP/Parasolid does not meet this condition.
             return format == ConversionFormat.ParasolidAssembly || format == ConversionFormat.StepAssembly;
         }
 
         internal static string Run(string source, bool replaceExisting,
             Func<IEdgeSession> connect, Action<string> progress, ConversionFormat format = ConversionFormat.Step, DateTime? exportDate = null)
         {
+            // One-file transaction: validate, translate to staging, finish CAD
+            // cleanup, then publish. Callers must serialize these transactions
+            // on an STA thread because Solid Edge/global translator state is shared.
             string output = OutputPath(source, format, exportDate);
             string formatName = FormatName(format);
             bool useStepAdapter = format == ConversionFormat.Step || format == ConversionFormat.Part || format == ConversionFormat.StepAssembly;
@@ -103,6 +118,8 @@ namespace SolidEdgeConvert
             // truncate an existing export or leave a partial file under its name.
             string temporary = Path.Combine(Path.GetDirectoryName(output),
                 "." + Path.GetFileNameWithoutExtension(output) + "." + Guid.NewGuid().ToString("N") + Path.GetExtension(output));
+            // Preserve the real target extension on the temporary name: Solid
+            // Edge selects its export translator from that extension (.stl, etc.).
             string componentFolder = null, importCopy = null;
             try
             {
@@ -136,6 +153,10 @@ namespace SolidEdgeConvert
                         // false values unconditionally, including on COM failures.
                         if (useStepAdapter) session.StepAdapter = true;
                         progress("Opening " + Path.GetFileName(source) + "...");
+                        // Imports create native geometry with the selected template.
+                        // Native exports (including STL) reuse the ordinary open/
+                        // SaveAs path; they need no import template. The wrapper's
+                        // ownership flag determines whether cleanup may close it.
                         part = format == ConversionFormat.Part ? session.ImportStepPart(source)
                             : format == ConversionFormat.StepAssembly ? session.ImportStepAssembly(importCopy)
                             : format == ConversionFormat.ParasolidPart ? session.ImportParasolid(source, false)
@@ -144,6 +165,9 @@ namespace SolidEdgeConvert
                         session.DoIdle();
                         progress("Converting to " + formatName + "...");
                         part.SaveAs(temporary);
+                        // A successful COM return alone does not prove a file was
+                        // written. This checks basic completion; geometry fidelity
+                        // belongs in live tests and production acceptance checks.
                         if (!File.Exists(temporary) || new FileInfo(temporary).Length == 0)
                             throw new IOException("Solid Edge did not produce a nonempty " + formatName + " file.");
                     }
@@ -168,6 +192,9 @@ namespace SolidEdgeConvert
                         throw new AggregateException("Conversion could not finish.", failures);
                 }
 
+                // Do not publish if translation, closing or STEP-state restoration
+                // failed. File.Replace protects a previous destination without a
+                // delete-then-copy gap; do not fall back to deleting it on failure.
                 progress("Saving " + Path.GetFileName(output) + "...");
                 if (replaceExisting && File.Exists(output))
                     File.Replace(temporary, output, null);

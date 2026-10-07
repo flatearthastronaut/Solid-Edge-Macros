@@ -8,6 +8,9 @@ namespace SolidEdgeConvert
 {
     internal sealed class SolidEdgeSession : IEdgeSession
     {
+        // Owns only the COM references acquired by this session, not the lifetime
+        // of the Solid Edge process. Never share these wrappers between workers;
+        // construction, use and disposal all belong on the same STA thread.
         // Value verified against Batch/Bin/Interop.SolidEdgeFramework.dll:
         // ApplicationGlobalConstants.seApplicationGlobalSTEPAdapterKey = 458.
         // Late binding avoids distributing Siemens interop DLLs with this tool.
@@ -41,6 +44,9 @@ namespace SolidEdgeConvert
 
         public object StepAdapter
         {
+            // Preserve the returned COM value as an object rather than coercing
+            // it to bool. Conversion.Run restores the exact captured value after
+            // STEP work; unrelated formats never access this global preference.
             get
             {
                 object value = null;
@@ -87,6 +93,9 @@ namespace SolidEdgeConvert
             try
             {
                 int count = ((dynamic)documents).Count;
+                // Snapshot identity before importing. Solid Edge can return an
+                // existing document, which this operation must not save or close.
+                // Each Item acquisition is released in the finally block below.
                 for (int index = 1; index <= count; index++) existing.Add(((dynamic)documents).Item(index));
                 imported = ((dynamic)documents).OpenWithTemplate(path, template);
                 if (imported == null) throw new IOException("Solid Edge did not return an imported document. Check the source file and " + template + " template.");
@@ -123,6 +132,9 @@ namespace SolidEdgeConvert
 
         private static bool SameDocument(object left, object right)
         {
+            // Two managed wrappers may refer to the same native COM document.
+            // Canonical IUnknown identity detects that case; GetIUnknownForObject
+            // adds a reference, so both acquired pointers need matching releases.
             if (Object.ReferenceEquals(left, right)) return true;
             if (!Marshal.IsComObject(left) || !Marshal.IsComObject(right)) return false;
             IntPtr first = Marshal.GetIUnknownForObject(left);
@@ -133,7 +145,7 @@ namespace SolidEdgeConvert
 
         internal static IEdgeDocument OpenDocument(object documents, string path)
         {
-            // Reuse an already-open, saved part or draft without closing it afterwards.
+            // Reuse an already-open, saved part, assembly or draft without closing it afterwards.
             // Reject unsaved changes so a right-click export represents the file
             // selected in Explorer, not an unexpected in-memory revision.
             int count = ((dynamic)documents).Count;
@@ -182,6 +194,9 @@ namespace SolidEdgeConvert
 
     internal sealed class SolidEdgeDocument : IEdgeDocument
     {
+        // 'owned' grants permission to close, not permission to save the source.
+        // SaveAs receives the staging destination; Close(false) discards incidental
+        // document changes. Dispose releases our reference in either ownership mode.
         private object document;
         private readonly bool owned;
         internal SolidEdgeDocument(object document, bool owned) { this.document = document; this.owned = owned; }
@@ -194,6 +209,8 @@ namespace SolidEdgeConvert
     {
         internal static void Release(ref object reference)
         {
+            // Clear the caller's slot first so another cleanup attempt is harmless.
+            // Managed fakes used by regression tests require no COM release.
             object value = reference;
             reference = null;
             if (value == null || !Marshal.IsComObject(value)) return;
@@ -222,6 +239,9 @@ namespace SolidEdgeConvert
         public int HandleInComingCall(int type, IntPtr caller, int ticks, IntPtr info) { return 0; }
         public int RetryRejectedCall(IntPtr callee, int ticks, int rejectType)
         {
+            // 2 = SERVERCALL_RETRYLATER: retry after 250 ms, for at most 30 s.
+            // -1 cancels a rejected call. This bounds busy-call retries, not the
+            // duration of an export that Solid Edge has already accepted.
             return rejectType == 2 && ticks < 30000 ? 250 : -1;
         }
         public int MessagePending(IntPtr callee, int ticks, int pendingType) { return 2; }

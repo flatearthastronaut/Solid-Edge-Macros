@@ -7,6 +7,10 @@ namespace SolidEdgeConvert
 {
     internal static class ShellMenu
     {
+        // Registration contract for a new conversion: add a stable CLSID here,
+        // map its CLI argument and DelegateExecute value, register the matching
+        // SelectionCommand in ShellServer, and remove the CLSID on uninstall.
+        // Existing IDs must stay stable so installed Explorer verbs still resolve.
         // SystemFileAssociations preserves Solid Edge's file association and
         // remains effective even if another app becomes the default opener.
         internal const string MenuKey = @"Software\Classes\SystemFileAssociations\.par\shell\SolidEdgeMacros.Convert";
@@ -42,6 +46,9 @@ namespace SolidEdgeConvert
 
         internal static void Install(RegistryKey root, string executable)
         {
+            // Reapplying installation updates the existing keys to this executable
+            // location. No registry-wide deletion or file-association replacement
+            // is needed when upgrading; each verb is scoped to this application's key.
             if (!File.Exists(executable)) throw new FileNotFoundException("The converter executable could not be found.", executable);
             RegisterServer(root, executable, StepClass);
             RegisterServer(root, executable, PdfClass);
@@ -87,6 +94,10 @@ namespace SolidEdgeConvert
         private static void InstallFormat(RegistryKey root, string executable, string key, string verb,
             string label, ConversionFormat format)
         {
+            // Player on both menu levels permits a complete multiple selection.
+            // DelegateExecute uses the local COM handler for that selection; the
+            // quoted command remains the single-file command representation.
+            // Keep the command/CLSID mappings in agreement with Program's dispatch.
             string command = Command(executable, format);
             using (RegistryKey menu = root.CreateSubKey(key))
             {

@@ -14,6 +14,8 @@ namespace SolidEdgeConvert
         private string[] paths;
         private readonly ConversionFormat format;
         internal SelectionCommand(ConversionFormat format) { this.format = format; ShellServer.Touch(); }
+        // Copy filesystem paths immediately. The queued CAD work should not hold
+        // Explorer's selection COM objects alive for the duration of a conversion.
         public void SetSelection(IShellItemArray selection) { paths = ShellSelection.Read(selection); ShellServer.Touch(); }
         public void GetSelection(ref Guid iid, out IntPtr selection)
         {
@@ -21,6 +23,8 @@ namespace SolidEdgeConvert
             if (paths == null) throw new InvalidOperationException("No files were selected.");
             IShellItemArray array = ShellSelection.Create(paths);
             IntPtr unknown = Marshal.GetIUnknownForObject(array);
+            // QueryInterface transfers one native reference to the caller. Release
+            // only our temporary IUnknown and array acquisitions here, not 'selection'.
             try { Marshal.ThrowExceptionForHR(Marshal.QueryInterface(unknown, ref iid, out selection)); }
             finally { Marshal.Release(unknown); Marshal.ReleaseComObject(array); }
         }
@@ -38,6 +42,8 @@ namespace SolidEdgeConvert
         public void SetDirectory(string directory) { }
     }
 
+    // Distinct COM classes identify the requested route without parsing filenames
+    // or menu captions. Their GUIDs must match ShellMenu's DelegateExecute values.
     [ComVisible(true), Guid(ShellMenu.StepClass), ClassInterface(ClassInterfaceType.None)]
     public sealed class StepSelectionCommand : SelectionCommand
     { public StepSelectionCommand() : base(ConversionFormat.Step) { } }
@@ -127,6 +133,9 @@ namespace SolidEdgeConvert
 
         private void ProcessNext()
         {
+            // RunBatch shows a modal form that continues pumping UI messages.
+            // Explorer can queue another request during that time; this guard
+            // prevents the nested message loop from starting a concurrent batch.
             if (busy || jobs.Count == 0) return;
             busy = true;
             try { jobs.Dequeue()(); }
@@ -138,6 +147,8 @@ namespace SolidEdgeConvert
         {
             if (disposing)
             {
+                // Cookies revoke precisely the factories registered by this host.
+                // The list also supports cleanup after partial constructor failure.
                 idle.Stop(); idle.Dispose();
                 foreach (int cookie in cookies) registration.UnregisterTypeForComClients(cookie);
                 cookies.Clear();

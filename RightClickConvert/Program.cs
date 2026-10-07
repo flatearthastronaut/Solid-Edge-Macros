@@ -13,6 +13,9 @@ namespace SolidEdgeConvert
 {
     internal static class Program
     {
+        // One executable serves three roles: setup with no arguments, interactive
+        // CLI conversion, and the COM server launched by Explorer. Both conversion
+        // entry points converge on RunBatch for identical prompts and cleanup.
         [STAThread]
         private static int Main(string[] args)
         {
@@ -52,7 +55,12 @@ namespace SolidEdgeConvert
         internal static int RunBatch(string[] sources, ConversionFormat format)
         {
             sources = BatchConversion.UniquePaths(sources);
+            // Freeze before the overwrite prompt; a user may leave it open past
+            // midnight, but its filenames must still match the eventual exports.
             DateTime batchDate = DateTime.Today;
+            // The server queue serializes its own requests; this named mutex also
+            // excludes separate CLI processes in the same Windows session. Never
+            // run parallel exports against Solid Edge's shared translator state.
             using (Mutex mutex = new Mutex(false, @"Local\SolidEdgeMacros.RightClickConvert"))
             {
                 bool acquired;
@@ -70,6 +78,9 @@ namespace SolidEdgeConvert
                         catch (ArgumentException) { }
                         catch (IOException) { }
                     }
+                    // Default to Skip even if no conflicts exist yet: another
+                    // program may create an output before its turn in the batch.
+                    // Only an explicit Yes grants replacement for this selection.
                     ExistingOutput existing = ExistingOutput.Skip;
                     if (conflicts > 0)
                     {
@@ -169,6 +180,8 @@ namespace SolidEdgeConvert
             FormClosing += delegate(object sender, FormClosingEventArgs e) { e.Cancel = !finished; };
             Shown += delegate
             {
+                // Keep the UI responsive while COM translates. A dedicated STA
+                // is required; a default thread-pool task would normally be MTA.
                 Thread worker = new Thread(ConvertFiles);
                 worker.SetApartmentState(ApartmentState.STA);
                 worker.Start();
@@ -177,6 +190,10 @@ namespace SolidEdgeConvert
 
         private void ConvertFiles()
         {
+            // Only this worker owns CAD references and its OLE message filter.
+            // BeginInvoke posts text/results back to the UI thread; no document
+            // wrappers cross that boundary. The final callback runs after batch
+            // cleanup and filter disposal, when closing the form is safe again.
             List<BatchItem> results = null;
             Exception failure = null;
             try

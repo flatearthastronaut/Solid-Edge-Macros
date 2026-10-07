@@ -7,6 +7,8 @@ namespace SolidEdgeConvert
     internal enum ExistingOutput { Skip, Replace }
     internal sealed class BatchItem
     {
+        // One result per unique input in selection order. Output may be unset if
+        // validation failed; Error takes precedence over Skipped in the results UI.
         internal string Source, Output, Error;
         internal bool Skipped;
     }
@@ -15,6 +17,9 @@ namespace SolidEdgeConvert
     {
         internal static string[] UniquePaths(IEnumerable<string> paths)
         {
+            // Normalize before deduplication so relative/absolute spellings and
+            // Windows filename casing do not cause duplicate conversions. Keep
+            // first-selection order rather than enumerating the HashSet itself.
             List<string> result = new List<string>();
             HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (string path in paths)
@@ -45,8 +50,10 @@ namespace SolidEdgeConvert
                 try
                 {
                     item.Output = Conversion.OutputPath(item.Source, format, batchDate);
-                    // foo.stp and foo.step share foo.par. Do not let Replace
-                    // silently overwrite another selection's result in this batch.
+                    // foo.stp and foo.step share foo.par; foo.par and foo.asm can
+                    // likewise share foo.stp. Reserve the destination even if the
+                    // first input is skipped or later fails, so Replace cannot
+                    // silently make a second selected input own the same output.
                     if (!destinations.Add(item.Output))
                         throw new IOException("Another selected file has the same output path: " + item.Output + ". Rename one source or convert it separately.");
                     // Check immediately before each conversion, not only when
@@ -68,6 +75,8 @@ namespace SolidEdgeConvert
 
         private static string ErrorText(Exception error)
         {
+            // Translation and cleanup can fail independently. Retain every
+            // collected failure in the row instead of showing only the first one.
             AggregateException aggregate = error as AggregateException;
             if (aggregate == null) return error.Message;
             List<string> messages = new List<string>();

@@ -53,6 +53,9 @@ namespace SolidEdgeConvert
     {
         internal static string[] Read(IShellItemArray selection)
         {
+            // Ask for filesystem paths rather than display captions, which may
+            // omit extensions or include localized Shell names. Unsupported virtual
+            // items fail here before a conversion can open the wrong filesystem file.
             if (selection == null) throw new ArgumentNullException("selection");
             uint count;
             selection.GetCount(out count);
@@ -69,6 +72,8 @@ namespace SolidEdgeConvert
                 }
                 finally
                 {
+                    // The returned UTF-16 name is task-allocator memory, while the
+                    // item is a COM reference: each needs its own release operation.
                     if (name != IntPtr.Zero) Marshal.FreeCoTaskMem(name);
                     if (item != null) Marshal.ReleaseComObject(item);
                 }
@@ -89,6 +94,9 @@ namespace SolidEdgeConvert
                     Marshal.ThrowExceptionForHR(SHParseDisplayName(paths[i], IntPtr.Zero, out ids[i], 0, out attributes));
                 }
                 IShellItemArray array;
+                // The Shell creates an independent array from these PIDLs (item
+                // identifier lists). Release our temporary PIDLs even if parsing
+                // a later path fails; the returned array remains owned by the caller.
                 Marshal.ThrowExceptionForHR(SHCreateShellItemArrayFromIDLists((uint)ids.Length, ids, out array));
                 return array;
             }
