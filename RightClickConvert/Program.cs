@@ -7,7 +7,7 @@ using System.Windows.Forms;
 using Microsoft.Win32;
 
 [assembly: System.Reflection.AssemblyTitle("Solid Edge Convert")]
-[assembly: System.Reflection.AssemblyVersion("1.10.0.0")]
+[assembly: System.Reflection.AssemblyVersion("1.11.0.0")]
 
 namespace SolidEdgeConvert
 {
@@ -39,9 +39,9 @@ namespace SolidEdgeConvert
                     ShellMenu.NotifyExplorer();
                     return 0;
                 }
-                if (args.Length < 2 || (args[0] != "--step" && args[0] != "--pdf" && args[0] != "--pdf-date" && args[0] != "--part" && args[0] != "--parasolid-part" && args[0] != "--parasolid-assembly" && args[0] != "--step-assembly" && args[0] != "--parasolid" && args[0] != "--stl" && args[0] != "--pdf-same-type" && args[0] != "--pdf-date-same-type"))
-                    throw new ArgumentException("Usage:\nSolidEdgeConvert.exe --step \"part.par\" \"assembly.asm\" ...\nSolidEdgeConvert.exe --pdf \"drawing1.dft\" \"drawing2.dft\" ...\nSolidEdgeConvert.exe --pdf-date \"drawing1.dft\" \"drawing2.dft\" ...\nSolidEdgeConvert.exe --part \"file1.stp\" \"file2.step\" ...\nSolidEdgeConvert.exe --parasolid-part \"file1.x_t\" \"file2.x_b\" ...\nSolidEdgeConvert.exe --parasolid-assembly \"file1.x_t\" \"file2.x_b\" ...\nSolidEdgeConvert.exe --step-assembly \"file1.stp\" \"file2.step\" ...\nSolidEdgeConvert.exe --parasolid \"part.par\" \"assembly.asm\" ...\nSolidEdgeConvert.exe --stl \"part1.par\" \"part2.par\" ...\nSolidEdgeConvert.exe --pdf-same-type \"drawing.dft\" ...\nSolidEdgeConvert.exe --pdf-date-same-type \"drawing.dft\" ...\n--pdf and --pdf-date export the active sheet only.\n\nRun without arguments to install or remove the right-click menus.");
-                ConversionFormat format = args[0] == "--step" ? ConversionFormat.Step : args[0] == "--pdf" ? ConversionFormat.Pdf : args[0] == "--part" ? ConversionFormat.Part : args[0] == "--parasolid-part" ? ConversionFormat.ParasolidPart : args[0] == "--parasolid-assembly" ? ConversionFormat.ParasolidAssembly : args[0] == "--step-assembly" ? ConversionFormat.StepAssembly : args[0] == "--parasolid" ? ConversionFormat.ParasolidExport : args[0] == "--stl" ? ConversionFormat.Stl : args[0] == "--pdf-same-type" ? ConversionFormat.PdfSameType : args[0] == "--pdf-date-same-type" ? ConversionFormat.PdfWithDateSameType : ConversionFormat.PdfWithDate;
+                if (args.Length < 2 || (args[0] != "--step" && args[0] != "--pdf" && args[0] != "--pdf-date" && args[0] != "--part" && args[0] != "--parasolid-part" && args[0] != "--parasolid-assembly" && args[0] != "--step-assembly" && args[0] != "--parasolid" && args[0] != "--stl" && args[0] != "--pdf-same-type" && args[0] != "--pdf-date-same-type" && args[0] != "--pdf-no-grind"))
+                    throw new ArgumentException("Usage:\nSolidEdgeConvert.exe --step \"part.par\" \"assembly.asm\" ...\nSolidEdgeConvert.exe --pdf \"drawing1.dft\" \"drawing2.dft\" ...\nSolidEdgeConvert.exe --pdf-date \"drawing1.dft\" \"drawing2.dft\" ...\nSolidEdgeConvert.exe --part \"file1.stp\" \"file2.step\" ...\nSolidEdgeConvert.exe --parasolid-part \"file1.x_t\" \"file2.x_b\" ...\nSolidEdgeConvert.exe --parasolid-assembly \"file1.x_t\" \"file2.x_b\" ...\nSolidEdgeConvert.exe --step-assembly \"file1.stp\" \"file2.step\" ...\nSolidEdgeConvert.exe --parasolid \"part.par\" \"assembly.asm\" ...\nSolidEdgeConvert.exe --stl \"part1.par\" \"part2.par\" ...\nSolidEdgeConvert.exe --pdf-same-type \"drawing.dft\" ...\nSolidEdgeConvert.exe --pdf-date-same-type \"drawing.dft\" ...\nSolidEdgeConvert.exe --pdf-no-grind \"drawing.dft\" ...\n--pdf, --pdf-date and --pdf-no-grind export the active sheet only.\n\nRun without arguments to install or remove the right-click menus.");
+                ConversionFormat format = args[0] == "--step" ? ConversionFormat.Step : args[0] == "--pdf" ? ConversionFormat.Pdf : args[0] == "--part" ? ConversionFormat.Part : args[0] == "--parasolid-part" ? ConversionFormat.ParasolidPart : args[0] == "--parasolid-assembly" ? ConversionFormat.ParasolidAssembly : args[0] == "--step-assembly" ? ConversionFormat.StepAssembly : args[0] == "--parasolid" ? ConversionFormat.ParasolidExport : args[0] == "--stl" ? ConversionFormat.Stl : args[0] == "--pdf-same-type" ? ConversionFormat.PdfSameType : args[0] == "--pdf-date-same-type" ? ConversionFormat.PdfWithDateSameType : args[0] == "--pdf-no-grind" ? ConversionFormat.PdfWithoutGrindStock : ConversionFormat.PdfWithDate;
 
                 return RunBatch(new List<string>(args).GetRange(1, args.Length - 1).ToArray(), format);
             }
@@ -117,16 +117,16 @@ namespace SolidEdgeConvert
         internal SetupForm()
         {
             Text = "Solid Edge Convert";
-            ClientSize = new Size(550, 315);
+            ClientSize = new Size(550, 340);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
             Font = new Font("Segoe UI", 10);
-            Controls.Add(new Label { Left = 20, Top = 18, Width = 510, Height = 225,
-                Text = "Select one or more files, then right-click Convert:\nParts (.par) > STEP, Parasolid or STL\nAssemblies (.asm) > STEP or Parasolid\nDrafts (.dft) > PDF or PDF with Date\n  Active sheet only / All sheets of same type\nSTEP (.stp / .step) > Part (.par) or Assembly (.asm)\nParasolid (.x_t / .x_b) > Part (.par) or Assembly (.asm)\n\nOutputs are saved beside the original files.\nOn Windows 11, choose Show more options first.\nKeep this executable in its current folder after installing." });
-            Button install = new Button { Text = "Install menus", Left = 20, Top = 260, Width = 140, Height = 35 };
-            Button remove = new Button { Text = "Remove menus", Left = 175, Top = 260, Width = 140, Height = 35 };
-            Button close = new Button { Text = "Close", Left = 360, Top = 260, Width = 120, Height = 35 };
+            Controls.Add(new Label { Left = 20, Top = 18, Width = 510, Height = 250,
+                Text = "Select one or more files, then right-click Convert:\nParts (.par) > STEP, Parasolid or STL\nAssemblies (.asm) > STEP or Parasolid\nDrafts (.dft) > PDF or PDF with Date\n  Active sheet only / All sheets of same type\n  PDF without Grind Stock (active sheet only)\nSTEP (.stp / .step) > Part (.par) or Assembly (.asm)\nParasolid (.x_t / .x_b) > Part (.par) or Assembly (.asm)\n\nOutputs are saved beside the original files.\nOn Windows 11, choose Show more options first.\nKeep this executable in its current folder after installing." });
+            Button install = new Button { Text = "Install menus", Left = 20, Top = 285, Width = 140, Height = 35 };
+            Button remove = new Button { Text = "Remove menus", Left = 175, Top = 285, Width = 140, Height = 35 };
+            Button close = new Button { Text = "Close", Left = 360, Top = 285, Width = 120, Height = 35 };
             install.Click += delegate { ChangeMenu(true); };
             remove.Click += delegate { ChangeMenu(false); };
             close.Click += delegate { Close(); };

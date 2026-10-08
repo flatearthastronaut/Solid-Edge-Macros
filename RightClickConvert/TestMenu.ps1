@@ -3,6 +3,7 @@
 $ErrorActionPreference = 'Stop'
 $executable = Join-Path $PSScriptRoot 'Compiled Executables\SolidEdgeConvert.exe'
 $menus = @(
+    @{ Path='Software\Classes\SystemFileAssociations\.dft\shell\SolidEdgeMacros.Convert'; Verb='03PdfWithoutGrindStock'; Label='PDF without Grind Stock - Active sheet only'; Argument='--pdf-no-grind'; Class='{6C2D3410-B949-4A29-91E6-F375D9D82B10}' },
     @{ Path='Software\Classes\SystemFileAssociations\.dft\shell\SolidEdgeMacros.Convert'; Verb='01PdfSameType'; Label='PDF - All sheets of same type'; Argument='--pdf-same-type'; Class='{2240657E-EB65-4490-938E-A86F51D8DE87}' },
     @{ Path='Software\Classes\SystemFileAssociations\.dft\shell\SolidEdgeMacros.Convert'; Verb='02PdfWithDateSameType'; Label='PDF with Date - All sheets of same type'; Argument='--pdf-date-same-type'; Class='{6AF4605B-E0A4-4DF7-8020-7A2B87FA506C}' },
     @{ Path='Software\Classes\SystemFileAssociations\.par\shell\SolidEdgeMacros.Convert'; Verb='03Stl'; Label='STL (.stl)'; Argument='--stl'; Class='{91A68B80-217F-4B8F-B6B4-F49391163E7F}' },
@@ -73,6 +74,6 @@ try {
     }
     Invoke-Installer '--install'
     Test-InstalledMenu
-    Write-Output 'PASS install, reinstall, uninstall, and final registration for eleven conversion handlers and seven source extensions.'
+    Write-Output 'PASS install, reinstall, uninstall, and final registration for twelve conversion handlers and seven source extensions.'
 }
 finally { $user.Dispose() }

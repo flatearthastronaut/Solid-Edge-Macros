@@ -662,6 +662,45 @@ internal static class RegressionTests
                 Equal("\"C:\\Tools\\Convert.exe\" --pdf-same-type \"%1\"", ShellMenu.Command(@"C:\Tools\Convert.exe", ConversionFormat.PdfSameType));
                 Equal("\"C:\\Tools\\Convert.exe\" --pdf-date-same-type \"%1\"", ShellMenu.Command(@"C:\Tools\Convert.exe", ConversionFormat.PdfWithDateSameType));
             });
+            Test("Grind PDF exports an active-sheet copy and removes staging", delegate {
+                string original = File.ReadAllText(draft);
+                FakeSession s = new FakeSession(false) { RejectStepAccess = true };
+                Equal(pdf, Conversion.Run(draft, true, delegate { return s; }, delegate { }, ConversionFormat.PdfWithoutGrindStock));
+                Equal(0, s.PdfAtSave); Equal(3, s.PdfOptions);
+                Check(s.CopyPath != null && !File.Exists(s.CopyPath), "Draft staging was not removed");
+                Check(!s.Events.Contains("open"), "Grind PDF used ordinary source export");
+                Equal(original, File.ReadAllText(draft));
+                ExpectFailure(delegate { Conversion.OutputPath(source, ConversionFormat.PdfWithoutGrindStock); });
+                Equal("\"C:\\Tools\\Convert.exe\" --pdf-no-grind \"%1\"", ShellMenu.Command(@"C:\Tools\Convert.exe", ConversionFormat.PdfWithoutGrindStock));
+            });
+            Test("Grind PDF failure keeps prior output and cleans copied draft", delegate {
+                foreach (FakeSession s in new[] { new FakeSession(false) { FailOpen = true }, new FakeSession(false) { FailSave = true }, new FakeSession(false) { FailClose = true }, new FakeSession(false) { FailPdfRestore = true } }) {
+                    File.WriteAllText(pdf, "previous PDF");
+                    ExpectFailure(delegate { Conversion.Run(draft, true, delegate { return s; }, delegate { }, ConversionFormat.PdfWithoutGrindStock); });
+                    Equal("previous PDF", File.ReadAllText(pdf));
+                    Check(!File.Exists(s.CopyPath), "Failed conversion left staging");
+                }
+            });
+            Test("Grind filter matches exact symbol basename only", delegate {
+                Check(GrindStockFilter.MatchesSymbol(@"#prefix\\server\symbols\GSNOTE.DFT"), "Symbol path did not match");
+                Check(!GrindStockFilter.MatchesSymbol("othergsnote.dft") && !GrindStockFilter.MatchesSymbol(null), "Overbroad symbol match");
+            });
+            Test("Grind filter preserves groups and nonmatching annotations", delegate {
+                FakeAnnotations sheet = new FakeAnnotations(), nested = new FakeAnnotations();
+                sheet.Groups.Items.Add(nested);
+                sheet.Symbols.AddSymbol("gsnote.dft"); sheet.Symbols.AddSymbol(@"C:\symbols\GSNOTE.DFT"); sheet.Symbols.AddSymbol("other.dft");
+                nested.FeatureControlFrames.AddFrame(255); nested.FeatureControlFrames.AddFrame(255); nested.FeatureControlFrames.AddFrame(8421376);
+                GrindStockFilter.CleanAnnotations(sheet, 0);
+                Equal(1, sheet.Groups.Count); Equal(1, sheet.Symbols.Count); Equal(1, nested.FeatureControlFrames.Count);
+                Equal("other.dft", ((FakeAnnotation)sheet.Symbols.Item(1)).SourceDoc);
+                Equal(8421376, ((FakeAnnotation)nested.FeatureControlFrames.Item(1)).Style.DrivenColor);
+            });
+            Test("Grind filter fails visibly if deletion fails", delegate {
+                FakeAnnotations sheet = new FakeAnnotations();
+                sheet.Symbols.AddSymbol("gsnote.dft"); ((FakeAnnotation)sheet.Symbols.Item(1)).FailDelete = true;
+                ExpectFailure(delegate { GrindStockFilter.CleanAnnotations(sheet, 0); });
+                Equal(1, sheet.Symbols.Count);
+            });
             Console.WriteLine("Passed " + passed + " regression tests.");
             return 0;
         }
@@ -708,6 +747,7 @@ internal static class RegressionTests
         }
         internal string SavedExtension;
         internal string ImportPath;
+        internal string CopyPath;
         internal bool GenerateComponent;
         internal Action OnSave;
         internal List<string> Events = new List<string>();
@@ -731,6 +771,13 @@ internal static class RegressionTests
             return new FakePart(this);
         }
         public void DoIdle() { Events.Add("idle"); }
+        public IEdgeDocument OpenDraftCopyWithoutGrindStock(string path, string copyPath)
+        {
+            CopyPath = copyPath; File.Copy(path, copyPath);
+            Events.Add("filtered-copy");
+            if (FailOpen) throw new IOException("Copy filtering failed");
+            return new FakePart(this);
+        }
         public IEdgeDocument ImportParasolid(string path, bool assembly)
         {
             ImportPath = path;
@@ -786,6 +833,33 @@ public sealed class FakeDocument
     public bool Dirty { get; set; }
     public void SaveAs(string path) { Saved = true; }
     public void Close(bool save) { Closed = true; SaveOnClose = save; }
+}
+
+// Mutable one-based collections model the important deletion behavior: removing
+// one item shifts the remaining indexes, so adjacent matches must not be skipped.
+public sealed class FakeAnnotations
+{
+    public FakeAnnotationCollection Groups = new FakeAnnotationCollection();
+    public FakeAnnotationCollection Symbols = new FakeAnnotationCollection();
+    public FakeAnnotationCollection FeatureControlFrames = new FakeAnnotationCollection();
+}
+public sealed class FakeAnnotationCollection
+{
+    public readonly List<object> Items = new List<object>();
+    public int Count { get { return Items.Count; } }
+    public object Item(int index) { return Items[index - 1]; }
+    public void AddSymbol(string name) { Items.Add(new FakeAnnotation(this) { SourceDoc = name }); }
+    public void AddFrame(int color) { Items.Add(new FakeAnnotation(this) { Style = new FakeFrameStyle { DrivenColor = color } }); }
+}
+public sealed class FakeFrameStyle { public int DrivenColor; }
+public sealed class FakeAnnotation
+{
+    private readonly FakeAnnotationCollection owner;
+    public string SourceDoc;
+    public FakeFrameStyle Style;
+    public bool FailDelete;
+    public FakeAnnotation(FakeAnnotationCollection owner) { this.owner = owner; }
+    public void Delete() { if (FailDelete) throw new IOException("Delete failed"); owner.Items.Remove(this); }
 }
 
 public sealed class FakeDocuments

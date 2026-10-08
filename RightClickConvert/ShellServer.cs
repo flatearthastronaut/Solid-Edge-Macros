@@ -88,6 +88,10 @@ namespace SolidEdgeConvert
     public sealed class DatedPdfSameTypeSelectionCommand : SelectionCommand
     { public DatedPdfSameTypeSelectionCommand() : base(ConversionFormat.PdfWithDateSameType) { } }
 
+    [ComVisible(true), Guid(ShellMenu.PdfWithoutGrindStockClass), ClassInterface(ClassInterfaceType.None)]
+    public sealed class PdfWithoutGrindStockSelectionCommand : SelectionCommand
+    { public PdfWithoutGrindStockSelectionCommand() : base(ConversionFormat.PdfWithoutGrindStock) { } }
+
     internal sealed class ShellServer : ApplicationContext
     {
         private static ShellServer current;
@@ -117,6 +121,7 @@ namespace SolidEdgeConvert
                 cookies.Add(registration.RegisterTypeForComClients(typeof(StlSelectionCommand), RegistrationClassContext.LocalServer, RegistrationConnectionType.MultipleUse));
                 cookies.Add(registration.RegisterTypeForComClients(typeof(PdfSameTypeSelectionCommand), RegistrationClassContext.LocalServer, RegistrationConnectionType.MultipleUse));
                 cookies.Add(registration.RegisterTypeForComClients(typeof(DatedPdfSameTypeSelectionCommand), RegistrationClassContext.LocalServer, RegistrationConnectionType.MultipleUse));
+                cookies.Add(registration.RegisterTypeForComClients(typeof(PdfWithoutGrindStockSelectionCommand), RegistrationClassContext.LocalServer, RegistrationConnectionType.MultipleUse));
                 // A small idle grace period lets Explorer finish using its proxy.
                 // No CAD work runs on this thread, and busy batches cannot expire.
                 idle.Interval = 1000;

@@ -75,6 +75,41 @@ namespace SolidEdgeConvert
             return OpenDocument(documents, path);
         }
 
+        public IEdgeDocument OpenDraftCopyWithoutGrindStock(string path, string copyPath)
+        {
+            return OpenDraftCopyWithoutGrindStock(documents, path, copyPath);
+        }
+
+        internal static IEdgeDocument OpenDraftCopyWithoutGrindStock(object documents, string path, string copyPath)
+        {
+            string activeName;
+            // SaveCopyAs preserves the source identity and avoids file-lock issues
+            // when a saved draft is already open. OpenDocument rejects dirty sources.
+            using (SolidEdgeDocument source = (SolidEdgeDocument)OpenDocument(documents, path))
+            {
+                try
+                {
+                    activeName = source.ActiveSheetName();
+                    source.SaveDraftCopy(copyPath);
+                }
+                finally { source.CloseIfOwned(); }
+            }
+            SolidEdgeDocument copy = (SolidEdgeDocument)OpenDocument(documents, copyPath);
+            try
+            {
+                if (!copy.IsOwned) throw new IOException("The temporary draft is already open; cannot safely remove annotations.");
+                copy.ActivateSheet(activeName);
+                copy.RemoveGrindStock();
+                return copy;
+            }
+            catch
+            {
+                try { copy.CloseIfOwned(); }
+                finally { copy.Dispose(); }
+                throw;
+            }
+        }
+
         public IEdgeDocument ImportStepPart(string path)
         {
             return ImportStepPart(documents, path);
@@ -214,9 +249,131 @@ namespace SolidEdgeConvert
         private object document;
         private readonly bool owned;
         internal SolidEdgeDocument(object document, bool owned) { this.document = document; this.owned = owned; }
+        internal bool IsOwned { get { return owned; } }
+        internal string ActiveSheetName()
+        {
+            object sheet = ((dynamic)document).ActiveSheet;
+            try { return (string)((dynamic)sheet).Name; }
+            finally { ComLifetime.Release(ref sheet); }
+        }
+        internal void SaveDraftCopy(string path) { ((dynamic)document).SaveCopyAs(path); }
+        internal void ActivateSheet(string name)
+        {
+            object sheets = null, sheet = null;
+            try { sheets = ((dynamic)document).Sheets; sheet = ((dynamic)sheets).Item(name); ((dynamic)sheet).Activate(); }
+            finally { ComLifetime.Release(ref sheet); ComLifetime.Release(ref sheets); }
+        }
+        internal void RemoveGrindStock()
+        {
+            if (!owned) throw new InvalidOperationException("Cannot filter a borrowed draft.");
+            GrindStockFilter.Remove(document);
+        }
         public void SaveAs(string path) { ((dynamic)document).SaveAs(path); }
         public void CloseIfOwned() { if (owned) ((dynamic)document).Close(false); }
         public void Dispose() { ComLifetime.Release(ref document); }
+    }
+
+    internal static class GrindStockFilter
+    {
+        internal const int Red = 255; // Solid Edge COLORREF: RGB(255, 0, 0).
+
+        internal static void Remove(object draft)
+        {
+            object sheets = null;
+            try
+            {
+                sheets = ((dynamic)draft).Sheets;
+                // Include background sheets because their graphics can appear on
+                // the active sheet. No sheets are activated or deleted here.
+                for (int i = 1; i <= (int)((dynamic)sheets).Count; i++)
+                {
+                    object sheet = ((dynamic)sheets).Item(i);
+                    try { CleanSheet(sheet, 0); }
+                    finally { ComLifetime.Release(ref sheet); }
+                }
+            }
+            finally { ComLifetime.Release(ref sheets); }
+        }
+
+        private static void CleanSheet(object sheet, int depth)
+        {
+            CleanAnnotations(sheet, depth);
+            object views = null;
+            try
+            {
+                views = ((dynamic)sheet).DrawingViews;
+                for (int i = 1; i <= (int)((dynamic)views).Count; i++)
+                {
+                    object view = null, viewSheet = null;
+                    try
+                    {
+                        view = ((dynamic)views).Item(i); viewSheet = ((dynamic)view).Sheet;
+                        CleanSheet(viewSheet, depth + 1);
+                    }
+                    finally { ComLifetime.Release(ref viewSheet); ComLifetime.Release(ref view); }
+                }
+            }
+            finally { ComLifetime.Release(ref views); }
+        }
+
+        internal static void CleanAnnotations(object container, int depth)
+        {
+            if (depth > 64) throw new IOException("Unexpectedly deep annotation nesting; PDF was not exported.");
+            object groups = null, frames = null, symbols = null;
+            try
+            {
+                groups = ((dynamic)container).Groups;
+                // Groups themselves are preserved. Recursively examine their
+                // annotations; never delete a group based on its name or color.
+                for (int i = (int)((dynamic)groups).Count; i >= 1; i--)
+                {
+                    object group = ((dynamic)groups).Item(i);
+                    try
+                    {
+                        CleanAnnotations(group, depth + 1);
+                    }
+                    finally { ComLifetime.Release(ref group); }
+                }
+                symbols = ((dynamic)container).Symbols;
+                // Iterate backwards because deletion shifts later collection items.
+                // Delete only the placed occurrence, never open/edit its source file
+                // or shared embedded document. Other instances/symbols remain intact.
+                for (int i = (int)((dynamic)symbols).Count; i >= 1; i--)
+                {
+                    object symbol = ((dynamic)symbols).Item(i);
+                    try
+                    {
+                        // The UI's symbol filename is SourceDoc. Name is an
+                        // autogenerated occurrence ID (e.g. Symbol2d 42674).
+                        // SourceDoc may include an OLE prefix before its path;
+                        // compare only the final filename, never a substring.
+                        string name = (string)((dynamic)symbol).SourceDoc;
+                        if (MatchesSymbol(name)) ((dynamic)symbol).Delete();
+                    }
+                    finally { ComLifetime.Release(ref symbol); }
+                }
+                frames = ((dynamic)container).FeatureControlFrames;
+                for (int i = (int)((dynamic)frames).Count; i >= 1; i--)
+                {
+                    object frame = null, style = null;
+                    try
+                    {
+                        frame = ((dynamic)frames).Item(i); style = ((dynamic)frame).Style;
+                        // FCF color is exposed through its dimension style, not
+                        // a Color property. The sample's two red +.006 frames use
+                        // DrivenColor=255. Read it; do not modify shared styles.
+                        if (Convert.ToInt32(((dynamic)style).DrivenColor) == Red) ((dynamic)frame).Delete();
+                    }
+                    finally { ComLifetime.Release(ref style); ComLifetime.Release(ref frame); }
+                }
+            }
+            finally { ComLifetime.Release(ref frames); ComLifetime.Release(ref symbols); ComLifetime.Release(ref groups); }
+        }
+
+        internal static bool MatchesSymbol(string name)
+        {
+            return !String.IsNullOrEmpty(name) && String.Equals(Path.GetFileName(name), "gsnote.dft", StringComparison.OrdinalIgnoreCase);
+        }
     }
 
     internal static class ComLifetime

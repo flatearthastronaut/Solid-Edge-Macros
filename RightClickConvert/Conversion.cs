@@ -9,7 +9,7 @@ namespace SolidEdgeConvert
     // Part and ParasolidPart both write .par, but require different import paths;
     // Step exports native documents, while StepAssembly imports STEP into .asm.
     // A new route also needs CLI dispatch, menu/COM registration and tests.
-    internal enum ConversionFormat { Step, Pdf, PdfWithDate, Part, ParasolidPart, ParasolidAssembly, StepAssembly, ParasolidExport, Stl, PdfSameType, PdfWithDateSameType }
+    internal enum ConversionFormat { Step, Pdf, PdfWithDate, Part, ParasolidPart, ParasolidAssembly, StepAssembly, ParasolidExport, Stl, PdfSameType, PdfWithDateSameType, PdfWithoutGrindStock }
 
     // These small boundaries let regression tests exercise failure cleanup without
     // starting CAD or touching a user's open documents.
@@ -26,6 +26,7 @@ namespace SolidEdgeConvert
         object StepAdapter { get; set; }
         object PdfSheetOptions { get; set; }
         IEdgeDocument OpenDocument(string path);
+        IEdgeDocument OpenDraftCopyWithoutGrindStock(string path, string copyPath);
         IEdgeDocument ImportStepPart(string path);
         IEdgeDocument ImportStepAssembly(string path);
         IEdgeDocument ImportParasolid(string path, bool assembly);
@@ -43,6 +44,7 @@ namespace SolidEdgeConvert
                 case ConversionFormat.PdfWithDate: return "PDF with Date";
                 case ConversionFormat.PdfSameType: return "PDF - All sheets of same type";
                 case ConversionFormat.PdfWithDateSameType: return "PDF with Date - All sheets of same type";
+                case ConversionFormat.PdfWithoutGrindStock: return "PDF without Grind Stock - Active sheet only";
                 case ConversionFormat.Part: return "Solid Edge Part";
                 case ConversionFormat.ParasolidPart: return "Solid Edge Part";
                 case ConversionFormat.ParasolidAssembly: return "Solid Edge Assembly";
@@ -100,7 +102,8 @@ namespace SolidEdgeConvert
         internal static bool IsPdf(ConversionFormat format)
         {
             return format == ConversionFormat.Pdf || format == ConversionFormat.PdfWithDate
-                || format == ConversionFormat.PdfSameType || format == ConversionFormat.PdfWithDateSameType;
+                || format == ConversionFormat.PdfSameType || format == ConversionFormat.PdfWithDateSameType
+                || format == ConversionFormat.PdfWithoutGrindStock;
         }
 
         internal static bool IsAssembly(ConversionFormat format)
@@ -130,6 +133,10 @@ namespace SolidEdgeConvert
             // Preserve the real target extension on the temporary name: Solid
             // Edge selects its export translator from that extension (.stl, etc.).
             string componentFolder = null, importCopy = null;
+            // Use a sibling copy so relative model links retain their base folder.
+            // Only this generated draft is edited, and it is never the output.
+            string draftCopy = format == ConversionFormat.PdfWithoutGrindStock
+                ? Path.Combine(Path.GetDirectoryName(source), ".grind-" + Guid.NewGuid().ToString("N") + ".dft") : null;
             try
             {
                 if (IsAssembly(format))
@@ -171,7 +178,8 @@ namespace SolidEdgeConvert
                         // Native exports (including STL) reuse the ordinary open/
                         // SaveAs path; they need no import template. The wrapper's
                         // ownership flag determines whether cleanup may close it.
-                        part = format == ConversionFormat.Part ? session.ImportStepPart(source)
+                        part = format == ConversionFormat.PdfWithoutGrindStock ? session.OpenDraftCopyWithoutGrindStock(source, draftCopy)
+                            : format == ConversionFormat.Part ? session.ImportStepPart(source)
                             : format == ConversionFormat.StepAssembly ? session.ImportStepAssembly(importCopy)
                             : format == ConversionFormat.ParasolidPart ? session.ImportParasolid(source, false)
                             : format == ConversionFormat.ParasolidAssembly ? session.ImportParasolid(importCopy, true)
@@ -234,6 +242,11 @@ namespace SolidEdgeConvert
                 // Preserve the original diagnostic if removing a failed export
                 // is impossible (e.g. a disconnected network share).
                 try { if (File.Exists(temporary)) File.Delete(temporary); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+                // If CAD failed to close the copy it may still be locked. Preserve
+                // the original failure and leave that one copy for recovery.
+                try { if (draftCopy != null && File.Exists(draftCopy)) File.Delete(draftCopy); }
                 catch (IOException) { }
                 catch (UnauthorizedAccessException) { }
                 // Delete only our copied input and an empty folder. Retain any

@@ -1,6 +1,12 @@
-# Solid Edge Convert 1.10
+# Solid Edge Convert 1.11
 
-Draft files now have four PDF choices in **Convert**:
+New: **Convert > PDF without Grind Stock - Active sheet only** exports one or more selected drafts without the `gsnote.dft` symbol or red Feature Control Frames. It uses each draft's active sheet and the usual `Drawing.pdf` output name, including the existing replace/skip prompt.
+
+The converter edits a unique temporary draft copy and never saves changes to the original. It matches the symbol's source filename (`SourceDoc`), case-insensitively; Solid Edge's internal occurrence name is different. Red means the frame's dimension-style `DrivenColor` is exactly RGB(255, 0, 0). Groups themselves, other symbols, nonred frames, and unrelated red geometry are retained. Nested groups and background/view sheets are checked because their annotations may appear on the exported sheet. The temporary draft is closed without saving and removed after export.
+
+Native PDF behavior still applies: Solid Edge may mark an already-open source as modified; the converter never clears that flag or saves the source. Filename/path watermarks or dynamic filename fields can identify the temporary draft copy in this option. Other PDF settings are unchanged. Run **Install menus** when upgrading another machine.
+
+The four existing PDF choices remain available in **Convert**:
 
 - **PDF - Active sheet only**
 - **PDF - All sheets of same type**
@@ -33,7 +39,7 @@ Parasolid files (`.x_t` text or `.x_b` binary) have two choices: **Convert > Sol
 
 Solid Edge must be installed and licensed. The converter connects to the running application or starts it if needed. Solid Edge remains running afterwards, as it does with Batch.
 
-Run the executable again and click **Remove menus** to uninstall all seven file-extension menus and their eleven COM registrations. If you move the executable, run it from the new location and click **Install menus** again. No file associations or other programs' menus are changed. Run **Install menus** after upgrading to add the PDF sheet choices.
+Run the executable again and click **Remove menus** to uninstall all seven file-extension menus and their twelve COM registrations. If you move the executable, run it from the new location and click **Install menus** again. No file associations or other programs' menus are changed. Run **Install menus** after upgrading to add the PDF sheet choices.
 
 Command-line alternatives (quote paths containing spaces):
 
@@ -49,6 +55,7 @@ SolidEdgeConvert.exe --pdf "C:\CAD\Drawing1.dft" "C:\CAD\Drawing2.dft"
 SolidEdgeConvert.exe --pdf-date "C:\CAD\Drawing1.dft" "C:\CAD\Drawing2.dft"
 SolidEdgeConvert.exe --pdf-same-type "C:\CAD\Drawing1.dft" "C:\CAD\Drawing2.dft"
 SolidEdgeConvert.exe --pdf-date-same-type "C:\CAD\Drawing1.dft" "C:\CAD\Drawing2.dft"
+SolidEdgeConvert.exe --pdf-no-grind "C:\CAD\Drawing1.dft" "C:\CAD\Drawing2.dft"
 SolidEdgeConvert.exe --part "C:\CAD\Imported1.stp" "C:\CAD\Imported2.step"
 SolidEdgeConvert.exe --step-assembly "C:\CAD\Imported1.stp" "C:\CAD\Imported2.step"
 SolidEdgeConvert.exe --parasolid-part "C:\CAD\Imported1.x_t" "C:\CAD\Imported2.x_b"
@@ -87,6 +94,7 @@ Server class IDs under `HKCU\Software\Classes\CLSID`:
 - STEP: `{B84A6BE1-A4D2-4CD2-A1AE-60EAA476AD11}`
 - PDF, same type: `{2240657E-EB65-4490-938E-A86F51D8DE87}`
 - PDF with Date, same type: `{6AF4605B-E0A4-4DF7-8020-7A2B87FA506C}`
+- PDF without Grind Stock, active sheet: `{6C2D3410-B949-4A29-91E6-F375D9D82B10}`
 - STL: `{91A68B80-217F-4B8F-B6B4-F49391163E7F}`
 - Part/Assembly to Parasolid: `{BE83A0E7-B71A-416E-B129-7E798A0D14C7}`
 - PDF, active sheet: `{AF39D53D-3C70-4055-8197-442F4C5180B2}`
@@ -96,7 +104,7 @@ Server class IDs under `HKCU\Software\Classes\CLSID`:
 - Parasolid to Part: `{263031DD-6A5B-4776-B4BC-39EB97D16A95}`
 - Parasolid to Assembly: `{826FDBF0-726C-4EE8-B8B2-AE63E63ACAF9}`
 
-The `LocalServer32` command is the quoted executable path followed by `--shell-server`. Registration and removal affect only those eleven classes and the converter's seven menu keys. This internal server switch is not a user-facing conversion command.
+The `LocalServer32` command is the quoted executable path followed by `--shell-server`. Registration and removal affect only those twelve classes and the converter's seven menu keys. This internal server switch is not a user-facing conversion command.
 
 References: [Microsoft ExecuteCommand sample](https://learn.microsoft.com/en-us/windows/win32/shell/samples-executecommandverb), [verb selection models](https://learn.microsoft.com/en-us/windows/win32/shell/how-to-employ-the-verb-selection-model), [cascading menus](https://learn.microsoft.com/en-us/windows/win32/shell/how-to-create-cascading-menus-with-the-extendedsubcommandskey-registry-entry), and [Windows 11 context menus](https://blogs.windows.com/blog/2021/07/19/extending-the-context-menu-and-share-dialog-in-windows-11/).
 
@@ -121,7 +129,12 @@ Optional integration checks:
 - `TestMenu.ps1` runs the release executable's install/reinstall/uninstall commands, verifies all seven extensions' registry values, and leaves the menus installed at the current executable location.
 - `ShellTest.ps1` requires the generated fixtures from both live tests and installed menus. It invokes the actual Windows `IContextMenu` on three files for each option (STEP, Parasolid export, STL, both PDF scopes, both PDF with Date scopes, STEP to Part, STEP to Assembly, Parasolid to Part, Parasolid to Assembly), checks all thirty-three exports and source hashes, and closes only the converter's completed three-file results windows. The STEP selections mix `.stp` and `.step` for both Part and Assembly. Tests generate a two-component assembly and export STEP plus true text/binary Parasolid fixtures, then mix `.x_t` and `.x_b` for Parasolid selections. Native outputs are reopened to check part models or assembly occurrences, component file existence, and component geometry. This tests selection delivery, dated filenames, and COM server activation as well as CAD conversion.
 
-Validation: all 88 regression tests and menu installation/reinstallation/removal checks passed. Version 1.10 passed eight live PDF scope checks (all four choices with closed and open drafts): active scope produced one page, same-type scope produced three working-sheet pages while excluding the extra background page, the active sheet and source bytes stayed unchanged, and PDF/STEP preferences were restored. The targeted Explorer test also passed all four PDF menus on three selected drafts each: twelve PDFs had the expected page counts and all source hashes were preserved. Version 1.9 passed the focused STL menu test on three selected parts: all three outputs contained valid triangle records with finite coordinates and three-dimensional extent, and source hashes were unchanged. Version 1.8 also passed the targeted assembly export test: three STEP and three Parasolid files produced through the actual menus reimported with two component occurrences and geometry, with all source assembly hashes unchanged. The verification harness uses short paths and separate COM message-filter scopes after resolving a long-path SaveAs failure and a test cleanup stall. The targeted Parasolid export menu test passed on three parts; each .x_t reimported with geometry and all three source hashes were unchanged. During version 1.6 testing, the full seven-option live suite was stopped at Solid Edge's assembly-to-Part confirmation; it is not recorded as a completed run. The targeted STEP Assembly test passed for a mixed .stp/.step selection: three assemblies reopened with component links and geometry intact, and all source hashes were unchanged. The earlier release passed all six existing conversion options. Use ShellTest.ps1 -StepAssemblyOnly with a generated Two cylinders.stp fixture to test only the new assembly import. Production geometry, units, drawing layout, and sheet coverage still require acceptance checks.
+Version 1.11 validation: all 93 regression tests passed. Live tests on copies of GS sample.dft removed its one gsnote.dft symbol and two red +.006 frames while retaining the nonred frame. Closed and already-open source tests produced one-page PDFs, preserved source annotations and SHA-256 hashes, restored PDF/STEP settings, and removed temporary drafts. The original sample hash was also unchanged. Before/after PDF renders confirmed the requested notes disappeared. Poppler substituted unavailable display fonts during review; the converter uses Solid Edge's native PDF exporter unchanged. Menu install/reinstall/uninstall checks passed for all twelve handlers. The new Explorer menu also passed with three selected drafts, producing three one-page PDFs and one batch summary with source hashes preserved.
+
+- `LiveGrindPdfTest.ps1 -Sample "C:\CAD\GS sample.dft"` runs the focused live test using disposable copies under `tests\work`. The supplied sample must have the expected one symbol, two red frames, and one nonred frame on its active sheet.
+- `ShellTest.ps1 -PdfNoGrindOnly` tests the installed menu on three copies of `tests\work\grind-inspect\GS sample.dft`, checking page counts and source hashes.
+
+Previous validation: all 88 regression tests and menu installation/reinstallation/removal checks passed. Version 1.10 passed eight live PDF scope checks (all four choices with closed and open drafts): active scope produced one page, same-type scope produced three working-sheet pages while excluding the extra background page, the active sheet and source bytes stayed unchanged, and PDF/STEP preferences were restored. The targeted Explorer test also passed all four PDF menus on three selected drafts each: twelve PDFs had the expected page counts and all source hashes were preserved. Version 1.9 passed the focused STL menu test on three selected parts: all three outputs contained valid triangle records with finite coordinates and three-dimensional extent, and source hashes were unchanged. Version 1.8 also passed the targeted assembly export test: three STEP and three Parasolid files produced through the actual menus reimported with two component occurrences and geometry, with all source assembly hashes unchanged. The verification harness uses short paths and separate COM message-filter scopes after resolving a long-path SaveAs failure and a test cleanup stall. The targeted Parasolid export menu test passed on three parts; each .x_t reimported with geometry and all three source hashes were unchanged. During version 1.6 testing, the full seven-option live suite was stopped at Solid Edge's assembly-to-Part confirmation; it is not recorded as a completed run. The targeted STEP Assembly test passed for a mixed .stp/.step selection: three assemblies reopened with component links and geometry intact, and all source hashes were unchanged. The earlier release passed all six existing conversion options. Use ShellTest.ps1 -StepAssemblyOnly with a generated Two cylinders.stp fixture to test only the new assembly import. Production geometry, units, drawing layout, and sheet coverage still require acceptance checks.
 
 Manual acceptance checks:
 

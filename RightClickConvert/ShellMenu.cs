@@ -31,6 +31,7 @@ namespace SolidEdgeConvert
         internal const string StlClass = "91A68B80-217F-4B8F-B6B4-F49391163E7F";
         internal const string PdfSameTypeClass = "2240657E-EB65-4490-938E-A86F51D8DE87";
         internal const string DatedPdfSameTypeClass = "6AF4605B-E0A4-4DF7-8020-7A2B87FA506C";
+        internal const string PdfWithoutGrindStockClass = "6C2D3410-B949-4A29-91E6-F375D9D82B10";
 
         internal static string Command(string executable, ConversionFormat format = ConversionFormat.Step)
         {
@@ -41,6 +42,7 @@ namespace SolidEdgeConvert
             Conversion.FormatName(format); // reject unsupported formats before registry changes
             string argument = format == ConversionFormat.Step ? "--step" : format == ConversionFormat.Pdf ? "--pdf" : format == ConversionFormat.Part ? "--part"
                 : format == ConversionFormat.PdfSameType ? "--pdf-same-type" : format == ConversionFormat.PdfWithDateSameType ? "--pdf-date-same-type"
+                : format == ConversionFormat.PdfWithoutGrindStock ? "--pdf-no-grind"
                 : format == ConversionFormat.ParasolidPart ? "--parasolid-part" : format == ConversionFormat.ParasolidAssembly ? "--parasolid-assembly"
                 : format == ConversionFormat.StepAssembly ? "--step-assembly"
                 : format == ConversionFormat.ParasolidExport ? "--parasolid" : format == ConversionFormat.Stl ? "--stl" : "--pdf-date";
@@ -64,6 +66,7 @@ namespace SolidEdgeConvert
             RegisterServer(root, executable, StlClass);
             RegisterServer(root, executable, PdfSameTypeClass);
             RegisterServer(root, executable, DatedPdfSameTypeClass);
+            RegisterServer(root, executable, PdfWithoutGrindStockClass);
             InstallFormat(root, executable, MenuKey, "01Step", "STEP (.stp)", ConversionFormat.Step);
             InstallFormat(root, executable, MenuKey, "02Parasolid", "Parasolid (.x_t)", ConversionFormat.ParasolidExport);
             InstallFormat(root, executable, MenuKey, "03Stl", "STL (.stl)", ConversionFormat.Stl);
@@ -76,6 +79,7 @@ namespace SolidEdgeConvert
             InstallFormat(root, executable, DraftMenuKey, "01PdfSameType", "PDF - All sheets of same type", ConversionFormat.PdfSameType);
             InstallFormat(root, executable, DraftMenuKey, "02PdfWithDate", "PDF with Date - Active sheet only", ConversionFormat.PdfWithDate);
             InstallFormat(root, executable, DraftMenuKey, "02PdfWithDateSameType", "PDF with Date - All sheets of same type", ConversionFormat.PdfWithDateSameType);
+            InstallFormat(root, executable, DraftMenuKey, "03PdfWithoutGrindStock", "PDF without Grind Stock - Active sheet only", ConversionFormat.PdfWithoutGrindStock);
             InstallFormat(root, executable, StpMenuKey, "01Part", "Solid Edge Part (.par)", ConversionFormat.Part);
             InstallFormat(root, executable, StepMenuKey, "01Part", "Solid Edge Part (.par)", ConversionFormat.Part);
             foreach (string key in new[] { StpMenuKey, StepMenuKey })
@@ -122,6 +126,7 @@ namespace SolidEdgeConvert
                         action.SetValue("", command);
                         string id = format == ConversionFormat.Step ? StepClass : format == ConversionFormat.Pdf ? PdfClass : format == ConversionFormat.Part ? PartClass
                             : format == ConversionFormat.PdfSameType ? PdfSameTypeClass : format == ConversionFormat.PdfWithDateSameType ? DatedPdfSameTypeClass
+                            : format == ConversionFormat.PdfWithoutGrindStock ? PdfWithoutGrindStockClass
                             : format == ConversionFormat.ParasolidPart ? ParasolidPartClass : format == ConversionFormat.ParasolidAssembly ? ParasolidAssemblyClass
                             : format == ConversionFormat.StepAssembly ? StepAssemblyClass
                             : format == ConversionFormat.ParasolidExport ? ParasolidExportClass : format == ConversionFormat.Stl ? StlClass : DatedPdfClass;
@@ -153,6 +158,7 @@ namespace SolidEdgeConvert
             root.DeleteSubKeyTree(@"Software\Classes\CLSID\{" + StlClass + "}", false);
             root.DeleteSubKeyTree(@"Software\Classes\CLSID\{" + PdfSameTypeClass + "}", false);
             root.DeleteSubKeyTree(@"Software\Classes\CLSID\{" + DatedPdfSameTypeClass + "}", false);
+            root.DeleteSubKeyTree(@"Software\Classes\CLSID\{" + PdfWithoutGrindStockClass + "}", false);
         }
 
         internal static void NotifyExplorer() { SHChangeNotify(0x08000000, 0, IntPtr.Zero, IntPtr.Zero); }

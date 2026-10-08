@@ -17,6 +17,12 @@ internal static class ShellIntegrationTests
     {
         try
         {
+            if (args.Length == 4 && args[3] == "--pdf-no-grind-only")
+            {
+                Exercise(args[1], ".pdf", "PDF without Grind Stock - Active sheet only", false, null, false, 1);
+                Console.WriteLine("PASS grind PDF menu: three active-sheet outputs; source hashes preserved.");
+                return 0;
+            }
             if (args.Length == 4 && args[3] == "--pdf-sheets-only")
             {
                 int pages = Int32.Parse(File.ReadAllText(Path.Combine(Path.GetDirectoryName(args[1]), "pages.txt")));
