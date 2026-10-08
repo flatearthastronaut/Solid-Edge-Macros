@@ -17,6 +17,16 @@ internal static class ShellIntegrationTests
     {
         try
         {
+            if (args.Length == 4 && args[3] == "--pdf-sheets-only")
+            {
+                int pages = Int32.Parse(File.ReadAllText(Path.Combine(Path.GetDirectoryName(args[1]), "pages.txt")));
+                Exercise(args[1], ".pdf", "PDF - Active sheet only", false, null, false, 1);
+                Exercise(args[1], ".pdf", "PDF - All sheets of same type", false, null, false, pages);
+                Exercise(args[1], ".pdf", "PDF with Date - Active sheet only", true, null, false, 1);
+                Exercise(args[1], ".pdf", "PDF with Date - All sheets of same type", true, null, false, pages);
+                Console.WriteLine("PASS all four PDF sheet menus: twelve outputs, expected page counts, source hashes preserved.");
+                return 0;
+            }
             if (args.Length == 4 && args[3] == "--stl-only")
             {
                 Exercise(args[0], ".stl", "STL (.stl)");
@@ -46,8 +56,10 @@ internal static class ShellIntegrationTests
             Exercise(args[0], ".stp", "STEP (.stp)");
             Exercise(args[0], ".x_t", "Parasolid (.x_t)");
             Exercise(args[0], ".stl", "STL (.stl)");
-            Exercise(args[1], ".pdf", "PDF (.pdf)");
-            Exercise(args[1], ".pdf", "PDF with Date", true);
+            Exercise(args[1], ".pdf", "PDF - Active sheet only");
+            Exercise(args[1], ".pdf", "PDF - All sheets of same type");
+            Exercise(args[1], ".pdf", "PDF with Date - Active sheet only", true);
+            Exercise(args[1], ".pdf", "PDF with Date - All sheets of same type", true);
             string[] imports = CreateImportFixtures(args[0]);
             // STEP can encode even a single exported part inside assembly
             // structure. Solid Edge may request a flattening confirmation here.
@@ -56,13 +68,13 @@ internal static class ShellIntegrationTests
             Exercise(imports[2], ".asm", "Solid Edge Assembly (.asm)");
             Exercise(imports[0], ".par", "Solid Edge Part (.par)", false, imports[1]);
             Exercise(imports[0], ".asm", "Solid Edge Assembly (.asm)", false, imports[1]);
-            Console.WriteLine("PASS actual Shell multi-selection menus: all nine conversions; all twenty-seven source hashes preserved.");
+            Console.WriteLine("PASS actual Shell multi-selection menus: all eleven conversions; all thirty-three source hashes preserved.");
             return 0;
         }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
     }
 
-    private static void Exercise(string fixture, string outputExtension, string label, bool dated = false, string binaryFixture = null, bool assemblyExport = false)
+    private static void Exercise(string fixture, string outputExtension, string label, bool dated = false, string binaryFixture = null, bool assemblyExport = false, int expectedPdfPages = 0)
     {
         string folder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "work", "selection-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
@@ -94,6 +106,7 @@ internal static class ShellIntegrationTests
         {
             string output = expectedOutput(path);
             if (!File.Exists(output)) throw new Exception("Shell selection did not convert " + path);
+            if (expectedPdfPages > 0) { LivePdfSheetTest.CheckPages(output, expectedPdfPages); continue; }
             if (assemblyExport) { CheckAssemblyExport(output); continue; }
             if (outputExtension == ".stl") { CheckStl(output); continue; }
             if (outputExtension == ".par" || outputExtension == ".asm" || outputExtension == ".x_t") { CheckNativePart(output, outputExtension == ".asm"); continue; }

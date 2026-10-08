@@ -3,10 +3,12 @@
 $ErrorActionPreference = 'Stop'
 $executable = Join-Path $PSScriptRoot 'Compiled Executables\SolidEdgeConvert.exe'
 $menus = @(
+    @{ Path='Software\Classes\SystemFileAssociations\.dft\shell\SolidEdgeMacros.Convert'; Verb='01PdfSameType'; Label='PDF - All sheets of same type'; Argument='--pdf-same-type'; Class='{2240657E-EB65-4490-938E-A86F51D8DE87}' },
+    @{ Path='Software\Classes\SystemFileAssociations\.dft\shell\SolidEdgeMacros.Convert'; Verb='02PdfWithDateSameType'; Label='PDF with Date - All sheets of same type'; Argument='--pdf-date-same-type'; Class='{6AF4605B-E0A4-4DF7-8020-7A2B87FA506C}' },
     @{ Path='Software\Classes\SystemFileAssociations\.par\shell\SolidEdgeMacros.Convert'; Verb='03Stl'; Label='STL (.stl)'; Argument='--stl'; Class='{91A68B80-217F-4B8F-B6B4-F49391163E7F}' },
     @{ Path='Software\Classes\SystemFileAssociations\.par\shell\SolidEdgeMacros.Convert'; Verb='01Step'; Label='STEP (.stp)'; Argument='--step'; Class='{B84A6BE1-A4D2-4CD2-A1AE-60EAA476AD11}' },
-    @{ Path='Software\Classes\SystemFileAssociations\.dft\shell\SolidEdgeMacros.Convert'; Verb='01Pdf'; Label='PDF (.pdf)'; Argument='--pdf'; Class='{AF39D53D-3C70-4055-8197-442F4C5180B2}' },
-    @{ Path='Software\Classes\SystemFileAssociations\.dft\shell\SolidEdgeMacros.Convert'; Verb='02PdfWithDate'; Label='PDF with Date'; Argument='--pdf-date'; Class='{D8F750C4-A88D-4F7A-BD12-590D6813B742}' },
+    @{ Path='Software\Classes\SystemFileAssociations\.dft\shell\SolidEdgeMacros.Convert'; Verb='01Pdf'; Label='PDF - Active sheet only'; Argument='--pdf'; Class='{AF39D53D-3C70-4055-8197-442F4C5180B2}' },
+    @{ Path='Software\Classes\SystemFileAssociations\.dft\shell\SolidEdgeMacros.Convert'; Verb='02PdfWithDate'; Label='PDF with Date - Active sheet only'; Argument='--pdf-date'; Class='{D8F750C4-A88D-4F7A-BD12-590D6813B742}' },
     @{ Path='Software\Classes\SystemFileAssociations\.stp\shell\SolidEdgeMacros.Convert'; Verb='01Part'; Label='Solid Edge Part (.par)'; Argument='--part'; Class='{46FDDBA1-7601-445B-A3A6-7F7624B196C2}' },
     @{ Path='Software\Classes\SystemFileAssociations\.step\shell\SolidEdgeMacros.Convert'; Verb='01Part'; Label='Solid Edge Part (.par)'; Argument='--part'; Class='{46FDDBA1-7601-445B-A3A6-7F7624B196C2}' },
     @{ Path='Software\Classes\SystemFileAssociations\.x_t\shell\SolidEdgeMacros.Convert'; Verb='01Part'; Label='Solid Edge Part (.par)'; Argument='--parasolid-part'; Class='{263031DD-6A5B-4776-B4BC-39EB97D16A95}' },
@@ -71,6 +73,6 @@ try {
     }
     Invoke-Installer '--install'
     Test-InstalledMenu
-    Write-Output 'PASS install, reinstall, uninstall, and final registration for nine conversion handlers and seven source extensions.'
+    Write-Output 'PASS install, reinstall, uninstall, and final registration for eleven conversion handlers and seven source extensions.'
 }
 finally { $user.Dispose() }

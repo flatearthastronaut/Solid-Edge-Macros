@@ -80,6 +80,14 @@ namespace SolidEdgeConvert
     public sealed class StlSelectionCommand : SelectionCommand
     { public StlSelectionCommand() : base(ConversionFormat.Stl) { } }
 
+    [ComVisible(true), Guid(ShellMenu.PdfSameTypeClass), ClassInterface(ClassInterfaceType.None)]
+    public sealed class PdfSameTypeSelectionCommand : SelectionCommand
+    { public PdfSameTypeSelectionCommand() : base(ConversionFormat.PdfSameType) { } }
+
+    [ComVisible(true), Guid(ShellMenu.DatedPdfSameTypeClass), ClassInterface(ClassInterfaceType.None)]
+    public sealed class DatedPdfSameTypeSelectionCommand : SelectionCommand
+    { public DatedPdfSameTypeSelectionCommand() : base(ConversionFormat.PdfWithDateSameType) { } }
+
     internal sealed class ShellServer : ApplicationContext
     {
         private static ShellServer current;
@@ -107,6 +115,8 @@ namespace SolidEdgeConvert
                 cookies.Add(registration.RegisterTypeForComClients(typeof(StepAssemblySelectionCommand), RegistrationClassContext.LocalServer, RegistrationConnectionType.MultipleUse));
                 cookies.Add(registration.RegisterTypeForComClients(typeof(ParasolidExportSelectionCommand), RegistrationClassContext.LocalServer, RegistrationConnectionType.MultipleUse));
                 cookies.Add(registration.RegisterTypeForComClients(typeof(StlSelectionCommand), RegistrationClassContext.LocalServer, RegistrationConnectionType.MultipleUse));
+                cookies.Add(registration.RegisterTypeForComClients(typeof(PdfSameTypeSelectionCommand), RegistrationClassContext.LocalServer, RegistrationConnectionType.MultipleUse));
+                cookies.Add(registration.RegisterTypeForComClients(typeof(DatedPdfSameTypeSelectionCommand), RegistrationClassContext.LocalServer, RegistrationConnectionType.MultipleUse));
                 // A small idle grace period lets Explorer finish using its proxy.
                 // No CAD work runs on this thread, and busy batches cannot expire.
                 idle.Interval = 1000;

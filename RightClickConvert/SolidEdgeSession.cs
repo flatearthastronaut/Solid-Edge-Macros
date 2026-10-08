@@ -15,6 +15,9 @@ namespace SolidEdgeConvert
         // ApplicationGlobalConstants.seApplicationGlobalSTEPAdapterKey = 458.
         // Late binding avoids distributing Siemens interop DLLs with this tool.
         private const int StepAdapterKey = 458;
+        // seApplicationGlobalDraftSaveAsPDFSheetOptions. The API's AllSheets
+        // value (1) corresponds to the UI's "All sheets of same type" option.
+        private const int PdfSheetOptionsKey = 172;
         private object application;
         private object documents;
 
@@ -54,6 +57,17 @@ namespace SolidEdgeConvert
                 return value;
             }
             set { ((dynamic)application).SetGlobalParameter(StepAdapterKey, value); }
+        }
+
+        public object PdfSheetOptions
+        {
+            get
+            {
+                object value = null;
+                ((dynamic)application).GetGlobalParameter(PdfSheetOptionsKey, ref value);
+                return value;
+            }
+            set { ((dynamic)application).SetGlobalParameter(PdfSheetOptionsKey, value); }
         }
 
         public IEdgeDocument OpenDocument(string path)

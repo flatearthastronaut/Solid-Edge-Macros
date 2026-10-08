@@ -9,7 +9,7 @@ namespace SolidEdgeConvert
     // Part and ParasolidPart both write .par, but require different import paths;
     // Step exports native documents, while StepAssembly imports STEP into .asm.
     // A new route also needs CLI dispatch, menu/COM registration and tests.
-    internal enum ConversionFormat { Step, Pdf, PdfWithDate, Part, ParasolidPart, ParasolidAssembly, StepAssembly, ParasolidExport, Stl }
+    internal enum ConversionFormat { Step, Pdf, PdfWithDate, Part, ParasolidPart, ParasolidAssembly, StepAssembly, ParasolidExport, Stl, PdfSameType, PdfWithDateSameType }
 
     // These small boundaries let regression tests exercise failure cleanup without
     // starting CAD or touching a user's open documents.
@@ -24,6 +24,7 @@ namespace SolidEdgeConvert
     internal interface IEdgeSession : IDisposable
     {
         object StepAdapter { get; set; }
+        object PdfSheetOptions { get; set; }
         IEdgeDocument OpenDocument(string path);
         IEdgeDocument ImportStepPart(string path);
         IEdgeDocument ImportStepAssembly(string path);
@@ -40,6 +41,8 @@ namespace SolidEdgeConvert
                 case ConversionFormat.Step: return "STEP";
                 case ConversionFormat.Pdf: return "PDF";
                 case ConversionFormat.PdfWithDate: return "PDF with Date";
+                case ConversionFormat.PdfSameType: return "PDF - All sheets of same type";
+                case ConversionFormat.PdfWithDateSameType: return "PDF with Date - All sheets of same type";
                 case ConversionFormat.Part: return "Solid Edge Part";
                 case ConversionFormat.ParasolidPart: return "Solid Edge Part";
                 case ConversionFormat.ParasolidAssembly: return "Solid Edge Assembly";
@@ -80,7 +83,7 @@ namespace SolidEdgeConvert
                 throw new ArgumentException(name + " conversion requires a " + inputExtension + " file.");
             if (!File.Exists(fullPath))
                 throw new FileNotFoundException("The selected CAD file could not be found.", fullPath);
-            if (format == ConversionFormat.PdfWithDate)
+            if (format == ConversionFormat.PdfWithDate || format == ConversionFormat.PdfWithDateSameType)
             {
                 // Use a Gregorian YYYYMMDD suffix regardless of Windows locale.
                 // The caller freezes the local date once for the whole batch.
@@ -92,6 +95,12 @@ namespace SolidEdgeConvert
                 : format == ConversionFormat.Stl ? ".stl"
                 : format == ConversionFormat.Part || format == ConversionFormat.ParasolidPart ? ".par"
                 : IsAssembly(format) ? ".asm" : ".pdf");
+        }
+
+        internal static bool IsPdf(ConversionFormat format)
+        {
+            return format == ConversionFormat.Pdf || format == ConversionFormat.PdfWithDate
+                || format == ConversionFormat.PdfSameType || format == ConversionFormat.PdfWithDateSameType;
         }
 
         internal static bool IsAssembly(ConversionFormat format)
@@ -144,6 +153,11 @@ namespace SolidEdgeConvert
                     // PDF, Parasolid and STL use ordinary SaveAs with the target
                     // extension and must not read/change the STEP translator setting.
                     object previousAdapter = useStepAdapter ? session.StepAdapter : null;
+                    // Capture before touching the shared PDF preference. Other
+                    // formats must not even read it. Restore the exact COM value,
+                    // including sheet-range/visible-sheet modes we do not offer.
+                    bool usePdfOptions = IsPdf(format);
+                    object previousPdfOptions = usePdfOptions ? session.PdfSheetOptions : null;
                     IEdgeDocument part = null;
                     List<Exception> failures = new List<Exception>();
                     try
@@ -164,6 +178,12 @@ namespace SolidEdgeConvert
                             : session.OpenDocument(source);
                         session.DoIdle();
                         progress("Converting to " + formatName + "...");
+                        // Apply after opening the draft so the translator sees our
+                        // explicit scope. 0 = active sheet; 1 = all of its type.
+                        // Do not activate a different sheet or change any other
+                        // PDF option (range, sizes, quality, colors, etc.).
+                        if (usePdfOptions) session.PdfSheetOptions =
+                            format == ConversionFormat.PdfSameType || format == ConversionFormat.PdfWithDateSameType ? 1 : 0;
                         part.SaveAs(temporary);
                         // A successful COM return alone does not prove a file was
                         // written. This checks basic completion; geometry fidelity
@@ -186,6 +206,11 @@ namespace SolidEdgeConvert
                         {
                             try { session.StepAdapter = previousAdapter; }
                             catch (Exception error) { failures.Add(new IOException("Could not restore the STEP translator setting. Check Solid Edge.", error)); }
+                        }
+                        if (usePdfOptions)
+                        {
+                            try { session.PdfSheetOptions = previousPdfOptions; }
+                            catch (Exception error) { failures.Add(new IOException("Could not restore the PDF sheet setting. Check Solid Edge.", error)); }
                         }
                     }
                     if (failures.Count > 0)

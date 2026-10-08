@@ -600,6 +600,68 @@ internal static class RegressionTests
             Test("STL command quotes executable and selection", delegate {
                 Equal("\"C:\\Tools & CAD\\SolidEdgeConvert.exe\" --stl \"%1\"", ShellMenu.Command(@"C:\Tools & CAD\SolidEdgeConvert.exe", ConversionFormat.Stl));
             });
+            Test("PDF scopes preserve output naming and dated suffixes", delegate {
+                Equal(pdf, Conversion.OutputPath(draft, ConversionFormat.PdfSameType));
+                Equal(datedPdf, Conversion.OutputPath(draft, ConversionFormat.PdfWithDateSameType, exportDate));
+                ExpectFailure(delegate { Conversion.OutputPath(source, ConversionFormat.PdfSameType); });
+                ExpectFailure(delegate { Conversion.OutputPath(source, ConversionFormat.PdfWithDateSameType); });
+            });
+            Test("all four PDF routes apply explicit sheet scope and restore exact prior value", delegate {
+                string original = File.ReadAllText(draft);
+                foreach (ConversionFormat format in new[] { ConversionFormat.Pdf, ConversionFormat.PdfWithDate, ConversionFormat.PdfSameType, ConversionFormat.PdfWithDateSameType })
+                    foreach (object prior in new object[] { 0, 1, 2, 3, (short)2 }) {
+                        FakeSession s = new FakeSession(false) { RejectStepAccess = true, PdfOptions = prior };
+                        Conversion.Run(draft, true, delegate { return s; }, delegate { }, format, exportDate);
+                        Equal(format == ConversionFormat.PdfSameType || format == ConversionFormat.PdfWithDateSameType ? 1 : 0, s.PdfAtSave);
+                        Equal(prior, s.PdfOptions);
+                        Check(s.PartClosed && s.PartDisposed && s.Disposed, "PDF scope leaked resources");
+                    }
+                Equal(original, File.ReadAllText(draft));
+            });
+            Test("PDF scope restores after open, option, save, empty-output and close failures", delegate {
+                foreach (ConversionFormat format in new[] { ConversionFormat.Pdf, ConversionFormat.PdfWithDate, ConversionFormat.PdfSameType, ConversionFormat.PdfWithDateSameType }) {
+                    string destination = Conversion.OutputPath(draft, format, exportDate); File.WriteAllText(destination, "old PDF");
+                    foreach (FakeSession s in new[] { new FakeSession(false) { FailOpen = true }, new FakeSession(false) { FailPdfSet = true }, new FakeSession(false) { FailSave = true }, new FakeSession(false) { EmptyOutput = true }, new FakeSession(false) { FailClose = true } }) {
+                        s.PdfOptions = 3; s.RejectStepAccess = true;
+                        ExpectFailure(delegate { Conversion.Run(draft, true, delegate { return s; }, delegate { }, format, exportDate); });
+                        Equal(3, s.PdfOptions); Equal("old PDF", File.ReadAllText(destination));
+                        Check(s.Disposed && (s.FailOpen || (s.PartClosed && s.PartDisposed)), "PDF failure cleanup incomplete");
+                    }
+                }
+            });
+            Test("PDF setting read failure prevents opening or changing preference", delegate {
+                FakeSession s = new FakeSession(false) { RejectPdfAccess = true };
+                ExpectFailure(delegate { Conversion.Run(draft, true, delegate { return s; }, delegate { }, ConversionFormat.PdfSameType); });
+                Check(!s.Events.Contains("open") && s.Disposed, "PDF read failure touched draft or leaked session");
+            });
+            Test("PDF preference restoration failure prevents publication", delegate {
+                File.WriteAllText(pdf, "old PDF");
+                FakeSession s = new FakeSession(false) { PdfOptions = 3, FailPdfRestore = true };
+                ExpectFailure(delegate { Conversion.Run(draft, true, delegate { return s; }, delegate { }, ConversionFormat.PdfSameType); });
+                Equal("old PDF", File.ReadAllText(pdf));
+                Check(s.PartClosed && s.PartDisposed && s.Disposed, "PDF restoration failure leaked resources");
+            });
+            Test("non-PDF routes never access PDF settings", delegate {
+                foreach (ConversionFormat format in new[] { ConversionFormat.Step, ConversionFormat.ParasolidExport, ConversionFormat.Stl }) {
+                    FakeSession s = new FakeSession(false) { RejectPdfAccess = true };
+                    Conversion.Run(source, true, delegate { return s; }, delegate { }, format);
+                }
+            });
+            Test("PDF same-type batch skips and continues with scope on each file", delegate {
+                List<BatchItem> skipped = BatchConversion.Run(new[] { draft }, ConversionFormat.PdfSameType, ExistingOutput.Skip,
+                    delegate { throw new Exception("Skipped PDF must not connect"); }, delegate { });
+                Check(skipped[0].Skipped && skipped[0].Error == null, "PDF scope skip failed");
+                string another = Path.Combine(folder, "Another sheet.dft"); File.WriteAllText(another, "draft");
+                List<FakeSession> sessions = new List<FakeSession>();
+                List<BatchItem> results = BatchConversion.Run(new[] { draft, source, another }, ConversionFormat.PdfWithDateSameType, ExistingOutput.Replace,
+                    delegate { FakeSession s = new FakeSession(false) { PdfOptions = 3 }; sessions.Add(s); return s; }, delegate { }, exportDate);
+                Check(results[0].Error == null && results[1].Error != null && results[2].Error == null && sessions.Count == 2, "PDF scope batch failed");
+                foreach (FakeSession s in sessions) { Equal(1, s.PdfAtSave); Equal(3, s.PdfOptions); }
+            });
+            Test("PDF same-type commands use distinct quoted switches", delegate {
+                Equal("\"C:\\Tools\\Convert.exe\" --pdf-same-type \"%1\"", ShellMenu.Command(@"C:\Tools\Convert.exe", ConversionFormat.PdfSameType));
+                Equal("\"C:\\Tools\\Convert.exe\" --pdf-date-same-type \"%1\"", ShellMenu.Command(@"C:\Tools\Convert.exe", ConversionFormat.PdfWithDateSameType));
+            });
             Console.WriteLine("Passed " + passed + " regression tests.");
             return 0;
         }
@@ -632,6 +694,18 @@ internal static class RegressionTests
         internal bool FailSave, FailOpen, FailClose, FailEnable, FailRestore, MissingOutput, EmptyOutput;
         internal bool PartClosed, PartDisposed, Disposed;
         internal bool RejectStepAccess;
+        internal object PdfOptions = 3, PdfAtSave;
+        internal bool RejectPdfAccess, FailPdfSet, FailPdfRestore;
+        public object PdfSheetOptions
+        {
+            get { if (RejectPdfAccess) throw new Exception("Unexpected PDF setting access"); return PdfOptions; }
+            set {
+                if (RejectPdfAccess) throw new Exception("Unexpected PDF setting access");
+                PdfOptions = value;
+                if (FailPdfSet && Convert.ToInt32(value) != 3) throw new IOException("PDF option change failed");
+                if (FailPdfRestore && Convert.ToInt32(value) == 3) throw new IOException("PDF option restore failed");
+            }
+        }
         internal string SavedExtension;
         internal string ImportPath;
         internal bool GenerateComponent;
@@ -688,6 +762,7 @@ internal static class RegressionTests
             {
                 owner.Events.Add("save");
                 owner.SavedExtension = Path.GetExtension(path);
+                if (owner.SavedExtension == ".pdf") owner.PdfAtSave = owner.PdfOptions;
                 if (!owner.MissingOutput) File.WriteAllText(path, owner.EmptyOutput ? "" : (owner.SavedExtension == ".pdf" ? "PDF data" : owner.SavedExtension == ".par" ? "PAR data" : owner.SavedExtension == ".asm" ? "ASM data" : owner.SavedExtension == ".x_t" ? "Parasolid data" : owner.SavedExtension == ".stl" ? "STL data" : "STEP data"));
                 if (owner.OnSave != null) owner.OnSave();
                 if (owner.FailSave) throw new IOException("Save failed after partial write");
