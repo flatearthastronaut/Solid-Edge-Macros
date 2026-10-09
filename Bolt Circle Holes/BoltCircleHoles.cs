@@ -127,7 +127,7 @@ namespace BoltCircleHoles
         public MainWindow(bool previewOnly)
         {
             preview = previewOnly;
-            Text = "Bolt Circle Holes v0.19";
+            Text = "Bolt Circle Holes v0.20";
             // The window uses the executable's embedded icon, so copied macros do
             // not depend on an external ICO. Release the owned GDI object on close.
             Icon windowIcon;
@@ -548,7 +548,7 @@ namespace BoltCircleHoles
             using (var mutex = new System.Threading.Mutex(true, "Local\\SolidEdgeBoltCircleHoles", out first))
             {
                 if (!first) { MessageBox.Show("Bolt Circle Holes is already open."); return 1; }
-                RunLog.Write("SESSION.start","version=0.18 exe="+typeof(Program).Assembly.Location+" 64bit="+Environment.Is64BitProcess+" CLR="+Environment.Version);
+                RunLog.Write("SESSION.start","version=0.20 exe="+typeof(Program).Assembly.Location+" 64bit="+Environment.Is64BitProcess+" CLR="+Environment.Version);
                 IMessageFilter previous;
                 var filter = new BusyFilter();
                 BusyFilter.CoRegisterMessageFilter(filter, out previous);

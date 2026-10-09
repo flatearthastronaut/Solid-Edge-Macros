@@ -15,7 +15,7 @@ namespace BoltCircleHoles
     }
     public static class ThreadChart
     {
-        // Thread_Depth_Charts.pdf, revision DB 9/29/2026. Use the inch columns
+        // Thread_Depth_Charts_20261007.pdf, revision DB 10/7/2026. Use the inch columns
         // consistently; do not mix them with independently rounded metric depths.
         public static List<HoleSize> Load(bool metric)
         {
@@ -23,16 +23,18 @@ namespace BoltCircleHoles
             // These are published rounded depths, not values recomputed at runtime.
             // HoleSize.Depth stores drill depth to the full-diameter shoulder, which
             // must exceed FullDepthInches and excludes the extra conical drill point.
-            string[] names=metric ? new[]{"M3","M3.5","M4","M5","M6","M7","M8","M10","M12","M14","M16","M18","M20"}
+            // Revised extra drill depth: max(3.25 mm or .125 in, 2.5 * pitch),
+            // rounded UP separately from full thread depth before adding the two.
+            string[] names=metric ? new[]{"M3","M3.5","M4","M5","M6","M7","M8","M10","M12","M14","M16","M18","M20","M22","M24"}
                 : new[]{"#8","#10","#12","1/4","5/16","3/8","7/16","1/2","9/16","5/8","3/4","7/8","1"};
-            double[] diam=metric ? new[]{3.0,3.5,4,5,6,7,8,10,12,14,16,18,20}
+            double[] diam=metric ? new[]{3.0,3.5,4,5,6,7,8,10,12,14,16,18,20,22,24}
                 : new[]{.164,.190,.216,.25,.3125,.375,.4375,.5,.5625,.625,.75,.875,1};
-            double[] pitch=metric ? new[]{.5,.6,.7,.8,1,1,1.25,1.5,1.75,2,2,2.5,2.5}
+            double[] pitch=metric ? new[]{.5,.6,.7,.8,1,1,1.25,1.5,1.75,2,2,2.5,2.5,2.5,3}
                 : new[]{32.0,24,24,20,18,16,14,13,12,11,10,9,8};
-            double[] full=metric ? new[]{.31,.34,.37,.43,.49,.55,.61,.72,.84,.96,1.08,1.20,1.31}
+            double[] full=metric ? new[]{.31,.34,.37,.43,.49,.55,.61,.72,.84,.96,1.08,1.20,1.31,1.43,1.55}
                 : new[]{.38,.41,.45,.50,.60,.69,.79,.88,.97,1.07,1.25,1.44,1.63};
-            double[] shoulder=metric ? new[]{.43,.46,.49,.56,.65,.71,.81,.96,1.12,1.28,1.40,1.60,1.71}
-                : new[]{.51,.58,.62,.70,.83,.94,1.08,1.19,1.31,1.44,1.65,1.89,2.13};
+            double[] shoulder=metric ? new[]{.44,.47,.50,.56,.62,.68,.74,.87,1.02,1.16,1.28,1.45,1.56,1.68,1.85}
+                : new[]{.51,.54,.58,.63,.74,.85,.97,1.08,1.18,1.30,1.50,1.72,1.95};
             var rows=new List<HoleSize>();
             for(int i=0;i<names.Length;i++)
             {

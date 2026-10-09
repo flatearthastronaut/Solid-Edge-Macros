@@ -1,3 +1,14 @@
+# Bolt Circle Holes v0.20
+
+Run `Compiled Executables\BoltCircleHoles-v0.20.exe`. Thread selections now follow `Thread_Depth_Charts_20261007.pdf` (DB, October 7, 2026): 15 metric coarse sizes M3-M24 and 13 inch UNC sizes #8-1 inch. M22 x 2.5 and M24 x 3 are new. The PDF is included for reference; its inch-column values are transcribed in ThreadChart.cs and compiled into the executable.
+
+The revised extra drill allowance is the greater of 2.5 times pitch and the family minimum (0.125 inch for UNC, 3.25 mm for metric). Full thread depth and extra allowance are each rounded upward to 0.01 inch before adding for drill-to-shoulder depth. The metric inch columns are used consistently, without mixing in independently rounded millimeter columns. Existing full-thread depths are unchanged. M10 now has 0.720 inch full thread / 0.870 inch shoulder depth; 1/4-20 UNC has 0.500 / 0.630 inch. M22 uses 1.430 / 1.680 inch and M24 uses 1.550 / 1.850 inch.
+
+Thread grouping, equal spacing about base Z, the exact clicked first center, no thread positioning dimensions, and the 120-degree drill point remain unchanged. The point extends beyond the chart's shoulder depth. Counterbores and A2 holes are unchanged.
+
+Validation: successful build; all 28 rows independently checked against the revised formula, with unit, spacing, selection, M22/M24 display, and quantity shortcut regression checks. Live Solid Edge lookup/configuration passed for all 28 sizes. Six 1/4-20 UNC holes and six M10 holes were each created in one Hole feature in an unsaved scratch part; counts, thread identity, revised-depth material-removal volumes, absence of dimensions/circular patterns, and failed-placement rollback passed. The scratch part was closed without saving.
+
+Earlier release notes below describe their original chart revisions and are superseded by this section.
 # Bolt Circle Holes v0.19
 
 Run `Compiled Executables\BoltCircleHoles-v0.19.exe`. This release adds a six-counterbore flange icon to the executable, popup title bar, and taskbar. Hole creation is unchanged from v0.18.
