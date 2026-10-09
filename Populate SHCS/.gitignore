@@ -1,0 +1,6 @@
+tests/*.exe
+tests/*.par
+tests/catalog-files.txt
+tests/artifacts/
+Compiled Executables/*.log
+Compiled Executables/RememberedParts.xml
