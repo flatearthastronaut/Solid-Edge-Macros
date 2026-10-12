@@ -10,7 +10,8 @@ if not exist "%SEPART%" (
   echo Cannot find Solid Edge 2026 part automation library: %SEPART%
   exit /b 1
 )
-"%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /target:winexe /platform:x64 /link:"%SEPART%" /r:"%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\WPF\UIAutomationClient.dll" /r:"%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\WPF\UIAutomationTypes.dll" /r:"%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\WPF\WindowsBase.dll" /r:Microsoft.CSharp.dll /r:System.Windows.Forms.dll /r:System.Drawing.dll /out:"Compiled Executables\SketchToModels.exe" SketchToModels.cs ComSupport.cs ORingWorkflow.cs
+rem Embed the existing multi-size ICO so Explorer and shortcuts use the macro icon.
+"%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /win32icon:"SketchToModels.ico" /target:winexe /platform:x64 /link:"%SEPART%" /r:"%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\WPF\UIAutomationClient.dll" /r:"%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\WPF\UIAutomationTypes.dll" /r:"%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\WPF\WindowsBase.dll" /r:Microsoft.CSharp.dll /r:System.Windows.Forms.dll /r:System.Drawing.dll /out:"Compiled Executables\SketchToModels.exe" SketchToModels.cs ComSupport.cs ORingWorkflow.cs
 if errorlevel 1 exit /b 1
 rem Bundle the template setting and matching ribbon images beside the executable.
 copy /y "Compiled Executables\SketchToModels.exe" "Compiled Executables\SketchToModels-v2.32.exe" >nul
