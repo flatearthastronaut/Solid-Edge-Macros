@@ -455,7 +455,7 @@ saved when a later part fails. Do not retry blindly over existing filenames.
                 part.HasInterpartLinks(ref linked);
                 if (!linked) throw new InvalidOperationException("The finished part did not retain the assembly sketch link.");
                 stage = "applying the part color";
-                PartColors.Apply(part,item.Name);
+                PartColors.Apply(part,item.Name,item.ORingStyle);
                 stage = "saving the finished part";
                 SaveWritable(part);
                 stage = "saving the assembly after modeling";
@@ -1092,7 +1092,9 @@ creating or modifying color styles. Missing styles are skipped.
 
 Match contained text ignoring case, spaces, hyphens and underscores. collet1 and
 diaphragms match Yellow; part stop and partstop match Green. First rule wins if
-multiple names match. Unmatched parts keep their appearance. Base/body/feature
+multiple names match. O-ring workflow parts always request Black before any
+name rule is considered. If Black is missing, skip coloring without falling
+back to the name-based color. Unmatched standard parts keep their appearance. Base/body/feature
 styles control display appearance; they do not set the engineering material.
 */
     public static class PartColors
@@ -1112,7 +1114,14 @@ styles control display appearance; they do not set the engineering material.
         }
         public static void Apply(dynamic part,string name)
         {
-            string wanted=StyleForName(name);
+            Apply(part,name,false);
+        }
+        public static void Apply(dynamic part,string name,bool oRingStyle)
+        {
+            // Workflow selection is authoritative: an O-ring called collet,
+            // partstop, etc. must never inherit that component's normal color.
+            // Reuse an existing Black style only, just like other style rules.
+            string wanted=oRingStyle ? "Black" : StyleForName(name);
             if(wanted==null)return;
             dynamic styles=part.FaceStyles;
             dynamic chosen=null;
@@ -1131,6 +1140,13 @@ styles control display appearance; they do not set the engineering material.
                 model.Body.Style=chosen;
                 for(int j=1;j<=(int)model.RevolvedProtrusions.Count;j++)
                     model.RevolvedProtrusions.Item(j).SetStyle(chosen);
+            }
+            // The O-ring template's protrusion can be an extrusion rather than
+            // a revolve. Set its feature style too so its previous template
+            // color cannot override the Black base/body appearance.
+            if(oRingStyle) {
+                dynamic templateFeature=ORingWorkflow.FindProtrusion(part);
+                templateFeature.SetStyle(chosen);
             }
             try{File.AppendAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"SketchToModels-assist.txt"),
                 DateTime.Now.ToString("s")+" Part Painter style: "+name+" -> "+wanted+"\r\n");}catch{}

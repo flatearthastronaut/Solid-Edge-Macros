@@ -24,6 +24,7 @@ Only templates used by selected rows are required. An O-ring-only batch can use 
 - **Select:** normal.par, default placement, linked sketch, Right (yz) solid revolve, automatic part-Z axis, Project to Sketch and Wireframe Chain.
 - **Bushing Style:** normal.par, graphical coordinate-system placement, linked sketch, Feature's Plane revolved surface with automatic local-Z centerline, then Right (yz) solid revolve with user-chosen axis. Finish each feature and click Continue.
 - Existing styles only: collet/diaphragm Yellow; part stop/partstop Green; adapter Khaki; puller Orange; body Bronze; insert/inserts Blue. Missing styles are skipped; no styles are created.
+- **O-ring overrides every name rule:** parts selected with O-ring use the existing **Black** style, including the template's Protrusion 6 feature. If Black is unavailable, coloring is skipped without falling back to a name-based color.
 
 ## Source, build and validation
 

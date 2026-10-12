@@ -20,6 +20,8 @@ public class CadFeature
     public bool IgnoreReorder, FailReorder;
     public History History;
     public object Target;
+    public object Style;
+    public void SetStyle(object style) { Style = style; }
     public bool Before;
     public void Reorder(object target, bool before)
     {
@@ -32,6 +34,10 @@ public class CadFeature
 }
 public class Part
 {
+    public FaceStyles FaceStyles = new FaceStyles();
+    public EmptyModels Models = new EmptyModels();
+    public object BaseStyle;
+    public void SetBaseStyle(object kind, object style) { BaseStyle = style; }
     public History DesignEdgebarFeatures = new History(), Sketches = new History();
     public bool ReadOnly = false, Closed, Linked;
     public int Saves;
@@ -42,6 +48,16 @@ public class Part
     public void Save() { Saves++; }
     public void HasInterpartLinks(ref bool linked) { linked = Linked; }
 }
+// Minimal color objects let the Engine.Create test verify that the selected
+// O-ring workflow, rather than a conflicting sketch name, reaches PartColors.
+public class FaceStyle { public string StyleName = "Black"; }
+public class FaceStyles
+{
+    public FaceStyle Black = new FaceStyle();
+    public int Count { get { return 1; } }
+    public FaceStyle Item(int index) { return Black; }
+}
+public class EmptyModels { public int Count { get { return 0; } } }
 public class Occurrence
 {
     public Part OccurrenceDocument;
@@ -138,11 +154,13 @@ class ORingWorkflowTests
         var app = new CadApp { Documents = new Documents { Part = part } };
         // Exercise the actual Engine.Create path: selected template, close/copy/
         // reopen, reorder the new sketch (not the template sketch), then save.
+        item.Name = "oring-collet";
         Engine.Create(app, assembly, item, ring);
         Check(app.Documents.Template == ring && assembly.Source == item.Source, "Wrong template/source.");
         Check(occurrence.IdentityPlaced && app.DisplayAlerts, "Placement or alerts changed.");
         Check(feature.Calls == 1 && feature.Target == copied && !feature.Before, "Wrong reorder target/direction.");
         Check(part.Saves == 2 && assembly.Saves == 2 && part.Linked, "Linked checkpoint/final saves missing.");
+        Check(part.BaseStyle == part.FaceStyles.Black && feature.Style == part.FaceStyles.Black, "O-ring workflow did not apply Black over the collet name rule.");
 
         feature.IgnoreReorder = true;
         part.DesignEdgebarFeatures.Values.Remove(feature); part.DesignEdgebarFeatures.Values.Insert(0, feature);
