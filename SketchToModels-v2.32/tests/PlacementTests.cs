@@ -1,0 +1,4 @@
+using System;using SketchToModels;
+public class CS {public string Name;}
+public class Systems {CS[] items;public Systems(params string[] names){items=Array.ConvertAll(names,n=>new CS{Name=n});}public int Count{get{return items.Length;}}public CS Item(object index){if(!(index is int))throw new Exception("Name indexing is not supported");return items[(int)index-1];}}
+class Test {static void Main(){var systems=new Systems("Base","Bushing placement origin","Other");if(!Object.ReferenceEquals(BushingWorkflow.FindPlacementOrigin(systems),systems.Item(2)))throw new Exception("Wrong origin");int rejected=0;foreach(var s in new[]{new Systems("Base"),new Systems("Bushing placement origin","Bushing placement origin")}){try{BushingWorkflow.FindPlacementOrigin(s);}catch(InvalidOperationException){rejected++;}}if(rejected!=2)throw new Exception("Invalid lookup accepted");Console.WriteLine("PASS: numeric-only coordinate lookup, missing-origin and duplicate-origin guards.");}}
