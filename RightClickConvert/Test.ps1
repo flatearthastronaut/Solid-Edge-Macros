@@ -8,5 +8,6 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Regression test compilation failed.' }
     & .\tests\RegressionTests.exe
     if ($LASTEXITCODE -ne 0) { throw 'Regression tests failed.' }
+    & .\TestBranding.ps1
 }
 finally { Pop-Location }

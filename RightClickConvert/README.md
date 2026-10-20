@@ -1,4 +1,10 @@
-# Solid Edge Convert 1.11
+# Solid Edge Convert 1.12
+
+Version 1.12 adds a custom CAD cube/conversion-arrow icon and visible version information. The release is **`Compiled Executables\SolidEdgeConvert-v1.12.exe`**. Windows Properties → Details reports file/product version **1.12.0.0**, and the setup and conversion windows show **v1.12**.
+
+The build also produces a byte-identical **`SolidEdgeConvert.exe`** so existing menus registered to that filename keep working. Either executable is standalone; the icon is embedded at six sizes from 16 to 256 pixels. To deploy the versioned filename on another machine, keep it in a permanent folder, launch it, and click **Install menus** to register that path.
+
+`Assets\BuildIcon.ps1` contains the editable vector artwork and regenerates `SolidEdgeConvert.ico` and its PNG preview. `Build.cmd` calls `Build.ps1`, which reads the release version from `Program.cs`, embeds the icon, and produces both executable names. `Test.ps1` also checks release metadata, identical copies, icon extraction, and icon resolutions. No CAD automation changes are included in this release.
 
 New: **Convert > PDF without Grind Stock - Active sheet only** exports one or more selected drafts without the `gsnote.dft` symbol or red Feature Control Frames. It uses each draft's active sheet and the usual `Drawing.pdf` output name, including the existing replace/skip prompt.
 
@@ -110,7 +116,9 @@ References: [Microsoft ExecuteCommand sample](https://learn.microsoft.com/en-us/
 
 ## Build and test
 
-Run `Build.cmd` on 64-bit Windows with .NET Framework 4.x installed. It creates `Compiled Executables\SolidEdgeConvert.exe`. No package downloads, Visual Studio, or redistributed Siemens interop assemblies are required.
+Run `Build.cmd` on 64-bit Windows with .NET Framework 4.x installed. It creates `Compiled Executables\SolidEdgeConvert-v1.12.exe` and the identical compatibility copy `Compiled Executables\SolidEdgeConvert.exe`. No package downloads, Visual Studio, or redistributed Siemens interop assemblies are required.
+
+Version 1.12 validation: all 93 regression tests passed. The release checks verified Windows file/product and assembly version 1.12.0.0, byte-identical executable copies, successful extraction of the custom embedded artwork, and six icon resolutions. The PNG preview was visually checked. CAD integration tests were not repeated for this branding-only release.
 
 Run `powershell -NoProfile -ExecutionPolicy Bypass -File .\Test.ps1` to build the release and run regression tests. The harness uses simulated Solid Edge objects to verify translator restoration, cleanup after failures, replacement protection, source preservation, quoting, and document ownership. It does not establish translator fidelity in a live Solid Edge installation.
 

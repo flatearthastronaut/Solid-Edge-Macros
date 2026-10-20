@@ -7,12 +7,21 @@ using System.Windows.Forms;
 using Microsoft.Win32;
 
 [assembly: System.Reflection.AssemblyTitle("Solid Edge Convert")]
-[assembly: System.Reflection.AssemblyVersion("1.11.0.0")]
+[assembly: System.Reflection.AssemblyVersion(SolidEdgeConvert.Program.Version)]
+[assembly: System.Reflection.AssemblyFileVersion(SolidEdgeConvert.Program.Version)]
+[assembly: System.Reflection.AssemblyInformationalVersion(SolidEdgeConvert.Program.Version)]
+[assembly: System.Reflection.AssemblyProduct("Solid Edge Convert")]
+[assembly: System.Reflection.AssemblyDescription("Right-click batch conversion for Solid Edge CAD files")]
 
 namespace SolidEdgeConvert
 {
     internal static class Program
     {
+        // Single release number for Windows Properties, window titles and the
+        // versioned build filename. Build.ps1 reads this literal before compiling.
+        internal const string Version = "1.12.0.0";
+        internal static readonly string WindowTitle = "Solid Edge Convert v" + new Version(Version).ToString(2);
+        internal static Icon ApplicationIcon;
         // One executable serves three roles: setup with no arguments, interactive
         // CLI conversion, and the COM server launched by Explorer. Both conversion
         // entry points converge on RunBatch for identical prompts and cleanup.
@@ -23,7 +32,10 @@ namespace SolidEdgeConvert
             Application.SetCompatibleTextRenderingDefault(false);
             try
             {
-                if (args.Length == 0) { Application.Run(new SetupForm()); return 0; }
+                // Extract the embedded icon once, sharing it for the process
+                // lifetime. No loose .ico file is needed when deploying the EXE.
+                ApplicationIcon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+                if (args.Length == 0) { using (SetupForm form = new SetupForm()) Application.Run(form); return 0; }
                 if (args[0] == "--shell-server")
                 {
                     using (ShellServer server = new ShellServer()) Application.Run(server);
@@ -49,6 +61,10 @@ namespace SolidEdgeConvert
             {
                 MessageBox.Show(Describe(error), "Solid Edge Convert", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return 1;
+            }
+            finally
+            {
+                if (ApplicationIcon != null) { ApplicationIcon.Dispose(); ApplicationIcon = null; }
             }
         }
 
@@ -116,7 +132,8 @@ namespace SolidEdgeConvert
     {
         internal SetupForm()
         {
-            Text = "Solid Edge Convert";
+            Text = Program.WindowTitle;
+            Icon = Program.ApplicationIcon;
             ClientSize = new Size(550, 340);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
@@ -166,7 +183,8 @@ namespace SolidEdgeConvert
             this.existing = existing;
             this.format = format;
             this.batchDate = batchDate;
-            Text = "Solid Edge Convert";
+            Text = Program.WindowTitle;
+            Icon = Program.ApplicationIcon;
             ClientSize = new Size(460, 115);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;

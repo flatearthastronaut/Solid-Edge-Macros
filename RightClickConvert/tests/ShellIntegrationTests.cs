@@ -136,7 +136,7 @@ internal static class ShellIntegrationTests
                 {
                     if (process.ProcessName != "SolidEdgeConvert") return true;
                     StringBuilder title = new StringBuilder(256); GetWindowText(window, title, title.Capacity);
-                    if (title.ToString() != "Solid Edge Convert") return true;
+                    if (title.ToString() != "Solid Edge Convert" && !title.ToString().StartsWith("Solid Edge Convert v", StringComparison.Ordinal)) return true;
                     // WinForms class suffix changes by runtime; inspect child
                     // captions instead of relying on a specific generated name.
                     bool summary = false;
