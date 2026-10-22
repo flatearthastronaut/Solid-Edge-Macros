@@ -55,7 +55,7 @@ namespace CoopManager
                 {
                     string helpCategory=Categories.All[i];
                     var helpBar=new Panel{Dock=DockStyle.Top,Height=32};
-                    var help=new Button{Name="ImplementationHelp",Text="How to Implement",Tag=helpCategory,Dock=DockStyle.Right,Width=165};
+                    var help=new Button{Name="ImplementationHelp",Text="How to Implement",Tag=helpCategory,Dock=DockStyle.Left,Width=165};
                     help.Click+=delegate{using(var dialog=new ImplementationHelp(helpCategory,admin?"The Local folder chosen in the user manager on each user's PC.":local.Text.Trim()))dialog.ShowDialog(this);};
                     helpBar.Controls.Add(help);group.Controls.Add(helpBar);
                 }

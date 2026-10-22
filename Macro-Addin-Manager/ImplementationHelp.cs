@@ -1,12 +1,11 @@
 using System;
 using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 
 namespace CoopManager
 {
-    // Shared, offline help. The diagrams are drawn from vector primitives at runtime, so both
-    // standalone EXEs carry the same instructions without loose assets or an internet dependency.
+    // Both editions embed the same approved artwork and use this single offline guide.
+    // PNG resources keep the standalone application independent of SVG renderers.
     internal sealed class ImplementationHelp : Form
     {
         readonly Bitmap illustration;
@@ -15,7 +14,7 @@ namespace CoopManager
         internal ImplementationHelp(string category,string localFolder)
         {
             bool macro=category==Categories.Macros;
-            Text="How to Implement — "+category;Size=new Size(960,800);MinimumSize=new Size(780,640);
+            Text="How to Implement — "+category;Size=new Size(1180,900);MinimumSize=new Size(780,640);
             StartPosition=FormStartPosition.CenterParent;ShowInTaskbar=false;Font=new Font("Segoe UI",10);
             BackColor=Color.White;
             var layout=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=3,Padding=new Padding(18)};
@@ -25,33 +24,52 @@ namespace CoopManager
             var body=new TableLayoutPanel{ColumnCount=1,AutoSize=true,AutoSizeMode=AutoSizeMode.GrowAndShrink,Dock=DockStyle.Top,Padding=new Padding(0,0,12,10)};
             body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));scroll.Controls.Add(body);
             AddText(body,"Start by using Install / update selected in the user manager. Your installed programs are in:\r\n"+localFolder,false);
-            illustration=DrawIllustration(macro);
-            body.Controls.Add(new PictureBox{Name="ImplementationIllustration",Image=illustration,SizeMode=PictureBoxSizeMode.Zoom,Dock=DockStyle.Top,Height=280,Margin=new Padding(0,10,0,0)});
-            AddText(body,"Illustration — example names and layout; labels can vary by Solid Edge or Windows version.",false);
             if(macro)
             {
-                Step(body,"1. Open ribbon customization","Open the Solid Edge document environment where you will use the macro (Part, Assembly, or Draft). Right-click a ribbon command and choose Customize the Ribbon. Select the Ribbon tab.");
-                Step(body,"2. Choose the stable macro copy","Set Choose commands from to Macros. Click Browse and select the unversioned .exe, such as MyMacro.exe. For ZIP or folder packages, use the unversioned package folder too. Select the macro in the manager to see its Stable ribbon target path.");
-                Step(body,"3. Add the command","Select the macro in the left list. On the right, select the destination tab and group, then click Add >>. Rename the command or adjust its icon/text if desired. Save or close the Customize dialog.");
-                Step(body,"4. Keep the same button after updates","The manager refreshes the stable copy each time you update the macro. It also keeps the latest numbered release for reference and removes older releases. Open the document the macro needs, then use the same ribbon button.");
+                AddText(body,"Choose the stable ribbon target — no version number.",true);
+                AddText(body,@"Use the Stable ribbon target shown in the manager's details. Example: User\Documents\Add-ins\MyMacro\MyMacro.exe"+"\r\nThe manager refreshes this copy when you update. Your ribbon button keeps using the same path.",false);
+            }
+            illustration=LoadIllustration(macro);
+            var picture=new PictureBox{Name="ImplementationIllustration",Image=illustration,SizeMode=PictureBoxSizeMode.Zoom,Dock=DockStyle.Top,Margin=new Padding(0,10,0,0)};
+            body.Controls.Add(picture);
+            AddText(body,macro?"Solid Edge 2019 Draft example supplied by the user. Names, folders and ribbon labels may differ in your installation.":"Windows 10 File Explorer illustration with example files. Your folder contents may differ.",false);
+            if(macro)
+            {
+                // Numbering follows the red annotations in the supplied screenshot.
+                Step(body,"1. Customize the ribbon","Open the document environment where you want the command (Draft, Part or Assembly). Right-click the ribbon, choose Customize the Ribbon, and select the Ribbon tab.");
+                Step(body,"2. Choose Macros","Set Choose commands from to Macros, as circled in the picture.");
+                Step(body,"3. Browse to the folder","Click Browse and go to the folder containing your Stable ribbon target. For ZIP or folder packages, use the unversioned package folder too.");
+                Step(body,"4. Select and add","Select the unversioned .exe in the left list. Choose the destination tab and group on the right, click Add >>, then save your customization.");
+                Step(body,"After updates","Keep using the same ribbon button. The manager refreshes the stable copy, keeps the latest numbered release for reference, and removes older releases. Open the document the macro needs before running it.");
                 AddText(body,"One-time setup for existing buttons: if your old ribbon entry points to a versioned filename or folder, replace it with the Stable ribbon target. Buttons already using that unversioned path stay valid. Keep supporting files with the EXE.",false);
-                AddText(body,"Reference: Siemens — First Steps to Automation, Part 2; QAT versus the Radial Menu.\r\nhttps://blogs.sw.siemens.com/solidedge/First-Steps-to-Automation-Part-2/",false);
+                AddText(body,"Reference: Siemens — First Steps to Automation, Part 2.\r\nhttps://blogs.sw.siemens.com/solidedge/First-Steps-to-Automation-Part-2/",false);
             }
             else
             {
-                Step(body,"1. Open the local folder","Press Windows + E to open File Explorer. Go to the Local folder shown in the user manager (shown above), then open the program's package folder if it has one.");
-                Step(body,"2. Double-click the program","Find the program's .exe (Type: Application) and double-click it. Windows runs the program directly; you do not need to add it to the Solid Edge ribbon.");
-                Step(body,"3. Keep the package together","Run the installed copy, not the ZIP on the network share. Leave DLLs, templates, and other supporting files beside it. Programs that automate Solid Edge may still need Solid Edge running.");
+                Step(body,"1. Open your local Add-ins folder",@"Press Windows + E to open File Explorer. Go to the Local folder shown above (example: User\Documents\Add-ins\), then open the program's folder if present.");
+                Step(body,"2. Show file extensions","In Windows 10 File Explorer, select the View tab and check File name extensions to show .exe at the end of application filenames.");
+                Step(body,"3. Run the .exe","Find the program's .exe (Type: Application) and double-click it. Windows runs the program directly; you do not need to add it to the Solid Edge ribbon.");
+                Step(body,"Keep the package together","Run the installed copy, not the ZIP on the network share. Leave DLLs, templates and other supporting files beside it. Programs that automate Solid Edge may still need Solid Edge running.");
                 AddText(body,"After an update, open the newest installed package. If you made a Windows shortcut and its target moved, update the shortcut to the new .exe.",false);
+                AddText(body,"Reference: Microsoft — Common file name extensions in Windows.\r\nhttps://support.microsoft.com/en-us/windows/experience/storage-filemanagement/common-file-name-extensions-in-windows",false);
             }
-            // Labels wrap to the current viewport width; the whole page scrolls at smaller sizes/DPI.
+            // Preserve the full image aspect ratio instead of shrinking a detailed screenshot
+            // into a fixed-height banner. The page scrolls vertically at smaller sizes/DPI.
+            EventHandler resizePicture=delegate{
+                int height=Math.Max(1,(int)Math.Round(picture.ClientSize.Width*(double)illustration.Height/illustration.Width));
+                if(picture.Height!=height)picture.Height=height;
+            };
+            picture.SizeChanged+=resizePicture;
+            // Adding the picture can complete its first width layout before the handler is
+            // attached; initialize explicitly as well as following subsequent resizes.
+            resizePicture(picture,EventArgs.Empty);
             body.SizeChanged+=delegate{foreach(Control child in body.Controls)if(child is Label)child.MaximumSize=new Size(Math.Max(100,body.ClientSize.Width-24),0);};
             var close=new Button{Text="Close",DialogResult=DialogResult.OK,Anchor=AnchorStyles.Right,Size=new Size(105,32)};
             layout.Controls.Add(close,0,2);AcceptButton=close;CancelButton=close;
         }
         void AddText(TableLayoutPanel body,string text,bool heading)
         {
-            var label=new Label{Text=text,AutoSize=true,MaximumSize=new Size(850,0),Margin=new Padding(0,heading?14:5,0,4),Dock=DockStyle.Top};
+            var label=new Label{Text=text,AutoSize=true,MaximumSize=new Size(1100,0),Margin=new Padding(0,heading?14:5,0,4),Dock=DockStyle.Top};
             if(heading)label.Font=stepFont;
             body.Controls.Add(label);
         }
@@ -59,56 +77,17 @@ namespace CoopManager
         protected override void Dispose(bool disposing)
         {
             base.Dispose(disposing);
-            if(disposing){illustration.Dispose();titleFont.Dispose();stepFont.Dispose();}
+            if(disposing){if(illustration!=null)illustration.Dispose();titleFont.Dispose();stepFont.Dispose();}
         }
-        static readonly Color Ink=Color.FromArgb(27,45,65),Blue=Color.FromArgb(25,102,177),Pale=Color.FromArgb(231,242,253);
-        static void TextAt(Graphics g,string text,float x,float y,float width,float height,float size,bool bold)
+        internal static Bitmap LoadIllustration(bool macro)
         {
-            using(var font=new Font("Segoe UI",size,bold?FontStyle.Bold:FontStyle.Regular))using(var brush=new SolidBrush(Ink))
-                g.DrawString(text,font,brush,new RectangleF(x,y,width,height));
-        }
-        static void Box(Graphics g,Rectangle rect,Color fill)
-        {using(var brush=new SolidBrush(fill))g.FillRectangle(brush,rect);using(var pen=new Pen(Color.FromArgb(180,198,216)))g.DrawRectangle(pen,rect);}
-        static void Arrow(Graphics g,int x1,int y1,int x2,int y2)
-        {using(var pen=new Pen(Blue,4)){pen.EndCap=LineCap.ArrowAnchor;g.DrawLine(pen,x1,y1,x2,y2);}}
-        internal static Bitmap DrawIllustration(bool macro)
-        {
-            var bitmap=new Bitmap(960,290);
-            using(var g=Graphics.FromImage(bitmap))
+            string name=macro?"MacroRibbonHelp.png":"WindowsExplorerHelp.png";
+            using(var stream=typeof(ImplementationHelp).Assembly.GetManifestResourceStream(name))
             {
-                g.SmoothingMode=SmoothingMode.AntiAlias;g.Clear(Color.White);
-                if(macro)
-                {
-                    Box(g,new Rectangle(8,8,940,272),Color.FromArgb(247,249,252));
-                    Box(g,new Rectangle(8,8,940,38),Pale);TextAt(g,"Solid Edge  /  Customize  /  Ribbon",24,14,880,30,14,true);
-                    TextAt(g,"Choose commands from:",28,60,350,25,12,false);
-                    Box(g,new Rectangle(28,90,300,34),Color.White);TextAt(g,"Macros                         v",40,94,280,28,12,true);
-                    Box(g,new Rectangle(28,140,300,44),Pale);TextAt(g,"MyMacro.exe",42,150,270,30,13,true);
-                    Box(g,new Rectangle(28,207,130,36),Color.White);TextAt(g,"Browse...",47,212,110,30,12,true);
-                    Box(g,new Rectangle(382,143,136,42),Pale);TextAt(g,"Add >>",412,150,105,30,13,true);
-                    Arrow(g,335,164,375,164);Arrow(g,527,164,575,164);
-                    TextAt(g,"Select a tab and group:",594,60,330,28,12,false);
-                    Box(g,new Rectangle(590,90,330,153),Color.White);
-                    TextAt(g,"Home\n    Select",604,100,290,65,13,false);
-                    Box(g,new Rectangle(635,167,263,42),Pale);TextAt(g,"MyMacro",651,174,225,30,13,true);
-                    TextAt(g,"1  Choose the unversioned .exe",28,251,350,25,11,true);
-                    TextAt(g,"2  Add it to a ribbon group",590,251,340,25,11,true);
-                }
-                else
-                {
-                    Box(g,new Rectangle(8,8,650,272),Color.FromArgb(247,249,252));
-                    Box(g,new Rectangle(8,8,650,38),Pale);TextAt(g,"File Explorer",24,14,610,30,14,true);
-                    Box(g,new Rectangle(24,60,615,35),Color.White);TextAt(g,"Documents  >  Add-ins  >  MyProgram-v2.0",35,65,590,28,12,false);
-                    TextAt(g,"Name",35,110,360,25,12,true);TextAt(g,"Type",442,110,170,25,12,true);
-                    Box(g,new Rectangle(24,143,615,40),Pale);TextAt(g,"MyProgram.exe",43,150,360,30,13,true);TextAt(g,"Application",442,150,180,30,12,true);
-                    TextAt(g,"helper.dll",43,196,350,25,12,false);TextAt(g,"template.txt",43,229,350,25,12,false);
-                    Arrow(g,666,163,730,163);
-                    Box(g,new Rectangle(741,84,205,151),Color.White);Box(g,new Rectangle(741,84,205,35),Pale);
-                    TextAt(g,"My Program",758,90,180,28,12,true);TextAt(g,"Program is\nrunning",763,144,170,70,15,true);
-                    TextAt(g,"Double-click the .exe",687,246,270,30,12,true);
-                }
+                if(stream==null)throw new InvalidOperationException("Missing embedded help illustration: "+name);
+                // Detach the bitmap from its resource stream before closing that stream.
+                using(var original=Image.FromStream(stream))return new Bitmap(original);
             }
-            return bitmap;
         }
     }
 }

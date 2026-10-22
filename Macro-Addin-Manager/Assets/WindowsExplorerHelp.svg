@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="700" viewBox="0 0 1120 700">
+<title>Run a program in Windows 10 File Explorer</title>
+<desc>Illustration of the Windows 10 View ribbon, navigation pane and Details view. Red callouts highlight the Add-ins folder path, File name extensions checkbox and ExampleProgram.exe application to double-click.</desc>
+<defs>
+ <g id="folder"><path d="M0 3h8l3 3h10v14H0z" fill="#e6b648"/><path d="M0 7h21v13H0z" fill="#ffd978"/></g>
+ <g id="file"><path d="M1 0h12l5 5v17H1z" fill="white" stroke="#9ca4ab"/><path d="M13 0v5h5" fill="#e7eef6" stroke="#9ca4ab"/></g>
+ <g id="app"><rect width="20" height="19" rx="1" fill="#fff" stroke="#7d98b0"/><path d="M0 0h20v5H0z" fill="#5b99ca"/><path d="M4 9h5v6H4z" fill="#78b1d8"/><path d="M12 9h5m-5 3h5m-5 3h5" stroke="#9ca9b3"/></g>
+ <g id="check"><rect width="13" height="13" fill="white" stroke="#777"/><path d="m2 6 3 3 6-7" fill="none" stroke="#202020" stroke-width="1.5"/></g>
+ <g id="empty"><rect width="13" height="13" fill="white" stroke="#888"/></g>
+ <marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0 0 8 3 0 6" fill="#e32434"/></marker>
+</defs>
+<rect width="1120" height="700" fill="#fff"/>
+<g font-family="Segoe UI,Arial,sans-serif" font-size="13" fill="#222">
+ <rect x="20" y="18" width="1080" height="501" fill="#fff" stroke="#9b9b9b"/>
+ <!-- Classic Windows 10 title bar and ribbon tabs. -->
+ <use href="#folder" x="30" y="25"/>
+ <text x="67" y="42" fill="#888">│</text><use href="#file" x="82" y="25"/><use href="#folder" x="113" y="25"/>
+ <text x="147" y="40">⌄</text><text x="177" y="40">Add-ins</text>
+ <text x="976" y="39">─</text><rect x="1023" y="29" width="10" height="10" fill="none" stroke="#333"/><path d="m1069 29 10 10m0-10-10 10" stroke="#333"/>
+ <rect x="20" y="53" width="58" height="27" fill="#1979c4"/><text x="38" y="71" fill="white">File</text>
+ <text x="96" y="71">Home</text><text x="160" y="71">Share</text><path d="M216 80V53h58v27" fill="#f5f6f7" stroke="#d9d9d9"/><text x="232" y="71">View</text>
+ <rect x="21" y="80" width="1078" height="111" fill="#f5f6f7"/>
+ <!-- View ribbon: panes, layout, current view and show/hide. -->
+ <rect x="34" y="94" width="31" height="29" fill="white" stroke="#8da4b5"/><path d="M44 94v29" stroke="#8da4b5"/><rect x="35" y="95" width="8" height="27" fill="#bfdcf1"/>
+ <text x="28" y="141">Navigation</text><text x="40" y="158">pane ⌄</text>
+ <rect x="105" y="97" width="20" height="15" fill="white" stroke="#8da4b5"/><text x="133" y="109">Preview pane</text><rect x="105" y="128" width="20" height="15" fill="white" stroke="#8da4b5"/><text x="133" y="140">Details pane</text>
+ <path d="M235 86v94M566 86v94M730 86v94M1000 86v94" stroke="#d4d6d8"/>
+ <text x="95" y="181" fill="#666">Panes</text>
+ <text x="251" y="106">▦ Extra large icons</text><text x="410" y="106">▦ Large icons</text><text x="251" y="131">▦ Medium icons</text><text x="410" y="131">▦ Small icons</text>
+ <text x="251" y="156">☷ List</text><rect x="400" y="138" width="153" height="25" fill="#dceefa" stroke="#a4ccea"/><text x="410" y="156">☷ Details</text><text x="380" y="181" fill="#666">Layout</text>
+ <text x="583" y="110" font-size="23" fill="#487ba5">↕</text><text x="578" y="141">Sort by</text><text x="647" y="109">Group by ⌄</text><text x="647" y="133">Add columns</text><text x="647" y="157">Size columns</text><text x="602" y="181" fill="#666">Current view</text>
+ <use href="#empty" x="747" y="95"/><text x="769" y="107">Item check boxes</text><use href="#check" x="747" y="121"/><text x="769" y="133">File name extensions</text><use href="#empty" x="747" y="147"/><text x="769" y="159">Hidden items</text>
+ <text x="932" y="112" font-size="24" fill="#9aa8b1">▧</text><text x="921" y="140" fill="#777">Hide</text><text x="914" y="156" fill="#777">selected</text><text x="832" y="181" fill="#666">Show/hide</text>
+ <rect x="1031" y="95" width="31" height="28" fill="white" stroke="#8da4b5"/><path d="M1041 96v26" stroke="#8da4b5"/><text x="1022" y="150">Options ⌄</text>
+ <path d="M20 191h1080" stroke="#ddd"/>
+ <!-- Address and search bars. -->
+ <text x="34" y="222" font-size="21" fill="#777">←</text><text x="68" y="222" font-size="21" fill="#aaa">→</text><text x="103" y="219">⌄</text><text x="124" y="222" font-size="21">↑</text>
+ <rect x="152" y="201" width="644" height="31" fill="white" stroke="#c7c7c7"/><use href="#folder" x="160" y="206"/><text x="191" y="222">User\Documents\Add-ins\</text><text x="774" y="222" fill="#666">⟳</text>
+ <rect x="809" y="201" width="276" height="31" fill="white" stroke="#c7c7c7"/><text x="824" y="222" fill="#777">Search Add-ins</text><circle cx="1062" cy="214" r="5" fill="none" stroke="#777"/><path d="m1066 218 5 5" stroke="#777"/>
+ <!-- Navigation pane and file list. -->
+ <path d="M214 243v251" stroke="#e6e6e6"/>
+ <text x="31" y="272" fill="#777">⌄</text><text x="52" y="272" fill="#4489c4">★</text><text x="78" y="272">Quick access</text>
+ <text x="59" y="304" fill="#5595c4">▣</text><text x="83" y="304">Desktop</text><text x="59" y="336" fill="#548ac4">↓</text><text x="83" y="336">Downloads</text>
+ <rect x="21" y="350" width="192" height="30" fill="#e5f3ff"/><use href="#file" x="60" y="354"/><text x="83" y="372">Documents</text><text x="59" y="405" fill="#548ac4">▧</text><text x="83" y="405">Pictures</text>
+ <text x="31" y="450" fill="#777">›</text><text x="53" y="450" fill="#548ac4">▣</text><text x="78" y="450">This PC</text><text x="31" y="482" fill="#777">›</text><text x="78" y="482">Network</text>
+ <text x="237" y="263">Name</text><text x="564" y="263">Date modified</text><text x="739" y="263">Type</text><text x="935" y="263">Size</text><path d="M546 245v25m175-25v25m198-25v25m121-25v25" stroke="#e6e6e6"/>
+ <rect x="229" y="280" width="838" height="31" fill="#cce8ff" stroke="#99d1ff"/>
+ <use href="#app" x="237" y="286"/><text x="268" y="301">ExampleProgram.exe</text><text x="564" y="301">10/22/2026  9:00 AM</text><text x="739" y="301">Application</text><text x="965" y="301">256 KB</text>
+ <use href="#file" x="239" y="322"/><text x="268" y="339">helper.dll</text><text x="564" y="339">10/22/2026  9:00 AM</text><text x="739" y="339">Application extension</text><text x="974" y="339">48 KB</text>
+ <use href="#file" x="239" y="360"/><text x="268" y="377">Readme.txt</text><text x="564" y="377">10/22/2026  9:00 AM</text><text x="739" y="377">Text Document</text><text x="981" y="377">2 KB</text>
+ <path d="M20 494h1080" stroke="#e4e4e4"/><text x="34" y="511" fill="#555">3 items</text><text x="112" y="511" fill="#555">1 item selected   256 KB</text>
+ <!-- Training annotations; clearly separate from the Explorer UI. -->
+ <g fill="none" stroke="#e32434" stroke-width="3"><rect x="150" y="198" width="331" height="37" rx="6"/><rect x="738" y="115" width="178" height="27" rx="5"/><rect x="231" y="279" width="310" height="34" rx="5"/><path d="M563 409 451 316" marker-end="url(#arrow)"/></g>
+ <g fill="#e32434"><circle cx="481" cy="192" r="14"/><circle cx="917" cy="115" r="14"/><circle cx="572" cy="423" r="14"/></g>
+ <g fill="white" font-size="16" font-weight="bold" text-anchor="middle"><text x="481" y="198">1</text><text x="917" y="121">2</text><text x="572" y="429">3</text></g>
+ <text x="596" y="429" fill="#c91e2d" font-size="18" font-weight="600">Double-click the application</text>
+ <g font-size="17" font-weight="600" fill="#c91e2d"><text x="28" y="557">1. Open your local Add-ins folder</text><text x="415" y="557">2. Show file extensions</text><text x="770" y="557">3. Run the .exe</text></g>
+ <g font-size="15" fill="#394653"><text x="28" y="586">Press Windows + E, then open</text><text x="28" y="610">User\Documents\Add-ins\</text><text x="28" y="634">and the program’s folder, if present.</text><text x="415" y="586">On the View tab, check</text><text x="415" y="610">File name extensions to show .exe.</text><text x="770" y="586">Look for Type: Application.</text><text x="770" y="610">Double-click it to start the program.</text><text x="770" y="634">Keep supporting files together.</text></g>
+ <text x="28" y="681" fill="#697580" font-size="13">Windows 10 File Explorer illustration • Example program and files • Your folder contents may differ</text>
+</g></svg>

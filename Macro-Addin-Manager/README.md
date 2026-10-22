@@ -1,9 +1,9 @@
-# Solid Edge Macro & Add-in Manager v1.11
+# Solid Edge Macro & Add-in Manager v1.12
 
 Run either executable on 64-bit Windows with .NET Framework 4.x. No Solid Edge interop DLLs are needed by the manager itself.
 
-- **User:** `Compiled Executables/SE Macro Manager v1.11.exe` installs and updates programs from the shared folder. Categories are read-only; the category lock/unlock button has been removed.
-- **Admin:** `Compiled Executables/SE Macro Manager Admin v1.11.exe` publishes local builds and assigns **Solid Edge Macros**, **Solid Edge Add-ins**, or **Windows Programs** in the table's Category dropdown. Changes are saved to the shared catalog immediately.
+- **User:** `Compiled Executables/SE Macro Manager v1.12.exe` installs and updates programs from the shared folder. Categories are read-only; the category lock/unlock button has been removed.
+- **Admin:** `Compiled Executables/SE Macro Manager Admin v1.12.exe` publishes local builds and assigns **Solid Edge Macros**, **Solid Edge Add-ins**, or **Windows Programs** in the table's Category dropdown. Changes are saved to the shared catalog immediately.
 
 Both executables compile the same `ManagerForm` in `Program.cs`, artwork, category frames, grids, icon handling, path controls, and status footer. The `ADMIN` build flag selects publishing actions and different defaults; it does not fork the interface. Build both whenever changing the UI.
 
@@ -41,12 +41,12 @@ Interrupted publications preserve `.se-publisher/transaction-*` and block furthe
 
 ## How to Implement
 
-Both editions have **How to Implement** buttons in the **Solid Edge Macros** and **Windows Programs** frames. No package selection is required. The guides open inside the manager, work offline, and include clearly labeled illustrations drawn by shared `ImplementationHelp.cs` code. They scroll on smaller windows and display the user's configured local install folder; the admin guide directs users to their own installation folder.
+Both editions have **How to Implement** buttons aligned left directly beneath the **Solid Edge Macros** and **Windows Programs** frame titles (v1.12). No package selection is required. The guides open inside the manager, work offline, and include the approved images embedded in both EXEs and displayed by shared `ImplementationHelp.cs` code. Images resize proportionally to the window width. They scroll on smaller windows and display the user's configured local install folder; the admin guide directs users to their own installation folder.
 
 - The macro guide explains installing locally, opening Solid Edge ribbon customization, choosing **Macros**, browsing to the stable unversioned EXE, selecting a ribbon tab/group, and adding the command. It explains the one-time switch from a versioned target and keeping that same button for later updates.
-- The Windows guide explains opening File Explorer with **Windows + E**, finding the installed application, and double-clicking its EXE. It reminds users to keep dependencies together and update any shortcuts after a versioned path changes.
+- The Windows guide explains opening File Explorer with **Windows + E**, using the Windows 10 **View > File name extensions** checkbox, finding the installed application, and double-clicking its EXE. Example paths use `User\Documents\Add-ins\`. It reminds users to keep dependencies together and update any shortcuts after a versioned path changes.
 
-The macro instructions follow Siemens' [First Steps to Automation — Part 2](https://blogs.sw.siemens.com/solidedge/First-Steps-to-Automation-Part-2/) and [QAT versus the Radial Menu](https://blogs.sw.siemens.com/solidedge/qat-versus-the-radial-menu/). Pictures are explanatory illustrations, not captured screenshots of a particular installed Solid Edge version.
+The macro instructions follow Siemens' [First Steps to Automation — Part 2](https://blogs.sw.siemens.com/solidedge/First-Steps-to-Automation-Part-2/) and [QAT versus the Radial Menu](https://blogs.sw.siemens.com/solidedge/qat-versus-the-radial-menu/). The macro image is the user-supplied annotated Solid Edge 2019 Draft screenshot; its numbered steps match the guide. The Windows image is an explanatory Windows 10 File Explorer illustration. `Assets/WindowsExplorerHelp.svg` is the editable source; its rendered PNG and `Assets/MacroRibbonHelp.png` are embedded resources, so no separate files are needed beside either EXE. The macro guide emphasizes the actual stable target above the screenshot, whose example folder may differ.
 
 ## Shared categories
 
