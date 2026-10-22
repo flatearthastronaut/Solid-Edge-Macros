@@ -73,7 +73,7 @@ internal static partial class Tests
         Case("publish-protection",(s,l)=>{
             Write(Path.Combine(s,"Macro-v2.0.exe"),"new");Write(Path.Combine(l,"Macro-v1.0.exe"),"old");Write(Path.Combine(l,"Unrelated.exe"),"keep");
             var p=BuildCatalog.Scan(s).Single();Publisher.Publish(p,s,l,Categories.Macros);
-            Assert(File.Exists(Path.Combine(l,"Macro-v1.0.exe")) && File.Exists(Path.Combine(l,"Unrelated.exe")),"Publication retains older releases and unrelated files");
+            Assert(!File.Exists(Path.Combine(l,"Macro-v1.0.exe")) && File.Exists(Path.Combine(l,"Unrelated.exe")),"Publication removes older releases and preserves unrelated files");
             Write(p.Path,"changed");
             using(var held=new FileStream(Path.Combine(l,"Macro-v2.0.exe"),FileMode.Open,FileAccess.Read,FileShare.None))
                 Throws(()=>Publisher.Publish(p,s,l,Categories.Windows),"Locked shared build rejects replacement");
@@ -95,6 +95,33 @@ internal static partial class Tests
             var entry=BuildCatalog.Compare(s,l).Single();
             Assert(entry.Status=="Ambiguous local builds" && !entry.Actionable,"Two projects cannot silently publish same family/version");
             Throws(()=>Publisher.Publish(entry.Available,s,l,Categories.Macros),"Stale ambiguous selection rejected");
+        });
+        Case("publish-latest-only",(s,l)=>{
+            Zip(Path.Combine(s,"Macro-v1.10.zip"),"Macro.exe");
+            Write(Path.Combine(l,"Macro-v1.9.exe"),"old exe");Zip(Path.Combine(l,"Macro-v1.8.zip"),"Macro.exe");
+            Write(Path.Combine(l,"Macro-v1.7","Macro.exe"),"old folder");Write(Path.Combine(l,"Macro.exe"),"unversioned alias");
+            Write(Path.Combine(l,"Exclude","Macro-v1.0.exe"),"archived");Write(Path.Combine(l,"Other-v1.0.exe"),"unrelated");
+            var package=BuildCatalog.Scan(s).Single();Publisher.Publish(package,s,l,Categories.Macros);
+            var remaining=Catalog.Scan(l).Where(p=>p.Key==package.Key).ToList();
+            Assert(remaining.Count==1 && remaining[0].Release.Version=="1.10","Only latest release remains across ZIP, EXE, folder, and alias formats");
+            Assert(File.Exists(Path.Combine(l,"Exclude","Macro-v1.0.exe")) && File.Exists(Path.Combine(l,"Other-v1.0.exe")),"Excluded archives and unrelated packages preserved");
+            Assert(Directory.GetDirectories(Path.Combine(l,".se-publisher"),"transaction-*").Length==0,"Obsolete backup files deleted after success");
+            Write(Path.Combine(l,"Macro-v1.1.exe"),"legacy leftover");
+            var cleanup=BuildCatalog.Compare(s,l).Single(e=>e.Name=="Macro");
+            Assert(cleanup.Status=="Cleanup available" && cleanup.Actionable,"Already-published latest release can clean old shared copies");
+            Publisher.Publish(package,s,l,Categories.Macros);
+            Assert(Catalog.Scan(l).Count(p=>p.Key==package.Key)==1,"Cleanup-only publication removes old copies");
+        });
+        Case("publish-cleanup-failure",(s,l)=>{
+            Write(Path.Combine(s,"Macro-v3.0.exe"),"new");Write(Path.Combine(l,"Macro-v1.0.exe"),"old");Write(Path.Combine(l,"Macro-v2.0","Macro.exe"),"older folder");
+            var package=BuildCatalog.Scan(s).Single();var entry=new Entry{Available=package};CategoryPreferences.AssignShared(l,entry,Categories.Macros);
+            using(var locked=new FileStream(Path.Combine(l,"Macro-v2.0","Macro.exe"),FileMode.Open,FileAccess.Read,FileShare.None))
+                Throws(()=>Publisher.Publish(package,s,l,Categories.Windows),"Locked older folder blocks destructive cleanup");
+            Assert(File.Exists(Path.Combine(l,"Macro-v1.0.exe")) && File.Exists(Path.Combine(l,"Macro-v2.0","Macro.exe")) && !File.Exists(Path.Combine(l,"Macro-v3.0.exe")),"Cleanup failure retains every old version and does not publish incomplete update");
+            Assert(CategoryPreferences.ReadShared(l).Get(entry)==Categories.Macros,"Cleanup failure preserves category");
+            Write(Path.Combine(l,"Macro-v2.0","Exclude","archive.txt"),"keep");
+            Throws(()=>Publisher.Publish(package,s,l,Categories.Windows),"Exclude nested within an obsolete package is never deleted");
+            Assert(File.Exists(Path.Combine(l,"Macro-v2.0","Exclude","archive.txt")),"Nested excluded archive preserved");
         });
         Case("publish-format-conflict",(s,l)=>{
             Zip(Path.Combine(s,"Macro-v1.0.zip"),"Macro.exe");Write(Path.Combine(l,"Macro-v1.0.exe"),"other distribution");

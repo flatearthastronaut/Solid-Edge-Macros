@@ -243,7 +243,7 @@ internal static partial class Tests
                 Assert(Descendants(form).OfType<GroupBox>().Select(g=>g.Text).SequenceEqual(Categories.All),"All three separate frames in requested order");
                 Assert(Descendants(form).OfType<DataGridView>().All(g=>g.Columns["Category"].ReadOnly && g.Columns["Category"] is DataGridViewTextBoxColumn),"User category is read-only text");
                 Assert(!Descendants(form).OfType<Button>().Any(b=>b.Name=="CategoryLock"),"User category lock button removed");
-                var mainButtons=Descendants(form).OfType<Button>().Where(b=>!b.Text.StartsWith("Browse")).ToArray();
+                var mainButtons=Descendants(form).OfType<Button>().Where(b=>!b.Text.StartsWith("Browse") && b.Name!="ImplementationHelp").ToArray();
                 Assert(mainButtons.Length==3 && mainButtons.All(b=>b.Font.Bold && b.Height>=44),"Three action buttons are larger and bold");
                 var host=mainButtons[0].Parent.Parent;
                 int left=mainButtons.Min(b=>b.PointToScreen(System.Drawing.Point.Empty).X), right=mainButtons.Max(b=>b.PointToScreen(System.Drawing.Point.Empty).X+b.Width);
@@ -291,6 +291,7 @@ internal static partial class Tests
             Assert(!Catalog.Compare(s,l).Single(e=>e.Available!=null && e.Available.Bundle).Details.Contains("Exclude"),"Excluded folder absent from suite details");
         });
         PublishingCases();
+        ImplementationHelpCases();
         string evidence = string.Join("\n", Directory.GetFiles(Diagnostics.LogDirectory,"*.log").Select(File.ReadAllText));
         Assert(evidence.Contains("INSTALL SUCCESS") && evidence.Contains("COPY VERIFIED"), "Successful operations persisted");
         Assert(evidence.Contains("INSTALL FAILED") && evidence.Contains("ROLLBACK SUCCESS") && evidence.Contains("System.IO.IOException"), "Failures and rollback details persisted");

@@ -75,11 +75,12 @@ namespace CoopManager
                     string target=Files.Child(shared,Publisher.OutputName(p));
                     if(!File.Exists(target) || old.Any(x=>ReleaseName.Compare(x.Release,p.Release)==0 && !Files.Full(x.Path).Equals(Files.Full(target),StringComparison.OrdinalIgnoreCase)))state="Conflicting shared format";
                     else if(!Publisher.Matches(p,target))state="Published content differs";
+                    else if(Publisher.Obsolete(old,p).Any())state="Cleanup available";
                 }
                 if(same.Count>1)state="Ambiguous local builds";
                 rows.Add(new Entry{Available=p,PackageKey=p.Release.Key,Name=p.Release.Name,Category=Categories.Detect(p),AvailableVersion=p.Release.Version==""?"Unversioned":p.Release.Version,
                     InstalledVersion=old.Count==0?"—":string.Join(", ",old.Select(x=>x.Release.Version==""?"Unversioned":x.Release.Version)),Status=state,
-                    Actionable=state=="Not published"||state=="New build available"||state=="Published content differs",
+                    Actionable=state=="Not published"||state=="New build available"||state=="Published content differs"||state=="Cleanup available",
                     Details=p.Path+"\r\nPublish to: "+Path.Combine(shared,Publisher.OutputName(p))+(same.Count>1?"\r\nResolve duplicate build sources:\r\n"+string.Join("\r\n",same.Select(x=>x.Path)):"")});
             }
             foreach(var family in published.Where(p=>!available.Any(a=>a.Release.Key==p.Key)).GroupBy(p=>p.Key))
@@ -93,6 +94,27 @@ namespace CoopManager
     internal static class Publisher
     {
         const string ControlFolder=".se-publisher";
+        internal static IEnumerable<Package> Obsolete(IEnumerable<Package> shared,Package next)
+        {
+            // The admin explicitly publishes the authoritative release for this family. Unversioned
+            // aliases of that same family are superseded by a numbered release as well.
+            return shared.Where(p=>!p.Bundle && p.Key==next.Release.Key && ReleaseName.Compare(p.Release,next.Release)<0);
+        }
+        static void CheckRemovable(string path)
+        {
+            Files.NoLinks(path);
+            if(Directory.Exists(path))
+            {
+                foreach(string child in Directory.GetFileSystemEntries(path))
+                {
+                    // Never open or remove an Exclude tree, even inside an old package. The admin
+                    // must relocate that archive before this entire obsolete folder can be removed.
+                    if(Directory.Exists(child) && Files.ExcludedFolder(child))throw new IOException("Older package contains an Exclude folder. Move it outside the old package before publishing: "+child);
+                    CheckRemovable(child);
+                }
+            }
+            else using(File.Open(path,FileMode.Open,FileAccess.ReadWrite,FileShare.None)){}
+        }
         public static IDisposable Lock(string shared)
         {
             if(!Directory.Exists(shared))throw new IOException("Shared publish folder cannot be reached: "+shared);
@@ -159,29 +181,46 @@ namespace CoopManager
                 if(old.Any(x=>ReleaseName.Compare(x.Release,p.Release)>0))throw new IOException("A newer shared version already exists.");
                 if(old.Any(x=>ReleaseName.Compare(x.Release,p.Release)==0 && !Files.Full(x.Path).Equals(Files.Full(destination),StringComparison.OrdinalIgnoreCase)))
                     throw new IOException("Another distribution format exists for this shared version. Resolve it before publishing.");
+                var obsolete=Obsolete(old,p).ToList();
+                foreach(var item in obsolete)CheckRemovable(item.Path);
                 var previous=CategoryPreferences.ReadShared(shared);var next=CategoryPreferences.ReadShared(shared);
                 next.Set(new Entry{PackageKey=p.Release.Key},category);
                 string control=Files.Child(shared,ControlFolder),txn=Files.Child(control,"transaction-"+Guid.NewGuid().ToString("N"));
                 Directory.CreateDirectory(txn);
                 string staged=Path.Combine(txn,"payload"),backup=Path.Combine(txn,"previous-build"),categoryPath=Files.Child(shared,CategoryPreferences.FileName);
                 bool existed=File.Exists(destination),hadCategories=File.Exists(categoryPath),categoryWritten=false,published=false;
+                var moved=new List<KeyValuePair<string,string>>();
                 try
                 {
                     Stage(p,staged);
                     if(hadCategories)Files.Copy(categoryPath,Path.Combine(txn,"previous-categories.xml"));
-                    new XDocument(new XElement("publication",new XAttribute("destination",destination),new XAttribute("previousBuild",existed),
-                        new XAttribute("previousCategories",hadCategories),new XAttribute("categoryFile",categoryPath))).Save(Path.Combine(txn,"recovery.xml"));
+                    var recovery=new XElement("publication",new XAttribute("destination",destination),new XAttribute("previousBuild",existed),
+                        new XAttribute("previousCategories",hadCategories),new XAttribute("categoryFile",categoryPath),
+                        obsolete.Select((item,index)=>new XElement("obsolete",new XAttribute("path",item.Path),new XAttribute("backup",Files.Child(txn,"obsolete-"+index)))));
+                    new XDocument(recovery).Save(Path.Combine(txn,"recovery.xml"));
                     // Publish a complete file by rename/replace on the destination filesystem. A user
                     // can see the previous or new complete build, never a partially copied ZIP/EXE.
                     next.WriteShared(shared);categoryWritten=true;
                     if(existed)File.Replace(staged,destination,backup);else File.Move(staged,destination);
                     published=true;
+                    // Old releases move into the private transaction only after the new file is
+                    // complete. Keep those backups until every move and journal update succeeds.
+                    foreach(var item in recovery.Elements("obsolete"))
+                    {
+                        string from=(string)item.Attribute("path"),to=(string)item.Attribute("backup");
+                        Files.NoLinks(from);Files.NoLinks(to);
+                        if(Directory.Exists(from))Directory.Move(from,to);else File.Move(from,to);
+                        moved.Add(new KeyValuePair<string,string>(from,to));
+                    }
+                    recovery.SetAttributeValue("committed",true);new XDocument(recovery).Save(Path.Combine(txn,"recovery.xml"));
                     Diagnostics.Info("PUBLISH SUCCESS package="+p.Release.Name+" destination="+destination+" category="+category);
                 }
                 catch(Exception error)
                 {
                     try
                     {
+                        foreach(var item in moved.AsEnumerable().Reverse())
+                        {if(Directory.Exists(item.Value))Directory.Move(item.Value,item.Key);else File.Move(item.Value,item.Key);}
                         // File.Replace can report a metadata/IO failure after creating its backup.
                         // Never delete that only good copy during cleanup; restore it first, or keep
                         // the journal and backup intact when recovery itself cannot complete.
@@ -189,6 +228,7 @@ namespace CoopManager
                         {
                             if(File.Exists(destination))File.Replace(backup,destination,null);else File.Move(backup,destination);
                         }
+                        else if(published && !existed && File.Exists(destination))File.Delete(destination);
                         if(categoryWritten){if(hadCategories)previous.WriteShared(shared);else if(File.Exists(categoryPath))File.Delete(categoryPath);}
                         Files.RemoveTree(control,txn);
                     }
@@ -197,8 +237,8 @@ namespace CoopManager
                 }
                 if(published)
                 {
-                    // An interrupted cleanup keeps its journal and blocks subsequent writes. Earlier
-                    // numbered builds elsewhere on the share are intentionally retained for rollback.
+                    // Deleting the committed transaction deletes the obsolete releases. If cleanup
+                    // fails, they remain private (not in the user catalog) with a recovery journal.
                     try{Files.RemoveTree(control,txn);}
                     catch(Exception error){throw new IOException("Build published, but publication cleanup needs attention: "+txn,error);}
                 }

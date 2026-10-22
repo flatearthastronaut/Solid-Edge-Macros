@@ -50,7 +50,16 @@ namespace CoopManager
             {
                 frames.RowStyles.Add(new RowStyle(SizeType.Percent,i==0?55:22.5f));
                 var group=new GroupBox{Text=Categories.All[i],Dock=DockStyle.Fill,Padding=new Padding(9,6,9,8),Margin=new Padding(0,3,0,6)};
-                var grid=CreateGrid(); grids.Add(Categories.All[i],grid); group.Controls.Add(grid); frames.Controls.Add(group,0,i);
+                var grid=CreateGrid(); grids.Add(Categories.All[i],grid); group.Controls.Add(grid);
+                if(Categories.All[i]!=Categories.Addins)
+                {
+                    string helpCategory=Categories.All[i];
+                    var helpBar=new Panel{Dock=DockStyle.Top,Height=32};
+                    var help=new Button{Name="ImplementationHelp",Text="How to Implement",Tag=helpCategory,Dock=DockStyle.Right,Width=165};
+                    help.Click+=delegate{using(var dialog=new ImplementationHelp(helpCategory,admin?"The Local folder chosen in the user manager on each user's PC.":local.Text.Trim()))dialog.ShowDialog(this);};
+                    helpBar.Controls.Add(help);group.Controls.Add(helpBar);
+                }
+                frames.Controls.Add(group,0,i);
             }
             layout.Controls.Add(frames,0,1);
             details.Multiline=true; details.ReadOnly=true; details.Dock=DockStyle.Fill; details.ScrollBars=ScrollBars.Vertical; layout.Controls.Add(details,0,2);
@@ -59,7 +68,7 @@ namespace CoopManager
             buttonHost.Controls.Add(buttons,0,0);
             AddButton(buttons,"Refresh",async delegate{await RefreshList();});
             AddButton(buttons,admin?"Publish selected":"Install / update selected",async delegate{if(admin)await Publish(false);else await Apply(false);});
-            AddButton(buttons,admin?"Publish all new / changed":"Update all installed",async delegate{if(admin)await Publish(true);else await Apply(true);});
+            AddButton(buttons,admin?"Publish / clean all":"Update all installed",async delegate{if(admin)await Publish(true);else await Apply(true);});
             layout.Controls.Add(buttonHost,0,3);
             status.Dock=DockStyle.Fill; status.AutoEllipsis=true; status.Text=admin?"Assign categories in the table; publish selected builds to the shared folder.":"Close Solid Edge before updating add-ins."; layout.Controls.Add(status,0,4);
             try{if(File.Exists(settings)){var x=XDocument.Load(settings);source.Text=admin?((string)x.Root.Element("source")??source.Text):AppInfo.SourceSetting((string)x.Root.Element("source"));local.Text=(string)x.Root.Element("local")??local.Text;}}
@@ -177,7 +186,7 @@ namespace CoopManager
             var chosen=Rows().Where(r=>r.Tag is Entry && (all||Convert.ToBoolean(r.Cells[0].Value))).Select(r=>(Entry)r.Tag).Where(e=>e.Actionable).ToList();
             if(chosen.Count==0){ShowStatus("Select a new or changed build, or refresh the catalog.");return;}
             if(MessageBox.Show(this,"Publish these builds to "+local.Text.Trim()+"?\r\n\r\n"+string.Join("\r\n",chosen.Select(e=>e.Name+" "+e.AvailableVersion+" — "+categories.Get(e)))+
-                "\r\n\r\nOlder numbered builds on the share will be retained.","Review publication",MessageBoxButtons.OKCancel,MessageBoxIcon.Information)!=DialogResult.OK)return;
+                "\r\n\r\nOlder releases and unversioned aliases of these programs will be removed from the share after the new builds are verified.","Review publication",MessageBoxButtons.OKCancel,MessageBoxIcon.Information)!=DialogResult.OK)return;
             Busy(true);
             try
             {
