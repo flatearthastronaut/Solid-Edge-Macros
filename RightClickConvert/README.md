@@ -1,8 +1,8 @@
-# Solid Edge Convert 1.13
+# Solid Edge Convert 1.14
 
-Version 1.13 gives imported assemblies cleaner component folder names: **`Name Components`**, then **`Name Components 2`**, **`Name Components 3`**, and so on, using the first available name. This applies to both STEP and Parasolid assembly imports. Existing folders and parts, including folders from older releases, are never renamed or reused.
+Version 1.14 names each imported assembly folder exactly after the source model: `Bracket.step` produces `Bracket.asm` and a folder named `Bracket`. No Components label, number, or random ID is added. This applies to STEP and Parasolid assembly imports. If the folder name is already occupied (even by an empty folder), conversion reports an error before opening CAD and leaves existing contents unchanged. Existing folders from older releases are not renamed.
 
-The release is **`Compiled Executables\SolidEdgeConvert-v1.13.exe`**. Windows Properties → Details reports file/product version **1.13.0.0**, and the setup and conversion windows show **v1.13**. The custom CAD cube/conversion-arrow icon is retained.
+The release is **`Compiled Executables\SolidEdgeConvert-v1.14.exe`**. Windows Properties → Details reports file/product version **1.14.0.0**, and the setup and conversion windows show **v1.14**. The custom CAD cube/conversion-arrow icon is retained.
 
 The build also produces a byte-identical **`SolidEdgeConvert.exe`** so existing menus registered to that filename keep working. Either executable is standalone; the icon is embedded at six sizes from 16 to 256 pixels. To deploy the versioned filename on another machine, keep it in a permanent folder, launch it, and click **Install menus** to register that path.
 
@@ -80,7 +80,7 @@ STL export opens or reuses the saved part and calls `SaveAs` with a `.stl` exten
 
 Parasolid export opens or reuses the saved part or assembly, calls ordinary `SaveAs` with a `.x_t` extension, and uses the existing staging, replacement, and owned-document cleanup workflow. It does not access the STEP translator setting. A saved source already open in Solid Edge stays open; unsaved edits must be saved before exporting. This option exports text Parasolid; it does not add binary `.x_b` export.
 
-Assembly STEP export uses the same `Documents.Open` / `SaveAs(.stp)` sequence and translator restoration as part export. Native assembly exports do not use an import template or create a Components folder; the geometry is contained in the exported exchange file. The SDK's `SolidEdge.SaveAsJT` sample demonstrates the shared part/assembly document automation pattern. Export retains geometry supported by the translator, not native feature history or assembly constraints. If `Example.par` and `Example.asm` are selected together, both target the same output name, so the second is reported as a filename conflict.
+Assembly STEP export uses the same `Documents.Open` / `SaveAs(.stp)` sequence and translator restoration as part export. Native assembly exports do not use an import template or create a component folder; the geometry is contained in the exported exchange file. The SDK's `SolidEdge.SaveAsJT` sample demonstrates the shared part/assembly document automation pattern. Export retains geometry supported by the translator, not native feature history or assembly constraints. If `Example.par` and `Example.asm` are selected together, both target the same output name, so the second is reported as a filename conflict.
 
 The implementation follows `Batch_frm.vb` in the supplied `Documents\Codex\Batch` sample: remember `seApplicationGlobalSTEPAdapterKey`, enable it, call `Documents.Open`, `DoIdle`, `SaveAs` with a `.stp` extension, then `Close(false)` and `DoIdle`. The original translator setting is restored on both success and failure, including when its original value was false. The enum value 458 was verified against that sample's `Bin\Interop.SolidEdgeFramework.dll`.
 
@@ -90,7 +90,7 @@ Draft conversion follows Batch's ordinary **Adobe (*.pdf)** path: `SaveAs` with 
 
 Parasolid import follows Batch's `OpenWithTemplate` and `SaveAs` sequence, using `normal.par` or `normal.asm` according to the selected output. It checks the returned native document type and leaves the STEP setting untouched. Solid Edge must be able to resolve both templates. Text/binary files with the same base name collide for a given output format, so the second is reported as a filename conflict.
 
-An assembly is more than a single file. STEP and Parasolid assembly imports use the same component isolation: `Example.stp` or `Example.x_t` produces `Example.asm` beside its source and an `Example Components` folder containing its referenced parts and any translator auxiliary files. If that name is occupied by a file or folder, the converter tries `Example Components 2`, then `Example Components 3`, etc. Each folder is reserved atomically so simultaneous requests cannot share it. Empty existing folders are also skipped. Keep the chosen folder with the assembly when moving or sharing it. Import uses a temporary copy of the input inside this folder to isolate generated components from existing files; the input copy is removed afterwards. Replacement creates a fresh component folder and preserves older folders, which may still be referenced elsewhere. Failed imports may retain generated components for recovery. Cleanup never recursively deletes component folders. Existing folders with the older random suffix are left unchanged to preserve their assembly links.
+An assembly is more than a single file. STEP and Parasolid assembly imports produce `Example.asm` beside the source and an `Example` folder containing referenced parts and translator auxiliary files. Keep that folder with the assembly when moving or sharing it. The converter atomically creates the exact model-name folder; an existing file, folder, or junction with that name prevents conversion, even when replacement of the .asm was approved. It never merges existing components or adds a suffix. Import uses a temporary copy of the input inside the newly created folder; that input copy is removed afterwards. Failed imports may retain generated components for recovery. Cleanup removes only a newly created empty folder and never recursively deletes component folders. Existing older folders are left unchanged to preserve their assembly links.
 
 The SDK's `SolidEdge.Automation` example supplies the STA/connection/message-filter pattern. COM references are individually released in reverse ownership order, without force-releasing shared wrappers or relying on garbage collection. Busy-call retries are bounded to 30 seconds; an export already executing inside Solid Edge is allowed to finish.
 
@@ -118,7 +118,9 @@ References: [Microsoft ExecuteCommand sample](https://learn.microsoft.com/en-us/
 
 ## Build and test
 
-Run `Build.cmd` on 64-bit Windows with .NET Framework 4.x installed. It creates `Compiled Executables\SolidEdgeConvert-v1.13.exe` and the identical compatibility copy `Compiled Executables\SolidEdgeConvert.exe`. No package downloads, Visual Studio, or redistributed Siemens interop assemblies are required.
+Run `Build.cmd` on 64-bit Windows with .NET Framework 4.x installed. It creates `Compiled Executables\SolidEdgeConvert-v1.14.exe` and the identical compatibility copy `Compiled Executables\SolidEdgeConvert.exe`. No package downloads, Visual Studio, or redistributed Siemens interop assemblies are required.
+
+Version 1.14 validation: all 98 regression tests and branding checks passed. Checks cover exact model-name folders for both assembly import routes, rejection of file/empty-folder collisions, one successful reservation under concurrent requests, preserved prior components, and cleanup after failure. Live CAD translation was not rerun for this naming change.
 
 Version 1.13 validation: all 98 regression tests and release branding checks passed. New checks cover clean names on both assembly import routes, repeated replacement with prior component contents preserved, file and empty-folder collisions, eight simultaneous directory reservations, missing-parent errors, and failure cleanup limited to the newly created empty folder. Solid Edge geometry translation is unchanged; live CAD imports were not rerun for this folder-naming change.
 
@@ -152,7 +154,7 @@ Manual acceptance checks:
 
 - Install the menus and convert several saved parts and assemblies together; open the STEP and Parasolid files in CAD and compare geometry and units.
 - Convert representative parts to STL and check the mesh, resolution and scale in the intended viewer or slicer.
-- Convert representative `.stp`, `.step`, `.x_t`, and `.x_b` files to both native types; verify geometry and units. Reopen an imported assembly and check its components. Keep its Components folder when moving/sharing it.
+- Convert representative `.stp`, `.step`, `.x_t`, and `.x_b` files to both native types; verify geometry and units. Reopen an imported assembly and check its components. Keep its matching model-name folder when moving/sharing it.
 - Convert a saved draft; open the PDF and check drawing appearance and sheet coverage, including a multi-sheet production draft.
 - Repeat with existing outputs; verify No skips them, Yes replaces them, and Cancel cancels the batch.
 - Repeat while the source is already open; verify it remains open. Modify the part or draft without saving; conversion should ask you to save first.

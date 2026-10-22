@@ -384,16 +384,22 @@ internal static class RegressionTests
                     else Equal(input, s.ImportPath);
                 }
             });
-            Test("assembly components stay isolated and survive final publication and replacement", delegate {
+            Test("assembly components survive publication and attempted replacement", delegate {
+                string isolatedInput = Path.Combine(folder, "Isolated.x_t"); File.Copy(xt, isolatedInput);
                 string firstFolder = null;
                 for (int attempt = 0; attempt < 2; attempt++) {
                     FakeSession s = new FakeSession(false) { RejectStepAccess = true, GenerateComponent = true };
-                    Conversion.Run(xt, true, delegate { return s; }, delegate { }, ConversionFormat.ParasolidAssembly);
+                    if (attempt == 1) {
+                        ExpectFailure(delegate { Conversion.Run(isolatedInput, true, delegate { throw new Exception("Must not connect"); }, delegate { }, ConversionFormat.ParasolidAssembly); });
+                        Equal("component", File.ReadAllText(Path.Combine(firstFolder, "component.par")));
+                        Equal("ASM data", File.ReadAllText(Path.ChangeExtension(isolatedInput, ".asm")));
+                        continue;
+                    }
+                    Conversion.Run(isolatedInput, true, delegate { return s; }, delegate { }, ConversionFormat.ParasolidAssembly);
                     string components = Path.GetDirectoryName(s.ImportPath);
                     Check(components != folder && File.Exists(Path.Combine(components, "component.par")), "Components lost or unisolated");
                     Check(!File.Exists(s.ImportPath), "Input copy retained");
-                    if (firstFolder == null) firstFolder = components;
-                    else { Check(components != firstFolder, "Replacement reused old components"); Check(File.Exists(Path.Combine(firstFolder, "component.par")), "Old components deleted"); }
+                    firstFolder = components;
                 }
             });
             Test("failed Parasolid save preserves existing native output and original input", delegate {
@@ -434,8 +440,9 @@ internal static class RegressionTests
             Test("STEP assembly isolates components and restores enabled or disabled adapter", delegate {
                 string previousFolder = null;
                 foreach (bool enabled in new[] { false, true }) {
+                    string isolatedStep = Path.Combine(folder, "Adapter " + enabled + ".stp"); File.Copy(stepSource, isolatedStep);
                     FakeSession s = new FakeSession(enabled) { GenerateComponent = true };
-                    string result = Conversion.Run(stepSource, true, delegate { return s; }, delegate { }, ConversionFormat.StepAssembly);
+                    string result = Conversion.Run(isolatedStep, true, delegate { return s; }, delegate { }, ConversionFormat.StepAssembly);
                     Equal("ASM data", File.ReadAllText(result)); Equal(enabled, s.Adapter);
                     Check(s.Events.Contains("import-step-assembly") && !s.Events.Contains("open"), "Wrong opening route");
                     Check(s.PartClosed && s.PartDisposed && s.Disposed, "STEP assembly cleanup incomplete");
@@ -446,10 +453,12 @@ internal static class RegressionTests
                 }
             });
             Test("failed STEP assembly retains old output and restores translator", delegate {
-                string result = Conversion.OutputPath(longStepSource, ConversionFormat.StepAssembly);
-                File.WriteAllText(result, "existing assembly");
+                int failureNumber = 0;
                 foreach (FakeSession s in new[] { new FakeSession(false) { FailOpen = true }, new FakeSession(false) { FailSave = true, GenerateComponent = true }, new FakeSession(false) { FailClose = true }, new FakeSession(false) { EmptyOutput = true } }) {
-                    ExpectFailure(delegate { Conversion.Run(longStepSource, true, delegate { return s; }, delegate { }, ConversionFormat.StepAssembly); });
+                    string failedInput = Path.Combine(folder, "Failed STEP " + (++failureNumber) + ".step"); File.Copy(longStepSource, failedInput);
+                    string result = Conversion.OutputPath(failedInput, ConversionFormat.StepAssembly);
+                    File.WriteAllText(result, "existing assembly");
+                    ExpectFailure(delegate { Conversion.Run(failedInput, true, delegate { return s; }, delegate { }, ConversionFormat.StepAssembly); });
                     Equal("existing assembly", File.ReadAllText(result)); Equal(false, s.Adapter);
                     Check(s.Disposed && !File.Exists(s.ImportPath), "Failed STEP import leaked session/input copy");
                     if (s.GenerateComponent) Check(File.Exists(Path.Combine(Path.GetDirectoryName(s.ImportPath), "component.par")), "Recovery component removed");
@@ -457,6 +466,7 @@ internal static class RegressionTests
                 Equal("STEP source", File.ReadAllText(longStepSource));
             });
             Test("STEP assembly skip and same-name collision avoid a second import", delegate {
+                File.WriteAllText(Path.ChangeExtension(stepSource, ".asm"), "existing assembly");
                 List<BatchItem> skipped = BatchConversion.Run(new[] { stepSource }, ConversionFormat.StepAssembly, ExistingOutput.Skip,
                     delegate { throw new Exception("Skipped assembly must not connect"); }, delegate { });
                 Check(skipped[0].Skipped && skipped[0].Error == null, "Assembly skip failed");
@@ -701,42 +711,43 @@ internal static class RegressionTests
                 ExpectFailure(delegate { GrindStockFilter.CleanAnnotations(sheet, 0); });
                 Equal(1, sheet.Symbols.Count);
             });
-            Test("STEP and Parasolid assemblies use clean folder names and preserve earlier parts", delegate {
+            Test("STEP and Parasolid assemblies use the exact model name and reject reuse", delegate {
                 foreach (ConversionFormat format in new[] { ConversionFormat.StepAssembly, ConversionFormat.ParasolidAssembly }) {
                     string input = Path.Combine(folder, "Clean " + format + " ü" + (format == ConversionFormat.StepAssembly ? ".step" : ".x_t"));
                     File.WriteAllText(input, "source");
-                    List<string> previous = new List<string>();
-                    for (int attempt = 1; attempt <= 3; attempt++) {
                         FakeSession s = new FakeSession(false) { GenerateComponent = true };
                         Conversion.Run(input, true, delegate { return s; }, delegate { }, format);
-                        string expected = Path.Combine(folder, Path.GetFileNameWithoutExtension(input) + " Components" + (attempt == 1 ? "" : " " + attempt));
+                        string expected = Path.Combine(folder, Path.GetFileNameWithoutExtension(input));
                         Equal(expected, Path.GetDirectoryName(s.ImportPath));
                         Check(!File.Exists(s.ImportPath), "Input staging copy retained");
-                        foreach (string old in previous) Equal("protected " + old, File.ReadAllText(old));
                         string part = Path.Combine(expected, "component.par");
-                        File.WriteAllText(part, "protected " + part); previous.Add(part);
+                        File.WriteAllText(part, "protected part");
+                        bool connected = false;
+                        ExpectFailure(delegate { Conversion.Run(input, true, delegate { connected = true; return new FakeSession(false); }, delegate { }, format); });
+                        Check(!connected, "Collision reached CAD");
+                        Equal("protected part", File.ReadAllText(part));
                         Equal("source", File.ReadAllText(input));
-                    }
                 }
             });
-            Test("component names skip files and empty folders without touching them", delegate {
+            Test("component names reject files and empty folders without touching them", delegate {
                 string reservationOutput = Path.Combine(folder, "Occupied.asm");
-                string first = Path.Combine(folder, "Occupied Components");
+                string first = Path.Combine(folder, "Occupied");
                 File.WriteAllText(first, "unrelated file");
-                Directory.CreateDirectory(first + " 2");
-                Equal(first + " 3", Conversion.CreateComponentFolder(reservationOutput));
+                ExpectFailure(delegate { Conversion.CreateComponentFolder(reservationOutput); });
                 Equal("unrelated file", File.ReadAllText(first));
-                Check(Directory.Exists(first + " 2"), "Existing empty folder changed");
-                Equal(0, Directory.GetFileSystemEntries(first + " 2").Length);
+                string empty = Path.Combine(folder, "Empty"); Directory.CreateDirectory(empty);
+                ExpectFailure(delegate { Conversion.CreateComponentFolder(empty + ".asm"); });
+                Check(Directory.Exists(empty), "Existing empty folder changed");
+                Equal(0, Directory.GetFileSystemEntries(empty).Length);
             });
             Test("concurrent folder reservations cannot share a component directory", delegate {
                 string concurrentOutput = Path.Combine(folder, "Concurrent.asm");
-                string[] paths = new string[8];
-                System.Threading.Tasks.Parallel.For(0, paths.Length, delegate(int i) { paths[i] = Conversion.CreateComponentFolder(concurrentOutput); });
-                HashSet<string> unique = new HashSet<string>(paths, StringComparer.OrdinalIgnoreCase);
-                Equal(paths.Length, unique.Count);
-                for (int i = 1; i <= paths.Length; i++)
-                    Check(unique.Contains(Path.Combine(folder, "Concurrent Components" + (i == 1 ? "" : " " + i))), "Unexpected reservation name");
+                int successes = 0, collisions = 0;
+                System.Threading.Tasks.Parallel.For(0, 8, delegate(int i) {
+                    try { Equal(Path.Combine(folder, "Concurrent"), Conversion.CreateComponentFolder(concurrentOutput)); System.Threading.Interlocked.Increment(ref successes); }
+                    catch (IOException error) { Check(error.Message.Contains("already exists"), "Unexpected reservation failure"); System.Threading.Interlocked.Increment(ref collisions); }
+                });
+                Equal(1, successes); Equal(7, collisions);
             });
             Test("component reservation reports I/O failures instead of creating parent folders", delegate {
                 string missing = Path.Combine(folder, "Missing parent");
@@ -745,12 +756,11 @@ internal static class RegressionTests
             });
             Test("failed assembly conversion cleans only its new empty component folder", delegate {
                 string input = Path.Combine(folder, "Failed clean.step"); File.WriteAllText(input, "STEP");
-                string occupied = Path.Combine(folder, "Failed clean Components"); Directory.CreateDirectory(occupied);
+                string expected = Path.Combine(folder, "Failed clean");
                 FakeSession s = new FakeSession(false) { FailOpen = true };
                 ExpectFailure(delegate { Conversion.Run(input, true, delegate { return s; }, delegate { }, ConversionFormat.StepAssembly); });
-                Equal(occupied + " 2", Path.GetDirectoryName(s.ImportPath));
-                Check(Directory.Exists(occupied), "Existing empty folder was removed");
-                Check(!Directory.Exists(occupied + " 2"), "Failed conversion left an unused folder");
+                Equal(expected, Path.GetDirectoryName(s.ImportPath));
+                Check(!Directory.Exists(expected), "Failed conversion left an unused folder");
             });
             Console.WriteLine("Passed " + passed + " regression tests.");
             return 0;

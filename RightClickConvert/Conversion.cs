@@ -117,26 +117,16 @@ namespace SolidEdgeConvert
 
         internal static string CreateComponentFolder(string output)
         {
-            string basePath = Path.Combine(Path.GetDirectoryName(output),
-                Path.GetFileNameWithoutExtension(output) + " Components");
-            for (int number = 1; number < Int32.MaxValue; number++)
-            {
-                string candidate = number == 1 ? basePath : basePath + " " + number.ToString(CultureInfo.InvariantCulture);
-                // Directory.CreateDirectory succeeds for an existing folder, so
-                // checking Exists first would allow a race to reuse someone else's
-                // components. Windows CreateDirectory claims the name atomically;
-                // only the caller that created it may import into or clean it up.
-                if (CreateDirectory(candidate, IntPtr.Zero)) return candidate;
-                int error = Marshal.GetLastWin32Error();
-                // Both files and directories occupy names. Skip them, including
-                // empty folders and junctions; never merge, rename or overwrite.
-                if (error == 183 || error == 80) continue;
-                // Access, missing-parent and other I/O failures are not collisions.
-                // Report them immediately instead of repeatedly trying new names.
-                throw new IOException("Could not create the assembly components folder: " + candidate,
-                    new Win32Exception(error));
-            }
-            throw new IOException("No available assembly components folder name was found.");
+            string candidate = Path.Combine(Path.GetDirectoryName(output), Path.GetFileNameWithoutExtension(output));
+            // Use exactly the model name, with no label or numeric suffix.
+            // Reserve it atomically: Directory.CreateDirectory would silently
+            // accept an existing folder, potentially overwriting referenced parts.
+            if (CreateDirectory(candidate, IntPtr.Zero)) return candidate;
+            int error = Marshal.GetLastWin32Error();
+            if (error == 183 || error == 80)
+                throw new IOException("The assembly folder already exists: " + candidate
+                    + ". Convert from a different folder to keep existing files unchanged.");
+            throw new IOException("Could not create the assembly folder: " + candidate, new Win32Exception(error));
         }
 
         [DllImport("kernel32.dll", EntryPoint = "CreateDirectoryW", CharSet = CharSet.Unicode, SetLastError = true)]
@@ -175,9 +165,8 @@ namespace SolidEdgeConvert
                     // Import a copy in a unique, permanent folder so neither a failed
                     // import nor an approved replacement can overwrite existing parts.
                     // Keep this folder in place: the saved assembly references it.
-                    // Keep the first name short; later conversions use suffixes
-                    // 2, 3, etc. Even an approved assembly replacement gets its
-                    // own newly reserved folder so existing part links stay valid.
+                    // Require a new folder even when replacement of the .asm was
+                    // approved; that approval does not permit overwriting its parts.
                     componentFolder = CreateComponentFolder(output);
                     // Assembly SaveAs also writes auxiliary files such as .cfg.
                     // Stage inside the owned folder to keep those beside components.
