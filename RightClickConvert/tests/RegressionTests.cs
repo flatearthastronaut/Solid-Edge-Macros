@@ -701,6 +701,57 @@ internal static class RegressionTests
                 ExpectFailure(delegate { GrindStockFilter.CleanAnnotations(sheet, 0); });
                 Equal(1, sheet.Symbols.Count);
             });
+            Test("STEP and Parasolid assemblies use clean folder names and preserve earlier parts", delegate {
+                foreach (ConversionFormat format in new[] { ConversionFormat.StepAssembly, ConversionFormat.ParasolidAssembly }) {
+                    string input = Path.Combine(folder, "Clean " + format + " ü" + (format == ConversionFormat.StepAssembly ? ".step" : ".x_t"));
+                    File.WriteAllText(input, "source");
+                    List<string> previous = new List<string>();
+                    for (int attempt = 1; attempt <= 3; attempt++) {
+                        FakeSession s = new FakeSession(false) { GenerateComponent = true };
+                        Conversion.Run(input, true, delegate { return s; }, delegate { }, format);
+                        string expected = Path.Combine(folder, Path.GetFileNameWithoutExtension(input) + " Components" + (attempt == 1 ? "" : " " + attempt));
+                        Equal(expected, Path.GetDirectoryName(s.ImportPath));
+                        Check(!File.Exists(s.ImportPath), "Input staging copy retained");
+                        foreach (string old in previous) Equal("protected " + old, File.ReadAllText(old));
+                        string part = Path.Combine(expected, "component.par");
+                        File.WriteAllText(part, "protected " + part); previous.Add(part);
+                        Equal("source", File.ReadAllText(input));
+                    }
+                }
+            });
+            Test("component names skip files and empty folders without touching them", delegate {
+                string reservationOutput = Path.Combine(folder, "Occupied.asm");
+                string first = Path.Combine(folder, "Occupied Components");
+                File.WriteAllText(first, "unrelated file");
+                Directory.CreateDirectory(first + " 2");
+                Equal(first + " 3", Conversion.CreateComponentFolder(reservationOutput));
+                Equal("unrelated file", File.ReadAllText(first));
+                Check(Directory.Exists(first + " 2"), "Existing empty folder changed");
+                Equal(0, Directory.GetFileSystemEntries(first + " 2").Length);
+            });
+            Test("concurrent folder reservations cannot share a component directory", delegate {
+                string concurrentOutput = Path.Combine(folder, "Concurrent.asm");
+                string[] paths = new string[8];
+                System.Threading.Tasks.Parallel.For(0, paths.Length, delegate(int i) { paths[i] = Conversion.CreateComponentFolder(concurrentOutput); });
+                HashSet<string> unique = new HashSet<string>(paths, StringComparer.OrdinalIgnoreCase);
+                Equal(paths.Length, unique.Count);
+                for (int i = 1; i <= paths.Length; i++)
+                    Check(unique.Contains(Path.Combine(folder, "Concurrent Components" + (i == 1 ? "" : " " + i))), "Unexpected reservation name");
+            });
+            Test("component reservation reports I/O failures instead of creating parent folders", delegate {
+                string missing = Path.Combine(folder, "Missing parent");
+                ExpectFailure(delegate { Conversion.CreateComponentFolder(Path.Combine(missing, "Assembly.asm")); });
+                Check(!Directory.Exists(missing), "Unexpected directory tree created");
+            });
+            Test("failed assembly conversion cleans only its new empty component folder", delegate {
+                string input = Path.Combine(folder, "Failed clean.step"); File.WriteAllText(input, "STEP");
+                string occupied = Path.Combine(folder, "Failed clean Components"); Directory.CreateDirectory(occupied);
+                FakeSession s = new FakeSession(false) { FailOpen = true };
+                ExpectFailure(delegate { Conversion.Run(input, true, delegate { return s; }, delegate { }, ConversionFormat.StepAssembly); });
+                Equal(occupied + " 2", Path.GetDirectoryName(s.ImportPath));
+                Check(Directory.Exists(occupied), "Existing empty folder was removed");
+                Check(!Directory.Exists(occupied + " 2"), "Failed conversion left an unused folder");
+            });
             Console.WriteLine("Passed " + passed + " regression tests.");
             return 0;
         }

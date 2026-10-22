@@ -19,7 +19,7 @@ namespace SolidEdgeConvert
     {
         // Single release number for Windows Properties, window titles and the
         // versioned build filename. Build.ps1 reads this literal before compiling.
-        internal const string Version = "1.12.0.0";
+        internal const string Version = "1.13.0.0";
         internal static readonly string WindowTitle = "Solid Edge Convert v" + new Version(Version).ToString(2);
         internal static Icon ApplicationIcon;
         // One executable serves three roles: setup with no arguments, interactive

@@ -1,10 +1,12 @@
-# Solid Edge Convert 1.12
+# Solid Edge Convert 1.13
 
-Version 1.12 adds a custom CAD cube/conversion-arrow icon and visible version information. The release is **`Compiled Executables\SolidEdgeConvert-v1.12.exe`**. Windows Properties → Details reports file/product version **1.12.0.0**, and the setup and conversion windows show **v1.12**.
+Version 1.13 gives imported assemblies cleaner component folder names: **`Name Components`**, then **`Name Components 2`**, **`Name Components 3`**, and so on, using the first available name. This applies to both STEP and Parasolid assembly imports. Existing folders and parts, including folders from older releases, are never renamed or reused.
+
+The release is **`Compiled Executables\SolidEdgeConvert-v1.13.exe`**. Windows Properties → Details reports file/product version **1.13.0.0**, and the setup and conversion windows show **v1.13**. The custom CAD cube/conversion-arrow icon is retained.
 
 The build also produces a byte-identical **`SolidEdgeConvert.exe`** so existing menus registered to that filename keep working. Either executable is standalone; the icon is embedded at six sizes from 16 to 256 pixels. To deploy the versioned filename on another machine, keep it in a permanent folder, launch it, and click **Install menus** to register that path.
 
-`Assets\BuildIcon.ps1` contains the editable vector artwork and regenerates `SolidEdgeConvert.ico` and its PNG preview. `Build.cmd` calls `Build.ps1`, which reads the release version from `Program.cs`, embeds the icon, and produces both executable names. `Test.ps1` also checks release metadata, identical copies, icon extraction, and icon resolutions. No CAD automation changes are included in this release.
+`Assets\BuildIcon.ps1` contains the editable vector artwork and regenerates `SolidEdgeConvert.ico` and its PNG preview. `Build.cmd` calls `Build.ps1`, which reads the release version from `Program.cs`, embeds the icon, and produces both executable names. `Test.ps1` also checks release metadata, identical copies, icon extraction, and icon resolutions.
 
 New: **Convert > PDF without Grind Stock - Active sheet only** exports one or more selected drafts without the `gsnote.dft` symbol or red Feature Control Frames. It uses each draft's active sheet and the usual `Drawing.pdf` output name, including the existing replace/skip prompt.
 
@@ -88,7 +90,7 @@ Draft conversion follows Batch's ordinary **Adobe (*.pdf)** path: `SaveAs` with 
 
 Parasolid import follows Batch's `OpenWithTemplate` and `SaveAs` sequence, using `normal.par` or `normal.asm` according to the selected output. It checks the returned native document type and leaves the STEP setting untouched. Solid Edge must be able to resolve both templates. Text/binary files with the same base name collide for a given output format, so the second is reported as a filename conflict.
 
-An assembly is more than a single file. STEP and Parasolid assembly imports use the same component isolation: `Example.stp` or `Example.x_t` produces `Example.asm` beside its source and a uniquely named `Example Components <id>` folder containing its referenced parts and any translator auxiliary files. Keep that folder with the assembly when moving or sharing it. Import uses a temporary copy of the input inside this folder to isolate generated components from existing files; the input copy is removed afterwards. Replacement creates a fresh component folder and preserves older folders, which may still be referenced elsewhere. Failed imports may retain generated components for recovery. Cleanup never recursively deletes component folders.
+An assembly is more than a single file. STEP and Parasolid assembly imports use the same component isolation: `Example.stp` or `Example.x_t` produces `Example.asm` beside its source and an `Example Components` folder containing its referenced parts and any translator auxiliary files. If that name is occupied by a file or folder, the converter tries `Example Components 2`, then `Example Components 3`, etc. Each folder is reserved atomically so simultaneous requests cannot share it. Empty existing folders are also skipped. Keep the chosen folder with the assembly when moving or sharing it. Import uses a temporary copy of the input inside this folder to isolate generated components from existing files; the input copy is removed afterwards. Replacement creates a fresh component folder and preserves older folders, which may still be referenced elsewhere. Failed imports may retain generated components for recovery. Cleanup never recursively deletes component folders. Existing folders with the older random suffix are left unchanged to preserve their assembly links.
 
 The SDK's `SolidEdge.Automation` example supplies the STA/connection/message-filter pattern. COM references are individually released in reverse ownership order, without force-releasing shared wrappers or relying on garbage collection. Busy-call retries are bounded to 30 seconds; an export already executing inside Solid Edge is allowed to finish.
 
@@ -116,7 +118,9 @@ References: [Microsoft ExecuteCommand sample](https://learn.microsoft.com/en-us/
 
 ## Build and test
 
-Run `Build.cmd` on 64-bit Windows with .NET Framework 4.x installed. It creates `Compiled Executables\SolidEdgeConvert-v1.12.exe` and the identical compatibility copy `Compiled Executables\SolidEdgeConvert.exe`. No package downloads, Visual Studio, or redistributed Siemens interop assemblies are required.
+Run `Build.cmd` on 64-bit Windows with .NET Framework 4.x installed. It creates `Compiled Executables\SolidEdgeConvert-v1.13.exe` and the identical compatibility copy `Compiled Executables\SolidEdgeConvert.exe`. No package downloads, Visual Studio, or redistributed Siemens interop assemblies are required.
+
+Version 1.13 validation: all 98 regression tests and release branding checks passed. New checks cover clean names on both assembly import routes, repeated replacement with prior component contents preserved, file and empty-folder collisions, eight simultaneous directory reservations, missing-parent errors, and failure cleanup limited to the newly created empty folder. Solid Edge geometry translation is unchanged; live CAD imports were not rerun for this folder-naming change.
 
 Version 1.12 validation: all 93 regression tests passed. The release checks verified Windows file/product and assembly version 1.12.0.0, byte-identical executable copies, successful extraction of the custom embedded artwork, and six icon resolutions. The PNG preview was visually checked. CAD integration tests were not repeated for this branding-only release.
 
