@@ -141,6 +141,9 @@ namespace CoopManager
                 if (dir && !(exclude ? Files.SourceTree(p) : Files.Tree(p)).Any(f => new[] { ".exe", ".dll", ".zip" }.Contains(System.IO.Path.GetExtension(f).ToLowerInvariant()))) continue;
                 list.Add(new Package { Path = p, Release = ReleaseName.Parse(name, !dir), Kind = dir ? "Folder" : ext == ".zip" ? "ZIP" : "Macro" });
             }
+            // A generated stable copy is another path to the same installed release, not a second
+            // unversioned installation. Only manifest-owned copies are hidden from local inventory.
+            if(!exclude){var generated=StableMacros.GeneratedRoots(root);list.RemoveAll(p=>generated.Contains(Files.Full(p.Path)));}
             return list;
         }
         public static Dictionary<string, string> SourceFiles(Package p)
@@ -168,17 +171,22 @@ namespace CoopManager
         {
             if (!Directory.Exists(source)) throw new IOException("Available folder cannot be reached: " + source);
             var available = Scan(source); var installed = Scan(local, false); var rows = new List<Entry>();
+            var categories=CategoryPreferences.ReadShared(source);
             foreach (var group in available.GroupBy(p => p.Key))
             {
                 var ordered = group.OrderByDescending(candidate => candidate.Release, Comparer<ReleaseName>.Create(ReleaseName.Compare)).ToList();
                 var p = ordered[0];
+                string detectedCategory=Categories.Detect(p);
+                string category=categories.Get(new Entry{Available=p,Category=detectedCategory});
                 var old = installed.Where(x => x.Key == p.Key).OrderByDescending(x => x.Release, Comparer<ReleaseName>.Create(ReleaseName.Compare)).ToList();
                 string state = old.Count == 0 ? "Not installed" : ReleaseName.Compare(old[0].Release, p.Release) < 0 ? "Update available" :
                     ReleaseName.Compare(old[0].Release, p.Release) > 0 ? "Local version newer" : "Up to date";
                 string manifest = System.IO.Path.Combine(local, ".se-manager", p.Key + ".xml");
+                XElement saved=null;
                 if (File.Exists(manifest) && state != "Local version newer")
                 {
                     var doc = XDocument.Load(manifest);
+                    saved=doc.Root;
                     if ((string)doc.Root.Attribute("version") == p.Release.Version)
                     {
                         var files = doc.Root.Elements("file").Where(f=>p.Kind=="ZIP" || !Files.ExcludedRelativeFile((string)f.Attribute("path"))).ToList();
@@ -187,7 +195,8 @@ namespace CoopManager
                         if (valid && p.Kind != "ZIP")
                         {
                             var src = SourceFiles(p);
-                            if (src.Count != files.Count || files.Any(f => !src.ContainsKey((string)f.Attribute("path")) || Files.Hash(src[(string)f.Attribute("path")]) != (string)f.Attribute("hash"))) state = "Update available";
+                            var originals=files.Where(f=>f.Attribute("derivedFrom")==null).ToList();
+                            if (src.Count != originals.Count || originals.Any(f => !src.ContainsKey((string)f.Attribute("path")) || Files.Hash(src[(string)f.Attribute("path")]) != (string)f.Attribute("hash"))) state = "Update available";
                         }
                         if (valid && p.Kind == "ZIP" && Files.Hash(p.Path) != (string)doc.Root.Attribute("sourceHash")) state = "Update available";
                     }
@@ -202,6 +211,7 @@ namespace CoopManager
                     }
                 }
                 if (state == "Up to date" && old.Any(x => x.Release.Parts != null && p.Release.Parts != null && ReleaseName.Compare(x.Release, p.Release) < 0)) state = "Cleanup available";
+                if(state=="Up to date" && detectedCategory!=Categories.Addins && StableMacros.Enabled(p,category) && (saved==null || (string)saved.Attribute("stableCopies")!="1"))state="Repair available";
                 // Same-version ZIP and EXE can be alternate releases. Never pick silently.
                 if (ordered.Count(x => ReleaseName.Compare(x.Release, p.Release) == 0) > 1) state = "Ambiguous source versions";
                 if (p.Bundle && (!Script(p.Path, "Register.cmd") || !Script(p.Path, "UNRegister.cmd"))) state = "Registration scripts missing";
@@ -209,7 +219,8 @@ namespace CoopManager
                 var details = p.Bundle ? "Shared add-in components update together. Requires Register.cmd and UNRegister.cmd.\r\n" + string.Join("\r\n", Directory.GetDirectories(p.Path).Where(d => !Files.ExcludedFolder(d) && !MacroFolder(d)).Select(d => System.IO.Path.GetFileName(d) + "  |  local: " +
                     (localDirs.Any(ld => ReleaseName.Parse(System.IO.Path.GetFileName(ld), false).Key == ReleaseName.Parse(System.IO.Path.GetFileName(d), false).Key) ?
                     string.Join(", ", localDirs.Where(ld => ReleaseName.Parse(System.IO.Path.GetFileName(ld), false).Key == ReleaseName.Parse(System.IO.Path.GetFileName(d), false).Key).Select(System.IO.Path.GetFileName)) : "not installed"))) : p.Path;
-                rows.Add(new Entry { Available = p, Category = Categories.Detect(p), Name = p.Label, AvailableVersion = p.Release.Version == "" ? "Content comparison" : p.Release.Version,
+                details+=StableMacros.Details(saved,local);
+                rows.Add(new Entry { Available = p, Category = category, Name = p.Label, AvailableVersion = p.Release.Version == "" ? "Content comparison" : p.Release.Version,
                     InstalledVersion = old.Count == 0 && !File.Exists(manifest) ? "—" : old.Count == 0 ? "Managed copy" : string.Join(", ", old.Select(x => x.Release.Version == "" ? "Unversioned" : x.Release.Version)),
                     Status = state, Actionable = state != "Local version newer" && state != "Ambiguous source versions" && state != "Registration scripts missing", Details = details });
             }
@@ -319,6 +330,17 @@ namespace CoopManager
                 if (payload.Count == 0) throw new IOException("Package is empty.");
                 var scripts = payload.Where(f => System.IO.Path.GetFileName(f).Equals("Register.cmd", StringComparison.OrdinalIgnoreCase)).ToList();
                 bool addin = p.Bundle || scripts.Count > 0 || payload.Any(f => System.IO.Path.GetExtension(f).Equals(".dll", StringComparison.OrdinalIgnoreCase)) && !payload.Any(f => System.IO.Path.GetExtension(f).Equals(".exe", StringComparison.OrdinalIgnoreCase));
+                string priorManifestPath=Files.Child(control,p.Key+".xml");
+                var previousManifest=File.Exists(priorManifestPath)?XDocument.Load(priorManifestPath).Root:null;
+                var copies=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
+                string category=CategoryPreferences.ReadShared(source).Get(new Entry{Available=p,Category=Categories.Detect(p)});
+                bool stable=!addin && StableMacros.Enabled(p,category);
+                if(stable)
+                {
+                    copies=StableMacros.Stage(p,stage,payload);
+                    StableMacros.ValidateTargets(p,local,stage,copies,previousManifest);
+                    payload.AddRange(copies.Keys);
+                }
                 if (addin)
                 {
                     // A root script owns the whole suite; otherwise accept a single unambiguous registrar.
@@ -397,8 +419,8 @@ namespace CoopManager
                 }
                 foreach (string r in payload) { applied.Add(r); Files.Copy(Files.Child(stage, r), Files.Child(local, r)); }
                 if (regDir != null) { registrationAttempted = true; registrar.Run(regDir, false); }
-                var manifest = new XElement("package", new XAttribute("version", p.Release.Version), new XAttribute("sourceHash", p.Kind == "ZIP" ? Files.Hash(p.Path) : ""),
-                    payload.Select(r => new XElement("file", new XAttribute("path", r), new XAttribute("hash", Files.Hash(Files.Child(local, r))))));
+                var manifest = new XElement("package", new XAttribute("version", p.Release.Version), new XAttribute("sourceHash", p.Kind == "ZIP" ? Files.Hash(p.Path) : ""),new XAttribute("stableCopies",stable?"1":"0"),
+                    payload.Select(r => new XElement("file", new XAttribute("path", r), new XAttribute("hash", Files.Hash(Files.Child(local, r))),copies.ContainsKey(r)?new XAttribute("derivedFrom",copies[r]):null)));
                 applied.Add(manifestRel);
                 new XDocument(manifest).Save(Files.Child(local, manifestRel));
                 committed = true;

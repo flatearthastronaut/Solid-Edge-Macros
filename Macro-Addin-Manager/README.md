@@ -1,11 +1,25 @@
-# Solid Edge Macro & Add-in Manager v1.10
+# Solid Edge Macro & Add-in Manager v1.11
 
 Run either executable on 64-bit Windows with .NET Framework 4.x. No Solid Edge interop DLLs are needed by the manager itself.
 
-- **User:** `Compiled Executables/SE Macro Manager v1.10.exe` installs and updates programs from the shared folder. Categories are read-only; the category lock/unlock button has been removed.
-- **Admin:** `Compiled Executables/SE Macro Manager Admin v1.10.exe` publishes local builds and assigns **Solid Edge Macros**, **Solid Edge Add-ins**, or **Windows Programs** in the table's Category dropdown. Changes are saved to the shared catalog immediately.
+- **User:** `Compiled Executables/SE Macro Manager v1.11.exe` installs and updates programs from the shared folder. Categories are read-only; the category lock/unlock button has been removed.
+- **Admin:** `Compiled Executables/SE Macro Manager Admin v1.11.exe` publishes local builds and assigns **Solid Edge Macros**, **Solid Edge Add-ins**, or **Windows Programs** in the table's Category dropdown. Changes are saved to the shared catalog immediately.
 
 Both executables compile the same `ManagerForm` in `Program.cs`, artwork, category frames, grids, icon handling, path controls, and status footer. The `ADMIN` build flag selects publishing actions and different defaults; it does not fork the interface. Build both whenever changing the UI.
+
+## Stable macro ribbon targets (v1.11)
+
+The user installer now keeps a verified **unversioned copy** of each macro alongside the latest numbered release. Point Solid Edge ribbon commands at this stable copy once; subsequent version updates refresh the same path automatically.
+
+- Loose EXE example: installing `MyMacro-v2.0.exe` leaves both `MyMacro-v2.0.exe` and `MyMacro.exe` in the local folder. Updating to v2.1 removes v2.0, keeps `MyMacro-v2.1.exe`, and replaces `MyMacro.exe` with an identical copy of the new executable.
+- ZIP/folder example: installing `MyMacro-v2.0.zip` preserves the extracted `MyMacro-v2.0` folder and creates a stable `MyMacro` folder with its dependencies. Versioned EXEs in that stable tree also get unversioned copies. Versioned nested wrapper directories named for the same macro are normalized; unrelated dependency directory names stay intact. For the current SketchToModels ZIP layout, the stable target is `SketchToModels\Compiled Executables\SketchToModels.exe` beneath the local install folder.
+- Renamed executable `.config` and `.manifest` companions and matching numbered ICO/PNG artwork are copied to the corresponding unversioned names when included. Original release files are preserved. The stable tree uses the latest numbered executable even if the package also contains an older convenience EXE.
+
+Select an installed macro row to see its **Stable ribbon target** in the details area. Existing v1.10 installations appear as **Repair available** so **Update all installed** can create the stable copies without needing a new macro release. Buttons already targeting the resulting unversioned path continue working. A button pointing at an old *versioned* filename or folder needs a **one-time** change to the displayed stable target; the manager does not modify Solid Edge ribbon settings itself.
+
+Generated copies are recorded in the installation manifest, verified during refresh, and repaired if missing or changed. They are not listed as additional unversioned installations. The numbered release, stable executable, and supporting files participate in the same backup/rollback transaction. A running/locked stable executable blocks replacement and leaves the old installation intact. Unchanged obsolete managed files in the stable tree are removed during updates; modified obsolete supporting files retain the existing preservation behavior.
+
+This applies to packages in **Solid Edge Macros**. Windows Programs and add-ins keep their existing installation behavior, and registration scripts are not duplicated into stable macro folders. Publication still retains only the latest release on the share; stable copies are generated **locally during installation**. Local source `Exclude` pruning and intact ZIP payload handling remain unchanged. An unmanaged conflicting stable target or a target owned by another package blocks installation rather than overwriting unrelated data.
 
 ## Admin publishing
 
@@ -29,7 +43,7 @@ Interrupted publications preserve `.se-publisher/transaction-*` and block furthe
 
 Both editions have **How to Implement** buttons in the **Solid Edge Macros** and **Windows Programs** frames. No package selection is required. The guides open inside the manager, work offline, and include clearly labeled illustrations drawn by shared `ImplementationHelp.cs` code. They scroll on smaller windows and display the user's configured local install folder; the admin guide directs users to their own installation folder.
 
-- The macro guide explains installing locally, opening Solid Edge ribbon customization, choosing **Macros**, browsing to the installed EXE, selecting a ribbon tab/group, and adding the command. It also explains updating the ribbon entry when a newer filename or folder replaces its target.
+- The macro guide explains installing locally, opening Solid Edge ribbon customization, choosing **Macros**, browsing to the stable unversioned EXE, selecting a ribbon tab/group, and adding the command. It explains the one-time switch from a versioned target and keeping that same button for later updates.
 - The Windows guide explains opening File Explorer with **Windows + E**, finding the installed application, and double-clicking its EXE. It reminds users to keep dependencies together and update any shortcuts after a versioned path changes.
 
 The macro instructions follow Siemens' [First Steps to Automation — Part 2](https://blogs.sw.siemens.com/solidedge/First-Steps-to-Automation-Part-2/) and [QAT versus the Radial Menu](https://blogs.sw.siemens.com/solidedge/qat-versus-the-radial-menu/). Pictures are explanatory illustrations, not captured screenshots of a particular installed Solid Edge version.
@@ -104,7 +118,7 @@ The SDK examples reviewed were `SDK_2026_2510_English/SDK/Advanced/samples/Addin
 
 New files are staged under the local `.se-manager` directory and verified with SHA-256 before registration. An exclusive installation lock prevents simultaneous manager instances from writing the same destination. Existing files and clearly older matching versions are moved to transaction backups, then new files are installed and registered. Successful transactions delete those backups, removing the older versions.
 
-Only matching version families and previously tracked files are candidates for cleanup. Local-only packages are retained. A newer local numbered version is never downgraded. Unversioned aliases are retained when their age cannot be established. Unknown supporting files are retained. Old versioned package directories are removed as whole packages, including their contents; do not store personal files inside obsolete version directories. Shared suite components still present in the source are retained.
+Only matching version families and previously tracked files are candidates for cleanup. Local-only packages are retained. A newer local numbered version is never downgraded. Managed stable macro copies are refreshed; other unversioned aliases are retained when their age cannot be established. Unknown supporting files are retained. Old versioned package directories are removed as whole packages, including their contents; do not store personal files inside obsolete version directories. Shared suite components still present in the source are retained.
 
 Managed file manifests allow content-change detection and repair. Removed supporting files are deleted only if they are unchanged from the previous managed copy; modified removed files are preserved. Folder links/junctions, overlapping source/destination folders, ZIP traversal, duplicate ZIP paths, and archives expanding beyond 4 GB are rejected.
 
@@ -115,3 +129,5 @@ On an ordinary copy or registration failure, the manager attempts to unregister 
 Run `Build.cmd` to compile **both** executables into `Compiled Executables`; run `Test.cmd` for the isolated regression harness. Tests use fake registration and files under `tests/work`, never the H: share or the user's installed add-ins. Tests cover numeric comparison, installation status, old-version cleanup, shared suites, ZIP dependencies and traversal, missing scripts, SE-running checks, ambiguous source versions, overlapping paths, interrupted recovery, downgrade prevention, obsolete supporting files, locked files, and rollback/re-registration.
 
 Publishing tests additionally cover recursive build discovery, ZIP preference, duplicate builds, deletion of obsolete shared EXEs/ZIPs/folders/aliases, cleanup-only publication, locked old releases, preserved Exclude archives, dependency packaging, content comparison, replacement failure, category rollback, concurrent publisher locks, shared-format conflicts, malformed catalogs, shared-only categorization, category changes across versions, stale private settings, and both editions of the real shared form. Help tests check both category buttons, offline illustrations, key instructions, configured paths, and scrolling at the minimum window size. Tests display invisible forms only and never run supplied registration scripts. Windows file-replacement tests require execution outside the restricted sandbox. No live network publication or Solid Edge registration was performed.
+
+Stable-copy tests cover loose EXE upgrades, versioned and stable file hashes, dependency/configuration copies, nested ZIP wrappers, source Exclude pruning, old-file cleanup, missing/corrupt copy repair, v1.10 migration, locked aliases, conflicting targets, other-package ownership, ambiguous executable versions, Windows/add-in exclusions, and stale packaged convenience EXEs. When present in this repository, the actual BoltCircleHoles and SketchToModels ZIPs are installed into isolated test folders and checked without running their executables.

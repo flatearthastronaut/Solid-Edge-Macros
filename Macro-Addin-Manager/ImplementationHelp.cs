@@ -31,10 +31,10 @@ namespace CoopManager
             if(macro)
             {
                 Step(body,"1. Open ribbon customization","Open the Solid Edge document environment where you will use the macro (Part, Assembly, or Draft). Right-click a ribbon command and choose Customize the Ribbon. Select the Ribbon tab.");
-                Step(body,"2. Choose the installed macro","Set Choose commands from to Macros. Click Browse and select the macro's .exe in your local install folder. For a ZIP package, open its extracted package folder to find the .exe.");
+                Step(body,"2. Choose the stable macro copy","Set Choose commands from to Macros. Click Browse and select the unversioned .exe, such as MyMacro.exe. For ZIP or folder packages, use the unversioned package folder too. Select the macro in the manager to see its Stable ribbon target path.");
                 Step(body,"3. Add the command","Select the macro in the left list. On the right, select the destination tab and group, then click Add >>. Rename the command or adjust its icon/text if desired. Save or close the Customize dialog.");
-                Step(body,"4. Run it — and check after updates","Click the new ribbon command with the document the macro needs open. Repeat customization for other environments as needed. If an update changes the executable's name or folder, remove the old ribbon entry and add the new .exe.");
-                AddText(body,"Use the installed local .exe. Keep its supporting files together in the package folder.",false);
+                Step(body,"4. Keep the same button after updates","The manager refreshes the stable copy each time you update the macro. It also keeps the latest numbered release for reference and removes older releases. Open the document the macro needs, then use the same ribbon button.");
+                AddText(body,"One-time setup for existing buttons: if your old ribbon entry points to a versioned filename or folder, replace it with the Stable ribbon target. Buttons already using that unversioned path stay valid. Keep supporting files with the EXE.",false);
                 AddText(body,"Reference: Siemens — First Steps to Automation, Part 2; QAT versus the Radial Menu.\r\nhttps://blogs.sw.siemens.com/solidedge/First-Steps-to-Automation-Part-2/",false);
             }
             else
@@ -91,7 +91,7 @@ namespace CoopManager
                     Box(g,new Rectangle(590,90,330,153),Color.White);
                     TextAt(g,"Home\n    Select",604,100,290,65,13,false);
                     Box(g,new Rectangle(635,167,263,42),Pale);TextAt(g,"MyMacro",651,174,225,30,13,true);
-                    TextAt(g,"1  Browse to the local .exe",28,251,340,25,11,true);
+                    TextAt(g,"1  Choose the unversioned .exe",28,251,350,25,11,true);
                     TextAt(g,"2  Add it to a ribbon group",590,251,340,25,11,true);
                 }
                 else

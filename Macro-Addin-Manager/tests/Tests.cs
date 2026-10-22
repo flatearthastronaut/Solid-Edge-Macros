@@ -20,21 +20,24 @@ internal class FakeRegistrar : IRegistrar
 }
 internal static partial class Tests
 {
-    static int count;
+    static int count, caseCount;
     static string root;
     static void Assert(bool value, string message) { count++; if (!value) throw new Exception(message); }
     static void Write(string p, string s) { Directory.CreateDirectory(Path.GetDirectoryName(p)); File.WriteAllText(p, s); }
     static void Throws(Action action, string message) { bool thrown = false; try { action(); } catch (IOException) { thrown = true; } Assert(thrown, message); }
     static void Case(string name, Action<string,string> test)
     {
-        string s = Path.Combine(root, name, "source"), l = Path.Combine(root, name, "local");
+        // Keep fixture paths short enough for .NET Framework's legacy MAX_PATH limit even
+        // when testing nested release ZIPs under a long checked-out workspace directory.
+        string folder="c"+(++caseCount);
+        string s = Path.Combine(root, folder, "source"), l = Path.Combine(root, folder, "local");
         Directory.CreateDirectory(s); Directory.CreateDirectory(l); test(s, l); Console.WriteLine("PASS " + name);
     }
     static IEnumerable<Control> Descendants(Control parent)
     { foreach (Control child in parent.Controls) { yield return child; foreach (var nested in Descendants(child)) yield return nested; } }
     [STAThread] static void Main()
     {
-        root = Path.GetFullPath(Path.Combine("tests", "work", Guid.NewGuid().ToString("N"))); Directory.CreateDirectory(root);
+        root = Path.GetFullPath(Path.Combine("tests", "work", Guid.NewGuid().ToString("N").Substring(0,12))); Directory.CreateDirectory(root);
         Diagnostics.Initialize(Path.Combine(root, "logs"));
         Assert(AppInfo.SourceSetting(null)==@"H:\Coop\internal\Macros and Add-ins", "New default source");
         Assert(AppInfo.SourceSetting(@"H:\solid_edge\Coop\internal\Macros and Add-ins\")==AppInfo.DefaultSource, "Old default migrated");
@@ -291,6 +294,7 @@ internal static partial class Tests
             Assert(!Catalog.Compare(s,l).Single(e=>e.Available!=null && e.Available.Bundle).Details.Contains("Exclude"),"Excluded folder absent from suite details");
         });
         PublishingCases();
+        StableMacroCases();
         ImplementationHelpCases();
         string evidence = string.Join("\n", Directory.GetFiles(Diagnostics.LogDirectory,"*.log").Select(File.ReadAllText));
         Assert(evidence.Contains("INSTALL SUCCESS") && evidence.Contains("COPY VERIFIED"), "Successful operations persisted");

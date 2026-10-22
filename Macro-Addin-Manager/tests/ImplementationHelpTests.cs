@@ -24,7 +24,7 @@ internal static partial class Tests
                 var picture=Descendants(guide).OfType<PictureBox>().Single();
                 Assert(picture.Image!=null && picture.Image.Width==960,"Guide includes an offline illustration");
                 if(category==Categories.Macros)
-                    Assert(text.Contains("Customize the Ribbon") && text.Contains("Macros") && text.Contains("Add >>") && text.Contains("old ribbon entry"),"Macro guide covers ribbon setup and updating versioned targets");
+                    Assert(text.Contains("Customize the Ribbon") && text.Contains("Macros") && text.Contains("Add >>") && text.Contains("unversioned .exe") && text.Contains("same ribbon button") && text.Contains("One-time setup"),"Macro guide covers stable ribbon target and one-time migration");
                 else Assert(text.Contains("Windows + E") && text.Contains("double-click") && text.Contains("Application"),"Windows guide covers Explorer and running the EXE");
                 using(var bitmap=new Bitmap(guide.Width,guide.Height))
                 {guide.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));bitmap.Save(Path.Combine("tests","bin",category==Categories.Macros?"macro-help-preview.png":"windows-help-preview.png"));}
