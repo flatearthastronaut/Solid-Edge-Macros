@@ -24,6 +24,8 @@ partial class CapDetailTool {
   else if(args[0]=="--create")CreateDrawing();
   else if(args[0]=="--finish")CreateDrawing(true);
   else if(args[0]=="--verify")VerifySavedDrawing();
+  else if(args[0]=="--19679-final-layout")FinalLayout19679();
+  else if(args[0]=="--19679-verify")Verify19679();
   else throw new ArgumentException("Unknown mode");
  }return 0;}catch(Exception ex){Console.WriteLine(ex);return 1;}}
  static Type Api(string library,string name){return Assembly.LoadFrom(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),"Siemens","Solid Edge 2026","Program","interop.SolidEdge"+library+"Lib.dll")).GetType("SolidEdge."+library+".Interop."+name);}
@@ -33,9 +35,9 @@ partial class CapDetailTool {
   try{var value=p.GetValue(obj,null);if(value!=null)e.Add(new XAttribute(p.Name,Val(value)));}catch{}
  }return e;}
  static bool IsOpen(string path){for(int i=1;i<=app.Documents.Count;i++){dynamic doc=app.Documents.Item(i);try{if(string.Equals((string)doc.FullName,path,StringComparison.OrdinalIgnoreCase))return true;}finally{Marshal.ReleaseComObject(doc);}}return false;}
- static void AuditReferences(){
+ static void AuditReferences(string fileFilter="*.dft"){
   var result=new XElement("CapReferenceAudit");
-  foreach(string path in Directory.GetFiles(folder,"*.dft")){
+  foreach(string path in Directory.GetFiles(folder,fileFilter)){
    if(Path.GetFileName(path).StartsWith("End Cap_21612-100",StringComparison.OrdinalIgnoreCase))continue;
    bool open=IsOpen(path);var draft=(D.DraftDocument)app.Documents.Open(path);var doc=new XElement("Drawing",new XAttribute("file",Path.GetFileName(path)));result.Add(doc);
    try{foreach(D.Sheet sheet in draft.Sheets){if(sheet.SectionType!=D.SheetSectionTypeConstants.igWorkingSection)continue;
@@ -56,7 +58,7 @@ partial class CapDetailTool {
    new XDocument(result).Save(Path.Combine(root,"reference-audit.xml"));
   }
  }
- static void AuditPart(){
+ static void AuditPart(bool render=true){
   var part=(P.PartDocument)app.Documents.Open(partPath);var result=Scalars(part,"Part","PartDocument","Part");
   Console.WriteLine("Part properties");var sets=(F.PropertySets)part.Properties;for(int si=1;si<=sets.Count;si++){var props=sets.Item(si);var group=new XElement("PropertySet",new XAttribute("name",props.Name));result.Add(group);for(int pi=1;pi<=props.Count;pi++){var p=props.Item(pi);try{group.Add(new XElement("Property",new XAttribute("name",p.Name),new XAttribute("value",Val(p.get_Value()))));}catch{}}}
   Console.WriteLine("Models="+part.Models.Count);foreach(P.Model model in part.Models){var m=new XElement("Model",new XAttribute("name",model.Name));result.Add(m);var body=(G.Body)model.Body;Array low=new double[3],high=new double[3];body.GetExactRange(ref low,ref high);m.SetAttributeValue("low",string.Join(",",(double[])low));m.SetAttributeValue("high",string.Join(",",(double[])high));m.SetAttributeValue("volume",body.Volume);m.SetAttributeValue("valid",body.Valid);
@@ -68,6 +70,7 @@ partial class CapDetailTool {
    foreach(S.Circle2d circle in profile.Circles2d){double a,b,x,y,z;circle.GetCenterPoint(out a,out b);profile.Convert2DCoordinate(a,b,out x,out y,out z);pr.Add(new XElement("Circle",new XAttribute("xyz",x+","+y+","+z),new XAttribute("radius",circle.Radius)));}
   }
   new XDocument(result).Save(Path.Combine(root,"part-audit.xml"));Console.WriteLine("Part audit saved.");
+  if(!render)return;
   app.StartCommand(32810);app.StartCommand(32821);app.DoIdle();var view=(F.View)app.ActiveWindow.View;view.Fit();view.SaveAsImage(Path.Combine(root,"End Cap-model.jpg"),1800,1400,Resolution:1,ColorDepth:24,ImageQuality:F.SeImageQualityType.seImageQualityHigh,Invert:false);
  }
 }

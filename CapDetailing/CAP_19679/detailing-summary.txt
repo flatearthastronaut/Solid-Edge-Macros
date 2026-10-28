@@ -1,0 +1,34 @@
+CAP_19679 native Solid Edge draft
+
+Deliverable: C:\Users\greg.lentner\Documents\Codex\cap detailing refs\CAP_19679.dft
+Linked model: supplied CAP_19679.par in the same folder.
+Company normal (new design) B-size template; third-angle projection.
+Face view, aligned model-linked section A-A, and shaded isometric view.
+
+Reference detailing conventions were taken from the supplied cap drafts and
+DraftingStandards/detailing example 1.dft. Nineteen driven native dimensions,
+native chamfer dimensions, feature-based counterbore callout with Smart Depth,
+full bolt-circle centerline, nine center marks, five attached 32 TURN finish
+symbols, and the reference concentric/square/parallel machining note.
+
+Tolerance choices:
+- Bore 3.502, outside 6.949, and pilot 5.749 inches: +/- .001 inch.
+- Groove roots 6.777 and 5.574 inches: +/- .002 inch.
+- Both groove widths: .140-.145 inch.
+- Groove locations: +/- .001 inch, explicitly selected by Greg to match 21846-01.
+- Outer groove location retains the model's .3312365-inch nominal position;
+  displayed limits .3322/.3302 avoid silently substituting a .330 nominal.
+- Other dimensions use the template's general tolerances.
+
+The linked model save was explicitly authorized. Exact body range, volume,
+feature definitions, and all audited profile coordinates match the initial
+part audit. Saved-file checks also verify native displayed limit arithmetic,
+unmodified dimension values, driven associations, and the native Base-origin
+point-on and vertical cutting-line constraints. The parent view was moved and
+restored to test section alignment; these relationships also passed reopening.
+
+final-verification.xml records the native dimensions and displayed text.
+Verified Model/part-audit.xml records the final linked part geometry.
+CAP_19679-drawing.jpg is the final visual review image.
+
+No extra CAP_19679 draft versions were created. No files were pushed.
