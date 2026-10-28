@@ -1,0 +1,48 @@
+CAP DETAILING REFERENCE REVIEW — 2026-10-28
+
+Reviewed all 19 supplied reference drafts, including their native objects and
+rendered working sheets. Reference-audit.xml records their view, dimension,
+callout, centerline, cutting-plane, and annotation properties.
+
+Shared drafting conventions:
+- Face view toward the right; horizontally aligned axial section toward the left.
+  Small shaded isometric view in the remaining lower or upper space.
+- Center-axis cutting plane, extended beyond the part with A labels and arrows.
+  Offset/radial sections are used only where needed to intersect specific holes.
+- Centerlines through the part axis, hole center marks, and pitch-circle geometry.
+- Turned diameters, fits, thicknesses, shoulders, grooves, radii, chamfers and
+  surface finishes dimensioned in section. Hole patterns, bolt circles, angles
+  and off-axis hole locations dimensioned on the face view.
+- Group repeated holes using quantity/spacing and feature-driven callouts;
+  include counterbore side, hardware purpose, and blind-hole warnings as needed.
+- Most references use metric primary dimensions with bracketed inches. Preserve
+  actual engineering limits and precision; do not transplant unrelated tolerances.
+- Teal annotations, Arial lettering, prominent section caption, and bold general
+  machining notes. Retain model-specific finish and installed-item information.
+
+Delivered drawing: ../cap detailing refs/End Cap_21612-100.dft (sibling of project).
+Basis: 21612-104_Cap.dft already references the exact supplied model. Its native
+objects and documented machining requirements were retained in a new draft.
+The B-size background was refreshed from the cached company normal (new design)
+template. The model's detail number is 104; the -100 model filename is not a reason
+to change the detail number or existing drawing number.
+
+Result: face, axial A-A section, and shaded isometric; 14 driven dimensions,
+including a native chamfer dimension; four native callouts, including three smart
+hole callouts; four centerlines and 13 center marks. Existing finish symbols,
+fit limits, general notes and O-ring installation table retained.
+
+Third-angle drafting preference set. Native section alignment tested by moving
+and restoring the source view. Vertical cutting-line relation verified; native
+point-on relation to the projected Base CSYS origin added. A labels spaced clear
+of the adjacent hole callout. Native objects and constraints verified on reopen.
+
+Solid Edge rewrites the linked PAR when saving this draft. The user explicitly
+approved this on 2026-10-28. Initial and subsequent audits have identical solid
+range, volume, feature properties, and profile geometry. Reference DFT untouched.
+
+Build.cmd compiles the helper into Compiled Executables. --refs audits references,
+--part audits the model, --create creates a unique new draft, --finish completes
+the existing task draft, and --verify closes/reopens it without saving changes.
+Do not use --finish on later user edits: it reapplies the original task layout.
+No files are pushed. No duplicate or trial output drafts were retained.

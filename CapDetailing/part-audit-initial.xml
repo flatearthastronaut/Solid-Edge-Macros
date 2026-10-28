@@ -1,0 +1,143 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Part FullName="C:\Users\greg.lentner\Documents\Codex\cap detailing refs\End Cap_21612-100.par" Name="End Cap_21612-100.par" Path="C:\Users\greg.lentner\Documents\Codex\cap detailing refs" ReadOnly="False" IsTemplate="False" Status="igStatusAvailable" Type="igPartDocument" Dirty="True" CreatedVersion="223.0.13.5" LastSavedVersion="223.0.13.5" InPlaceActivated="False" UndoSteps="500" IsInsightFile="False" IsGeometricVersionDirty="False" ProfileUndoSteps="100" IsFeatureLibrary="False" BodyCheck="False" DesignBodyVisible="True" ShowCurvatureCombs="True" GeometricVersion="-764098942" PhysicalPropertiesStatus="sePhysicalPropertiesStatus_Model" IsAdjustablePart="False" HardwareFile="False" HasCapturedRelationships="False" CapturedRelationshipCount="0" ComponentName="" ModelingMode="seModelingModeOrdered" DisableMoveToSynchronous="False" AutomaticTransitionToSolutionManager="False" IsMultiCADDriven="False" CutawaysCount="0" OrderedBodyInSyncVisible="True" UpdateOnFileSave="False" IsFamilyOfPartsMaster="False" IsFamilyOfPartsMember="False" IsFamilyOfPartsSource="False">
+  <PropertySet name="SummaryInformation">
+    <Property name="Title" value=" " />
+    <Property name="Subject" value=" " />
+    <Property name="Author" value="sashank.sankar" />
+    <Property name="Keywords" value=" " />
+    <Property name="Comments" value="" />
+    <Property name="Template" value="normal.par" />
+    <Property name="Last Author" value="sashank.sankar" />
+    <Property name="Revision Number" value="62" />
+    <Property name="Origination Date" value="01/31/2025 09:11:31" />
+    <Property name="Last Save Date" value="05/10/2025 10:01:25" />
+    <Property name="Number of pages" value="0" />
+    <Property name="Number of words" value="0" />
+    <Property name="Number of characters" value="0" />
+    <Property name="Application Name" value="Solid Edge" />
+    <Property name="Security" value="0" />
+  </PropertySet>
+  <PropertySet name="ExtendedSummaryInformation">
+    <Property name="Name of Saving Application" value="Solid Edge" />
+    <Property name="DocumentID" value="{85C59BAD-BBE8-475B-A03B-632493EBF667}" />
+    <Property name="Status" value="0" />
+    <Property name="Username" value="sashank.sankar" />
+    <Property name="CreationLocale" value="1033" />
+    <Property name="Hardware" value="False" />
+    <Property name="StatusChangeDate" value="04/09/2025 08:09:19" />
+    <Property name="FriendlyUserName" value="Sashank Sankar" />
+  </PropertySet>
+  <PropertySet name="DocumentSummaryInformation">
+    <Property name="Category" value=" " />
+    <Property name="Presentation Format" value="" />
+    <Property name="Byte Count" value="0" />
+    <Property name="Lines" value="0" />
+    <Property name="Paragraphs" value="0" />
+    <Property name="Slides" value="0" />
+    <Property name="Notes" value="0" />
+    <Property name="Hidden Objects" value="0" />
+    <Property name="Multimedia Clips" value="0" />
+    <Property name="Manager" value="" />
+    <Property name="Company" value="" />
+  </PropertySet>
+  <PropertySet name="Custom">
+    <Property name="Density" value="0.28298507824 lbm/in^3" />
+    <Property name="Accuracy" value="0.990" />
+    <Property name="customer" value="GOSIGER" />
+    <Property name="end user" value="PARKER" />
+    <Property name="tool number" value=" " />
+    <Property name="detail number" value="104" />
+    <Property name="drawing number" value="DWG #21612-" />
+    <Property name="description" value="END CAP" />
+    <Property name="description line 2" value="-" />
+    <Property name="designer" value="SS" />
+    <Property name="date designed" value="03/20/2025 00:00:00" />
+    <Property name="sheet no." value="1" />
+    <Property name="detailer" value="SS" />
+    <Property name="date detailed" value="03/14/2025 00:00:00" />
+    <Property name="checker" value="DB" />
+    <Property name="date checked" value="05/07/2025 00:00:00" />
+    <Property name="heat treat" value="PRESTO BLACKEN" />
+    <Property name="finish" value="-" />
+    <Property name="sheets total" value="-" />
+    <Property name="scale" value="FULL" />
+    <Property name="finish2" value="-" />
+    <Property name="wear item" value="N" />
+    <Property name="dave_w" value="-" />
+    <Property name="dave_b" value="-" />
+    <Property name="revision letter" value="-" />
+    <Property name="phone number" value="-" />
+    <Property name="engineer" value="-" />
+    <Property name="matl" value="4150 HT" />
+    <Property name="machine_name" value="-" />
+    <Property name="PART NO." value="-" />
+    <Property name="PART NAME" value="-" />
+    <Property name="SEQUENCE NO." value="-" />
+    <Property name="reference" value="DWG# 21619-503" />
+    <Property name="kyle j" value="-" />
+    <Property name="sashank_sort" value="104" />
+    <Property name="MACH" value="-" />
+    <Property name="description line 3" value="-" />
+    <Property name="dave_b_callback" value="-" />
+  </PropertySet>
+  <PropertySet name="ProjectInformation">
+    <Property name="Document Number" value=" " />
+    <Property name="Revision" value="" />
+    <Property name="Project Name" value=" " />
+  </PropertySet>
+  <PropertySet name="VersionHistory" />
+  <PropertySet name="MechanicalModeling">
+    <Property name="Material" value="Steel" />
+    <Property name="Face Style" value="Steel" />
+    <Property name="Fill Style" value="ANSI32(Steel)" />
+    <Property name="Virtual Style" value="Machined steel" />
+    <Property name="Coef. of Thermal Exp" value="1.3E-05" />
+    <Property name="Thermal Conductivity" value="32" />
+    <Property name="Specific Heat" value="481" />
+    <Property name="Modulus of Elasticity" value="199947953000" />
+    <Property name="Poission's Ratio" value="0.29" />
+    <Property name="Yield Stress" value="262000766" />
+    <Property name="Ultimate Stress" value="358527364" />
+    <Property name="Elongation" value="0" />
+    <Property name="Grouping" value="Metals\Steel" />
+    <Property name="LibraryName" value="Materials" />
+  </PropertySet>
+  <Model name="Design Model" low="-0.060325,-0.060325,0.000761999999999992" high="0.060325,0.060325,0.022352" volume="0.00014693998852613498" valid="true">
+    <RevolvedProtrusion ShowDimensions="False" Name="RevolvedProtrusion_6" Suppress="False" Type="igRevolvedProtrusionFeatureObject" ExtentSide="igLeft" Angle="6.28318530717959" ExtentType="igThreeHundredAndSixty" ModelingModeType="seModelingModeOrdered" DisplayName="RevolvedProtrusion_6" SystemName="RevolvedProtrusion_6" EdgebarName="Protrusion 6" Visible="True" ConvertToCutoutAllowed="False" />
+    <RevolvedCutout ShowDimensions="False" Name="RevolvedCutout_1" Suppress="False" Type="igRevolvedCutoutFeatureObject" ExtentSide="igLeft" Angle="6.28318530717959" ProfileSide="igRight" ExtentType="igThreeHundredAndSixty" ModelingModeType="seModelingModeOrdered" DisplayName="RevolvedCutout_1" SystemName="RevolvedCutout_1" EdgebarName="Cutout 1" Visible="True" />
+    <Hole ShowDimensions="False" Name="Hole_16" Suppress="False" Type="igHoleFeatureObject" ExtentType="igThroughAll" ExtentSide="igLeft" DraftAngle="0" ModelingModeType="seModelingModeOrdered" DisplayName="Hole_16" SystemName="Hole_16" EdgebarName="Hole 16" Visible="True" CreatePhysicalThread="False">
+      <HoleData HoleType="igCounterboreHole" CounterboreDiameter="0.010414" CounterboreDepth="0.00635" CountersinkDiameter="0.010414" CountersinkAngle="82" BottomAngle="0" TreatmentType="igNone" TaperMethod="igTaperByRLRatio" Taper="0.0104166666666667" ThreadDepthMethod="igNone" ThreadDepth="0" Name="HoleData_6" HoleDiameter="0.006604" ThreadMinorDiameter="0.00074422" ThreadDescription="#000-120" VBottomDimType="igVBottomDimToFlat" TaperDimType="igTaperDimAtBottom" CounterboreProfileLocationType="igCounterboreProfileIsAtTop" TaperLValue="0.3048" TaperRValue="0.003175" InternalThreadDescription="" ThreadSetting="igRegularThread" OutsideEffectiveThreadLength="0" InsideEffectiveThreadLength="0" ThreadHeight="0" ThreadTaperAngle="0.043633" ThreadNominalDiameter="0.0008636" ThreadExternalDiameter="0.00070866" IsThreadLeftHanded="0" Units="igHoleDataUnitsInches" DisplayName="HoleData_6" SystemName="HoleData_6" EdgebarName="HoleData_6" Standard="ANSI Inch" SubType="Fillister Head" Size="#12" Fit="Loose" ThreadDiameterOption="seInternalMinorDiameter" ThreadTapDrillDiameter="0.0006604" HeadClearance="0.00635" ThreadLocation="igInside" ThreadOffset="0" IsHoleDiameterToleranceApplied="0" HoleDiameterToleranceType="seStandardFit_Tolerance" HoleDiameterUnitToleranceUpper="0" HoleDiameterUnitToleranceLower="0" HoleDiameterToleranceHoleClassUpper="0" HoleDiameterToleranceHoleClassLower="0" HoleDiameterToleranceShaftClassName="H13" IsCounterBoreDiameterToleranceApplied="0" CounterBoreDiameterToleranceType="seStandardFit_Tolerance" CounterBoreDiameterUnitToleranceUpper="0" CounterBoreDiameterUnitToleranceLower="0" CounterBoreDiameterToleranceHoleClassUpper="-0.000127" CounterBoreDiameterToleranceHoleClassLower="-0.00018288" CounterBoreDiameterToleranceHoleClassName="E0" CounterBoreDiameterToleranceShaftClassName="E0" IsCounterBoreDepthToleranceApplied="0" CounterBoreDepthToleranceType="seStandardFit_Tolerance" CounterBoreDepthUnitToleranceUpper="0" CounterBoreDepthUnitToleranceLower="0" CounterBoreDepthToleranceHoleClassUpper="-0.000127" CounterBoreDepthToleranceHoleClassLower="-0.00018288" CounterBoreDepthToleranceHoleClassName="E0" CounterBoreDepthToleranceShaftClassName="E0" IsCounterSinkDiameterToleranceApplied="0" CounterSinkDiameterToleranceType="seStandardFit_Tolerance" CounterSinkDiameterUnitToleranceUpper="0" CounterSinkDiameterUnitToleranceLower="0" CounterSinkDiameterToleranceHoleClassUpper="-0.000127" CounterSinkDiameterToleranceHoleClassLower="-0.00018288" CounterSinkDiameterToleranceHoleClassName="E0" CounterSinkDiameterToleranceShaftClassName="E0" IsHoleDepthToleranceApplied="0" HoleDepthToleranceType="seStandardFit_Tolerance" HoleDepthUnitToleranceUpper="0" HoleDepthUnitToleranceLower="0" HoleDepthToleranceHoleClassUpper="-0.000127" HoleDepthToleranceHoleClassLower="-0.00018288" HoleDepthToleranceHoleClassName="E0" HoleDepthToleranceShaftClassName="E0" IsHeadClearanceToleranceApplied="0" HeadClearanceToleranceType="seStandardFit_Tolerance" HeadClearanceUnitToleranceUpper="0" HeadClearanceUnitToleranceLower="0" HeadClearanceToleranceHoleClassUpper="-0.000127" HeadClearanceToleranceHoleClassLower="-0.00018288" HeadClearanceToleranceHoleClassName="E0" HeadClearanceToleranceShaftClassName="E0" IsThreadTaperDepthToleranceApplied="0" ThreadTaperDepthToleranceType="seUnit_Tolerance" ThreadTaperDepthUnitToleranceUpper="0" ThreadTaperDepthUnitToleranceLower="0" ThreadTaperDepthToleranceHoleClassUpper="-0.000127" ThreadTaperDepthToleranceHoleClassLower="-0.00018288" ThreadTaperDepthToleranceHoleClassName="E0" ThreadTaperDepthToleranceShaftClassName="E0" />
+    </Hole>
+    <Hole ShowDimensions="False" Name="Hole_21" Suppress="False" Type="igHoleFeatureObject" ExtentType="igFinite" ExtentSide="igLeft" DraftAngle="0" Depth="0.01778" ModelingModeType="seModelingModeOrdered" DisplayName="Hole_21" SystemName="Hole_21" EdgebarName="Hole 21" Visible="True" CreatePhysicalThread="False">
+      <HoleData HoleType="igRegularHole" CounterboreDiameter="0.009525" CounterboreDepth="0.015748" CountersinkDiameter="0.009525" CountersinkAngle="118" BottomAngle="0" TreatmentType="igNone" TaperMethod="igTaperByRLRatio" Taper="0.0104166666666667" ThreadDepthMethod="igNone" ThreadDepth="0" Name="HoleData_10" HoleDiameter="0.007874" ThreadMinorDiameter="0" ThreadDescription="" VBottomDimType="igVBottomDimToFlat" TaperDimType="igTaperDimAtBottom" CounterboreProfileLocationType="igCounterboreProfileIsAtTop" TaperLValue="0.3048" TaperRValue="0.003175" InternalThreadDescription="" ThreadSetting="igRegularThread" OutsideEffectiveThreadLength="0" InsideEffectiveThreadLength="0" ThreadHeight="0" ThreadTaperAngle="0.043633" ThreadNominalDiameter="0" ThreadExternalDiameter="0" IsThreadLeftHanded="0" Units="igHoleDataUnitsInches" DisplayName="HoleData_10" SystemName="HoleData_10" EdgebarName="HoleData_10" Standard="inch" SubType="" Size="" Fit="" ThreadDiameterOption="seInternalMinorDiameter" ThreadTapDrillDiameter="0" HeadClearance="0.015748" ThreadLocation="igInside" ThreadOffset="0" IsHoleDiameterToleranceApplied="0" HoleDiameterToleranceType="seStandardFit_Tolerance" HoleDiameterUnitToleranceUpper="0" HoleDiameterUnitToleranceLower="0" HoleDiameterToleranceHoleClassUpper="0" HoleDiameterToleranceHoleClassLower="0" IsCounterBoreDiameterToleranceApplied="0" CounterBoreDiameterToleranceType="seStandardFit_Tolerance" CounterBoreDiameterUnitToleranceUpper="0" CounterBoreDiameterUnitToleranceLower="0" CounterBoreDiameterToleranceHoleClassUpper="-0.000127" CounterBoreDiameterToleranceHoleClassLower="-0.00018288" CounterBoreDiameterToleranceHoleClassName="E0" CounterBoreDiameterToleranceShaftClassName="E0" IsCounterBoreDepthToleranceApplied="0" CounterBoreDepthToleranceType="seStandardFit_Tolerance" CounterBoreDepthUnitToleranceUpper="0" CounterBoreDepthUnitToleranceLower="0" CounterBoreDepthToleranceHoleClassUpper="-0.000127" CounterBoreDepthToleranceHoleClassLower="-0.00018288" CounterBoreDepthToleranceHoleClassName="E0" CounterBoreDepthToleranceShaftClassName="E0" IsCounterSinkDiameterToleranceApplied="0" CounterSinkDiameterToleranceType="seStandardFit_Tolerance" CounterSinkDiameterUnitToleranceUpper="0" CounterSinkDiameterUnitToleranceLower="0" CounterSinkDiameterToleranceHoleClassUpper="-0.000127" CounterSinkDiameterToleranceHoleClassLower="-0.00018288" CounterSinkDiameterToleranceHoleClassName="E0" CounterSinkDiameterToleranceShaftClassName="E0" IsHoleDepthToleranceApplied="0" HoleDepthToleranceType="seStandardFit_Tolerance" HoleDepthUnitToleranceUpper="0" HoleDepthUnitToleranceLower="0" HoleDepthToleranceHoleClassUpper="-0.000127" HoleDepthToleranceHoleClassLower="-0.00018288" HoleDepthToleranceHoleClassName="E0" HoleDepthToleranceShaftClassName="E0" IsHeadClearanceToleranceApplied="0" HeadClearanceToleranceType="seStandardFit_Tolerance" HeadClearanceUnitToleranceUpper="0" HeadClearanceUnitToleranceLower="0" HeadClearanceToleranceHoleClassUpper="-0.000127" HeadClearanceToleranceHoleClassLower="-0.00018288" HeadClearanceToleranceHoleClassName="E0" HeadClearanceToleranceShaftClassName="E0" IsThreadTaperDepthToleranceApplied="0" ThreadTaperDepthToleranceType="seUnit_Tolerance" ThreadTaperDepthUnitToleranceUpper="0" ThreadTaperDepthUnitToleranceLower="0" ThreadTaperDepthToleranceHoleClassUpper="-0.000127" ThreadTaperDepthToleranceHoleClassLower="-0.00018288" ThreadTaperDepthToleranceHoleClassName="E0" ThreadTaperDepthToleranceShaftClassName="E0" />
+    </Hole>
+    <Round EdgeSetCount="1" ShowDimensions="False" Name="Round_6" Suppress="False" Type="igRoundFeatureObject" ModelingModeType="seModelingModeOrdered" DisplayName="Round_6" SystemName="Round_6" EdgebarName="Round 6" Visible="True" />
+    <Round EdgeSetCount="1" ShowDimensions="False" Name="Round_5" Suppress="False" Type="igRoundFeatureObject" ModelingModeType="seModelingModeOrdered" DisplayName="Round_5" SystemName="Round_5" EdgebarName="Round 5" Visible="True" />
+    <Chamfer ChamferType="igChamfer45degSetback" ChamferSetbackValue1="0.000762" ChamferSetbackAngle="45" ShowDimensions="False" Name="Chamfer_4" Suppress="False" Type="igChamferFeatureObject" ModelingModeType="seModelingModeOrdered" DisplayName="Chamfer_4" SystemName="Chamfer_4" EdgebarName="Chamfer 4" Visible="True" />
+    <Pattern NumberOfOccurrences="8" NumberOfInputFeatures="1" Name="Pattern_3" ShowDimensions="False" Suppress="False" Type="igPatternFeatureObject" PatternType="seFastPattern" ModelingModeType="seModelingModeOrdered" ReferenceOccurrence="0" DisplayName="Pattern_3" SystemName="Pattern_3" EdgebarName="Pattern 3" Visible="True" />
+  </Model>
+  <Profile name="Profile_31">
+    <Line xyz="2.90754000465809E-18,0.0474853,0.010414,3.69371891471675E-18,0.060325,0.010414" />
+    <Line xyz="3.69371891471675E-18,0.060325,0.010414,3.69371891471675E-18,0.060325,0.000761999999999994" />
+    <Line xyz="3.69371891471675E-18,0.060325,0.000761999999999993,1.45960219008912E-18,0.0238379,0.00076199999999999" />
+    <Line xyz="1.45960219008912E-18,0.0238379,0.00076199999999999,1.45960219008912E-18,0.0238379,0.022352" />
+    <Line xyz="2.90754000465809E-18,0.0474853,0.022352,1.45960219008912E-18,0.0238379,0.022352" />
+    <Line xyz="2.90754000465809E-18,0.0474853,0.010414,2.90754000465809E-18,0.0474853,0.022352" />
+  </Profile>
+  <Profile name="Profile_32">
+    <Line xyz="0,0,0.000761999999999995,3.26602514564428E-18,0.05334,0.000761999999999995" />
+  </Profile>
+  <Profile name="Profile_33" />
+  <Profile name="Profile_35">
+    <Line xyz="2.90987287976212E-18,0.0475234,0.01397,2.77145562358957E-18,0.0452628,0.01397" />
+    <Line xyz="2.77145562358957E-18,0.0452628,0.01397,2.77145562358957E-18,0.0452628,0.0175895" />
+    <Line xyz="2.77145562358957E-18,0.0452628,0.0175895,2.90987287976212E-18,0.0475234,0.0175895" />
+    <Line xyz="2.90987287976212E-18,0.0475234,0.0175895,2.90987287976212E-18,0.0475234,0.01397" />
+  </Profile>
+  <Profile name="Profile_40" />
+  <Profile name="Profile_39">
+    <Line xyz="0.049279734264152,-0.0204123342823539,0.000761999999999991,-0.049279734264152,0.0204123342823539,0.000761999999999991" />
+    <Circle xyz="-4.33680868994202E-18,-4.33680868994202E-18,0.000761999999999991" radius="0.05334" />
+  </Profile>
+  <Profile name="Profile_44" />
+</Part>
