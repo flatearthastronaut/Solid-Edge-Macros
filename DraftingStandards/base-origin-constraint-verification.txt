@@ -1,0 +1,2 @@
+BSPT-02 to SAE-04 ORB Adapter.dft: PASS 1 native point-on relations to the model Base CSYS origin; source-view movement and saved/reopened relationship targets verified. Geometry, content, existing Horizontal/Vertical constraints and annotation styles retained.
+BSPT-02 to SAE-04 ORB Adapter - Plane Sections.dft: PASS 2 native point-on relations to the model Base CSYS origin; source-view movement and saved/reopened relationship targets verified. Geometry, content, existing Horizontal/Vertical constraints and annotation styles retained.

@@ -21,7 +21,7 @@ partial class BuildFitting {
   var end=View(link,D.ViewOrientationConstants.igTopView,4,12.4,7.5);end.SetViewOrientation(0,0,1,1,0,0);end.Update();Center(end,12.4,7.5);
   var cp=Keep(end.CuttingPlanes.Add());cp.Caption="A";cp.TextHeight=.12*Inch;cp.TextColor=0;
   var p0=Map(end,P(0,-.41,Length));var p1=Map(end,P(0,.41,Length));
-  var profile=Keep(cp.Profile);profile.BeginEdit();var cutLine=Keep(profile.Lines2d.AddBy2Points(p0[0],p0[1],p1[0],p1[1]));AxisConstraints.Ensure(Keep(profile.Relations2d),cutLine);profile.EndEdit();Console.WriteLine("Section profile: "+profile.Validate());
+  var profile=Keep(cp.Profile);profile.BeginEdit();var cutLine=Keep(profile.Lines2d.AddBy2Points(p0[0],p0[1],p1[0],p1[1]));AxisConstraints.Ensure(Keep(profile.Relations2d),cutLine);profile.EndEdit();BaseOriginConstraints.Ensure(cp);Console.WriteLine("Section profile: "+profile.Validate());
   cp.ViewSide=F.SectionViewProfileSide.igLeftProfileSide;
   var section=Keep(cp.CreateView(D.DraftSectionViewType.seDraftSectionViewTypeStandard));section.Sheet=sheet;section.ScaleFactor=4;section.Crop=false;section.CroppedVHL=false;section.LockView=false;section.SectionOnly=false;
   SetDisplay(section);section.Defaults_ShowSectionHatch=true;for(int i=1;i<=section.ModelMembers.Count;i++)section.ModelMembers.Item(i).DisplayType=D.ModelMemberDisplayTypeConstants.seSectionPart;

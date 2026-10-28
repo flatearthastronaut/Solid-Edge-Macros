@@ -68,7 +68,7 @@ partial class BuildFitting {
    try{if(p.Name.StartsWith("Part")&&p.Models.Count==1&&p.Models.Item(1).ExtrudedProtrusions.Item(1).Name=="11-16 HEX STOCK x 1.090"){Console.WriteLine("Closing unused fitting trial "+p.Name);p.Close(false);}}catch{}
   }
  } static void CheckDesign(){
-  AxisConstraints.Test();
+  AxisConstraints.Test();BaseOriginConstraints.Test();
   if(Math.Abs(MaleRadius(4/25.4)*2-9.728/25.4)>1e-10)throw new Exception("BSPT gauge plane diameter");
   if(Math.Abs((MaleRadius(.35)-MaleRadius(0))*2/.35-1.0/16)>1e-10)throw new Exception("BSPT taper");
   if(Length-TapDepth<=Shoulder||PortU<.487||PortU>.492||PortK<.093||MouthR<.004||MouthR>.008||ThreadDepth<.454||TapDepth<.547)throw new Exception("Port/stock depth check");

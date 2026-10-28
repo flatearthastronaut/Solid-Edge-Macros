@@ -15,9 +15,10 @@ partial class DimensionStandardTool {
  [STAThread]static int Main(string[] args){
   try{using(var filter=new BusyFilter()){
    root=Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,".."));
-   if(args.Length>0 && args[0]=="--test"){AxisConstraints.Test();Console.WriteLine("PASS: horizontal, vertical, diagonal and zero-length classification");return 0;}
+   if(args.Length>0 && args[0]=="--test"){AxisConstraints.Test();BaseOriginConstraints.Test();Console.WriteLine("PASS: horizontal, vertical, diagonal and zero-length classification");return 0;}
    styleType=Assembly.LoadFrom(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),"Siemens","Solid Edge 2026","Program","interop.SolidEdgeFrameworkSupportLib.dll")).GetType("SolidEdge.FrameworkSupport.Interop.DimStyle");
    app=Marshal.GetActiveObject("SolidEdge.Application");
+   if(args.Length>0 && args[0]=="--connect-origins"){ConnectOrigins();return 0;}
    if(args.Length>0 && args[0]=="--apply"){ApplyAndVerify();return 0;}
    if(args.Length>0 && args[0]=="--apply-annotations"){ApplyAnnotations();return 0;}
    if(args.Length>0 && args[0]=="--annotations"){AuditAnnotations();return 0;}

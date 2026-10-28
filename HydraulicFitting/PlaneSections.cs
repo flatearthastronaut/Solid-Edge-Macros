@@ -62,7 +62,7 @@ partial class BuildFitting {
   double dx=normal[1],dy=-normal[0];
   var a=Map(top,fromFront?P(0,0,-.13):P(-.52*dx,-.52*dy,Length));var b=Map(top,fromFront?P(0,0,Length+.13):P(.52*dx,.52*dy,Length));
   var cp=Keep(top.CuttingPlanes.Add());cp.Caption=caption;cp.TextFont="Arial";cp.TextHeight=.14*Inch;cp.TextColor=0;cp.TerminatorRatio=.7;cp.LineWidth=.008*Inch;cp.LineDisplayStyle=S.CuttingPlaneLineDisplayStyleConstants.seThickCornersOnly;
-  var profile=Keep(cp.Profile);profile.BeginEdit();var cutLine=Keep(profile.Lines2d.AddBy2Points(a[0],a[1],b[0],b[1]));AxisConstraints.Ensure(Keep(profile.Relations2d),cutLine);profile.EndEdit();
+  var profile=Keep(cp.Profile);profile.BeginEdit();var cutLine=Keep(profile.Lines2d.AddBy2Points(a[0],a[1],b[0],b[1]));AxisConstraints.Ensure(Keep(profile.Relations2d),cutLine);profile.EndEdit();BaseOriginConstraints.Ensure(cp);
   Console.WriteLine("CUT "+caption+" "+profile.Validate());
   cp.ViewSide=fromFront?F.SectionViewProfileSide.igLeftProfileSide:F.SectionViewProfileSide.igRightProfileSide;
   var v=Keep(cp.CreateView(D.DraftSectionViewType.seDraftSectionViewTypeStandard));v.Sheet=sheet;v.ScaleFactor=2.5;v.Crop=false;v.CroppedVHL=false;v.LockView=false;v.SectionOnly=false;v.SectionFullModel=true;SetDisplay(v);v.Defaults_ShowSectionHatch=true;
