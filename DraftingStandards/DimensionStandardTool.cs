@@ -8,7 +8,7 @@ using D=SolidEdge.Draft.Interop;
 using S=SolidEdge.FrameworkSupport.Interop;
 using F=SolidEdge.Framework.Interop;
 
-class DimensionStandardTool {
+partial class DimensionStandardTool {
  static dynamic app;
  static Type styleType;
  static string root;
@@ -19,6 +19,8 @@ class DimensionStandardTool {
    styleType=Assembly.LoadFrom(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),"Siemens","Solid Edge 2026","Program","interop.SolidEdgeFrameworkSupportLib.dll")).GetType("SolidEdge.FrameworkSupport.Interop.DimStyle");
    app=Marshal.GetActiveObject("SolidEdge.Application");
    if(args.Length>0 && args[0]=="--apply"){ApplyAndVerify();return 0;}
+   if(args.Length>0 && args[0]=="--apply-annotations"){ApplyAnnotations();return 0;}
+   if(args.Length>0 && args[0]=="--annotations"){AuditAnnotations();return 0;}
    if(args.Length>0 && args[0]=="--constraints"){ConstrainCuts();return 0;}
    var audit=new XElement("DimensionAudit");
    Audit(Path.Combine(root,"detailing example 1.dft"),"Reference",audit);

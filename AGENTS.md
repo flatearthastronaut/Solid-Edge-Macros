@@ -5,6 +5,7 @@
 - Always use third-angle projection for drawings.
 - Keep section views aligned with their parent/projected views.
 - Match dimension presentation to `DraftingStandards/detailing example 1.dft`, using `DraftingStandards/ReferenceDimensionStyle.cs` and its audited property snapshot. Match Lines and Coordinate settings and the teal Driven dimension color (8421376); retain the job's required units, precision, and tolerances.
+- Also match the reference's centerlines, center marks, cutting planes, text, leaders, callouts, surface-finish symbols, tolerance formatting, and title-block field styles. Use `DraftingStandards/ReferenceAnnotationStyle.cs` and `annotation-presentation-standard.xml`, choosing the appropriate annotation role and inch-only versus dual-unit Smart Depth format. Preserve actual limits, engineering content, feature links, section direction, and view alignment; enlarge/reposition text boxes when necessary instead of shrinking the reference text size.
 - Add native Horizontal or Vertical constraints to all horizontal/vertical lines created in sketches, cutting-plane profiles, and other editable drafting geometry. Use each profile's local coordinates; do not substitute visually aligned endpoints for constraints.
 - Create chamfer callouts with native Chamfer Dimensions, not manually typed notes.
 - Create hole callouts with the native Callout command, using model feature references and Smart Depth variables for hole/thread sizes and depths.

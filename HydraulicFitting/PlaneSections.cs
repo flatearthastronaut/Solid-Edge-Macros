@@ -53,7 +53,7 @@ partial class BuildFitting {
   CheckPlaneDraft(frontNormal,rightNormal);
   drawing.Close(false);drawing=Keep((D.DraftDocument)app.Documents.Open(planeDraftPath));sheet=drawing.Sheets.Item("PLANE SECTIONS");
   CheckPlaneDraft(frontNormal,rightNormal);
-  var moved=sheet.DrawingViews.Item(2);double ox,oy;moved.GetOrigin(out ox,out oy);try{moved.SetOrigin(ox+.08*Inch,oy+.08*Inch);app.DoIdle();CheckPlaneDraft(frontNormal,rightNormal);Console.WriteLine("PASS: moving Front section preserves view alignment");}finally{moved.SetOrigin(ox,oy);app.DoIdle();}CheckPlaneDraft(frontNormal,rightNormal);drawing.Save();PlanePreview();
+  var moved=sheet.DrawingViews.Item(2);double ox,oy;moved.GetOrigin(out ox,out oy);try{moved.SetOrigin(ox+.08*Inch,oy+.08*Inch);app.DoIdle();CheckPlaneDraft(frontNormal,rightNormal);Console.WriteLine("PASS: moving Front section preserves view alignment");}finally{moved.SetOrigin(ox,oy);app.DoIdle();}CheckPlaneDraft(frontNormal,rightNormal);ReferenceAnnotationStyle.Document(drawing);drawing.Save();PlanePreview();
   Console.WriteLine("SAVED "+planeDraftPath);
  }
  static D.DrawingView PlaneSection(D.DrawingView top,double[] normal,string caption,double x,double y,bool fromFront){

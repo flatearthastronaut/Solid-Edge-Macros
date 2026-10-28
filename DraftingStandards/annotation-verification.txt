@@ -1,0 +1,2 @@
+BSPT-02 to SAE-04 ORB Adapter.dft: PASS 6721 presentation properties after save/reopen; content, dimensions, tolerances, attachment states, view positions and constrained cut geometry unchanged.
+BSPT-02 to SAE-04 ORB Adapter - Plane Sections.dft: PASS 6917 presentation properties after save/reopen; content, dimensions, tolerances, attachment states, view positions and constrained cut geometry unchanged.
