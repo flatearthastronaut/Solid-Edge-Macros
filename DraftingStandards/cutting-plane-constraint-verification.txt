@@ -1,0 +1,2 @@
+BSPT-02 to SAE-04 ORB Adapter.dft: added 1; verified 1 axis constraints after save/reopen.
+BSPT-02 to SAE-04 ORB Adapter - Plane Sections.dft: added 2; verified 2 axis constraints after save/reopen.

@@ -1,0 +1,2 @@
+PASS: single valid solid; overall length 1.090 in; hex 0.6875 in; native 7/16-20 UNF hole, depth .460 in; BSPT taper envelope (thread helix omitted).
+Catalog envelope reproduced; undocumented machining details are design choices.

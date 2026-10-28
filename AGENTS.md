@@ -1,6 +1,13 @@
 # Project Guidelines
 
 ## Working Agreements
+- For future Solid Edge drafts, use the normal (new designs) draft template.
+- Always use third-angle projection for drawings.
+- Keep section views aligned with their parent/projected views.
+- Match dimension presentation to `DraftingStandards/detailing example 1.dft`, using `DraftingStandards/ReferenceDimensionStyle.cs` and its audited property snapshot. Match Lines and Coordinate settings and the teal Driven dimension color (8421376); retain the job's required units, precision, and tolerances.
+- Add native Horizontal or Vertical constraints to all horizontal/vertical lines created in sketches, cutting-plane profiles, and other editable drafting geometry. Use each profile's local coordinates; do not substitute visually aligned endpoints for constraints.
+- Create chamfer callouts with native Chamfer Dimensions, not manually typed notes.
+- Create hole callouts with the native Callout command, using model feature references and Smart Depth variables for hole/thread sizes and depths.
 - Ask clarifying questions when the task scope is unclear.
 - Keep pull requests small, focused, and reviewable.
 - Do not look into files outside of the project directory and its sub-directories

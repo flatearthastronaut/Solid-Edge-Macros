@@ -1,0 +1,2 @@
+PASS: saved draft reopened; four model-linked views including axial section; seven associated dimensions; two native Chamfer Dimensions; three Callouts, with feature references and Smart Thread Depth for the SAE hole.
+Port mouth .489 +.003/-.002 in. Inch units verified.

@@ -1,0 +1,25 @@
+HYDRAULIC ADAPTER - DESIGN BASIS
+Native Solid Edge part and model-linked draft. Created 2026-10-28.
+
+Catalog reference: Parker 1/8-4F3HG5, male 1/8-28 BSPT to female -4 SAE ORB.
+Envelope: 11/16 inch hex stock; 1.09 inch overall length.
+Material basis: ASTM A108 12L14 steel; zinc plate.
+Parker catalog (supplier-hosted original):
+https://cdn11.bigcommerce.com/s-ca10qrhzok/content/documents/parker-pipe-fittings-port-adapters.pdf
+
+SAE port geometry basis: Parker Tube Fitting Installation Manual, Table 31, printed page 66.
+https://i-consolutions.com/wp-content/uploads/2023/06/FITTING-INSTALLATION-MANUAL_BUL_4200-B4.pdf
+Port: 7/16-20 UNF-2B native Hole feature; .460 inch thread depth; .560 inch tap drill depth.
+Entrance: .489 inch diameter (+.003/-.002); .093 inch depth; 12 degree cone; .006 inch mouth radius.
+Passage: .188 inch native Hole feature.
+
+External BSPT envelope: 1:16 diameter taper; 9.728 mm major diameter at the nominal gauge plane 4 mm from the small end. ISO 7-1 controls the thread specification.
+https://emsalvana.com/en/iso-7-1
+The external thread is represented by its tapered envelope and specification, not a native Thread feature. Thread helices are omitted. The internal thread is a native threaded Hole with model metadata.
+
+Reconstructed machining choices not dimensioned by the supplier catalog:
+.400 inch male projection; .020 x 45 degree outside edge treatments; port machining depths and entrance nominal selected within the referenced port limits. This is a catalog-based reconstruction, not an original Parker manufacturing model. Pressure rating has not been assigned or verified.
+
+Draft uses the supplied normal (new design) template, inch dimensions, model-linked views and section, native Chamfer Dimensions, and native hole Callouts with feature references and Smart Thread Depth. Source template files on H: were not modified.
+
+Validation: one valid solid body; native feature statuses checked; drawing dimensions and callouts checked and saved draft reopened successfully. See model-validation.txt and drawing-validation.txt.
