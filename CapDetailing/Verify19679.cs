@@ -25,6 +25,7 @@ partial class CapDetailTool {
   csection.SetCaptionPosition(captionX,captionY);cdoc.Save();cdoc.Close(false);Marshal.ReleaseComObject(cdoc);LoadCap();
   var report=new XElement("CAP19679Verification",new XAttribute("file",CapPath),new XAttribute("thirdAngle",true),new XAttribute("alignmentMovementTest",true));
   CRequire(csh.DrawingViews.Count==3,"Expected three views");
+  VerifyViewPresentation19679();report.SetAttributeValue("topViewHiddenLines",true);report.SetAttributeValue("orthographicScale","5:8");report.SetAttributeValue("isometricScale","2:5");
   foreach(D.DrawingView view in csh.DrawingViews){CRequire(view.IsUpToDate,"Drawing view out of date");report.Add(Scalars(view,"Draft","DrawingView","View"));}
   CRequire(cdoc.MaintainAlignmentSet,"Maintain alignment is disabled");cface.GetOrigin(out fx,out fy);csection.GetOrigin(out sx,out sy);CRequire(Math.Abs(fy-sy)<1e-8&&sx<fx,"Saved section alignment differs");
   var cut=cface.CuttingPlanes.Item(1);CRequire(BaseOriginConstraints.Ensure(cut,true)==1,"Missing saved Base-origin constraint");foreach(S.Line2d line in cut.Profile.Lines2d){double x,y,a,b;line.GetStartPoint(out x,out y);line.GetEndPoint(out a,out b);int kind=AxisConstraints.Direction(x,y,a,b);CRequire(kind!=0&&AxisConstraints.Has(line,kind),"Cutting line lacks native axis constraint");}

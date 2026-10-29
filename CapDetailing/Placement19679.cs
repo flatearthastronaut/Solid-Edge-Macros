@@ -104,6 +104,7 @@ partial class CapDetailTool {
   // the relevant silhouette. The additional retained dimensions need more room
   // than the example, so their labels use separate upper and lower rows.
   double[,] pos={{1,.077,.165},{2,.035,.165},{3,.054,.188},{4,.196,.175},{5,.173,.151},{18,.216,.139},{6,.108,.263},{7,.100,.082},{8,.166,.082},{9,.164,.237},{10,.083,.252},{11,.065,.238},{19,.181,.251}};
+  if(csection.ScaleFactor<.7)pos=new double[,]{{1,.077,.165},{2,.035,.165},{3,.054,.188},{4,.196,.175},{5,.173,.151},{18,.216,.139},{6,.108,.262},{7,.100,.085},{8,.192,.085},{9,.164,.235},{10,.083,.249},{11,.065,.235},{19,.181,.249}};
   for(int i=0;i<pos.GetLength(0);i++)PutLinear(ByRole(dims,(int)pos[i,0]),pos[i,1],pos[i,2]);
   ByRole(dims,10).Style.SecondaryDecimalRoundOff=S.DimDecimalRoundOffTypeConstants.igDimStyleDecimal_4;
   var bc=ByRole(dims,12);bc.TerminatorPosition=true;bc.DisplayHalf=false;bc.BreakPosition=S.DimBreakPositionConstants.igDimBreakRight;SetRadialDirection(bc,5*Math.PI/6);bc.LeaderDistance=-.00476250005885959;bc.BreakDistance=.007;
@@ -113,9 +114,9 @@ partial class CapDetailTool {
   // a shorter transient value is normalized on reopening and shifts the label.
   chamfer=ByRole(dims,14);chamfer.TerminatorPosition=true;chamfer.BreakPosition=S.DimBreakPositionConstants.igDimBreakRight;chamfer.BreakDistance=.012;chamfer.LeaderDistance=-.0390841104090214;
   var rad=ByRole(dims,15);rad.BreakPosition=S.DimBreakPositionConstants.igDimBreakRight;rad.TrackDistance=.667314410209656;rad.BreakDistance=.00695227039977908;rad.LeaderDistance=.0047625;
-  rad=ByRole(dims,16);rad.BreakPosition=S.DimBreakPositionConstants.igDimBreakLeft;rad.TrackDistance=.56305342912674;rad.BreakDistance=.00715418625622988;rad.LeaderDistance=.0047625;
+  rad=ByRole(dims,16);rad.BreakPosition=S.DimBreakPositionConstants.igDimBreakLeft;rad.TrackDistance=.56305342912674;rad.BreakDistance=csection.ScaleFactor<.7?.02115418625622988:.00715418625622988;rad.LeaderDistance=.0047625;
   var hole=((S.Balloons)csh.Balloons).Item(1);hole.BreakLineDistance=.005;hole.SetKeyPoint(2,.257,.239,0);
-  double[,] finish={{.091,.19871772},{.040,.22991211},{.184,.21845352},{.043,.09917193},{.184,.11060193}};foreach(S.SurfaceFinishSymbol f in (S.SurfaceFinishSymbols)csh.SurfaceFinishSymbols)f.SetKeyPoint(1,finish[f.Index-1,0],finish[f.Index-1,1],0);
+  double[,] finish={{.091,.19871772},{.040,.22991211},{.184,.21845352},{.043,.09917193},{.184,.11060193}};foreach(S.SurfaceFinishSymbol f in (S.SurfaceFinishSymbols)csh.SurfaceFinishSymbols){double y=.165361170037598+(finish[f.Index-1,1]-.165361170037598)*csection.ScaleFactor/.75;f.SetKeyPoint(1,finish[f.Index-1,0],y,0);}
   csection.SetCaptionPosition(.132,.065);
  }
  static void InspectPlacement19679(){LoadCap();PrintPlacement(cdoc,"CURRENT");string path=Path.Combine(folder,"CAP_19679-actual.dft");bool wasOpen=IsOpen(path);var reference=(D.DraftDocument)app.Documents.Open(path);try{PrintPlacement(reference,"ACTUAL");}finally{if(!wasOpen)reference.Close(false);Marshal.ReleaseComObject(reference);}cdoc.Activate();}

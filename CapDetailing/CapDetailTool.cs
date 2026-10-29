@@ -32,6 +32,8 @@ partial class CapDetailTool {
   else if(args[0]=="--19679-links")InspectDimensionLinks19679();
   else if(args[0]=="--19679-edge-keys")ProbeNativeKeys19679();
   else if(args[0]=="--19679-placement-refine"){LoadCap();PlaceGrouped19679();cdoc.Save();CPreview();}
+  else if(args[0]=="--19679-resize-hidden")ResizeAndShowHidden19679();
+  else if(args[0]=="--19679-hidden-inspect")InspectHiddenMembers19679();
   else throw new ArgumentException("Unknown mode");
  }return 0;}catch(Exception ex){Console.WriteLine(ex);return 1;}}
  static Type Api(string library,string name){return Assembly.LoadFrom(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),"Siemens","Solid Edge 2026","Program","interop.SolidEdge"+library+"Lib.dll")).GetType("SolidEdge."+library+".Interop."+name);}
@@ -65,7 +67,10 @@ partial class CapDetailTool {
   }
  }
  static void AuditPart(bool render=true){
-  var part=(P.PartDocument)app.Documents.Open(partPath);var result=Scalars(part,"Part","PartDocument","Part");
+  // Reuse a loaded part instead of opening it again: a redundant Open can raise
+  // an assembly-context prompt even though the intended part is already loaded.
+  P.PartDocument part=null;for(int i=1;i<=app.Documents.Count;i++){dynamic candidate=app.Documents.Item(i);if(string.Equals((string)candidate.FullName,partPath,StringComparison.OrdinalIgnoreCase)){part=(P.PartDocument)candidate;break;}Marshal.ReleaseComObject(candidate);}
+  if(part==null)part=(P.PartDocument)app.Documents.Open(partPath);var result=Scalars(part,"Part","PartDocument","Part");
   Console.WriteLine("Part properties");var sets=(F.PropertySets)part.Properties;for(int si=1;si<=sets.Count;si++){var props=sets.Item(si);var group=new XElement("PropertySet",new XAttribute("name",props.Name));result.Add(group);for(int pi=1;pi<=props.Count;pi++){var p=props.Item(pi);try{group.Add(new XElement("Property",new XAttribute("name",p.Name),new XAttribute("value",Val(p.get_Value()))));}catch{}}}
   Console.WriteLine("Models="+part.Models.Count);foreach(P.Model model in part.Models){var m=new XElement("Model",new XAttribute("name",model.Name));result.Add(m);var body=(G.Body)model.Body;Array low=new double[3],high=new double[3];body.GetExactRange(ref low,ref high);m.SetAttributeValue("low",string.Join(",",(double[])low));m.SetAttributeValue("high",string.Join(",",(double[])high));m.SetAttributeValue("volume",body.Volume);m.SetAttributeValue("valid",body.Valid);
    string[] groups={"ExtrudedProtrusions","RevolvedProtrusions","ExtrudedCutouts","RevolvedCutouts","Holes","Rounds","Chamfers","Patterns","Threads","Mirrors"};

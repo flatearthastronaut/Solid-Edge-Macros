@@ -48,3 +48,13 @@ Placement correction, 2026-10-29:
 - The temporary recovery draft was closed and removed after verification.
 
 CAP_19679.dft is the final working drawing. No files were pushed.
+
+Hidden-line and scale revision, 2026-10-29:
+- Top-view hidden lines enabled using the Hidden style on its projected body.
+- Top and aligned section reduced from 0.75 to 0.625 (5:8); the linked sheet
+  scale and section caption display the equivalent native ratio 1:1.6.
+- Shaded isometric reduced from 0.5 to 0.4. Dimension text remains 0.125 inch.
+- Lower axial dimensions and the R.015 callout separated to avoid text clashes.
+- Saved/reopened hidden-line settings, scales, annotation positions, values,
+  notes, section alignment, Base constraint, and model geometry all verified.
+- The temporary scale-change recovery draft was removed after verification.
