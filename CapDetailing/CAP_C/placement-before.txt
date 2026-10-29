@@ -16,4 +16,4 @@
 10|0.001524|0.5235987756|igDimDisplayTypeNominal||||||[/1.52/ X 30°/[/.060/]
 2|0.000381|0|igDimDisplayTypeNominal||||TYP||R/[/.38/[/.015/]/TYP
 2|0.001524|0|igDimDisplayTypeNominal||||TYP||R/[/1.52/[/.060/]/TYP
-4|0.162814|0|igDimDisplayTypeNominal|| B.C.||||O/[/162.81/[/6.410/]/ B.C.
+4|0.162814|0|igDimDisplayTypeNominal|| B.C.||||O/[/162.81/[/6.41/]/ B.C.

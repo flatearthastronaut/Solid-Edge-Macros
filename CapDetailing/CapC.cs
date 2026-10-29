@@ -7,6 +7,33 @@ using D=SolidEdge.Draft.Interop;
 using S=SolidEdge.FrameworkSupport.Interop;
 
 partial class CapDetailTool {
+ static void ApplyCapCounterborePrecision(){
+  // These caps have one counterbored clearance-hole pattern. Change only its
+  // callout and bolt-circle dimension; other fits retain their precision.
+  var bc=ByRole((S.Dimensions)csh.Dimensions,12);
+  var hole=((S.Balloons)csh.Balloons).Item(1);
+  foreach(var style in new[]{bc.Style,hole.Style})try{
+   style.PrimaryDecimalRoundOff=S.DimDecimalRoundOffTypeConstants.igDimStyleDecimal_2;
+   style.SecondaryDecimalRoundOff=S.DimDecimalRoundOffTypeConstants.igDimStyleDecimal_2;
+  }finally{Release(style);}
+ }
+ static void UpdateCapCHolePrecision(){
+  capName="CAP_C";LoadCap();
+  var dims=(S.Dimensions)csh.Dimensions;
+  var unaffected=dims.Cast<S.Dimension>().Where(d=>d.GetComment()!=ByRole(dims,12).GetComment()).Select(EngineeringFingerprint).OrderBy(s=>s).ToArray();
+  var notes=AnnotationContent(csh);
+  ApplyCapCounterborePrecision();cdoc.Save();cdoc.Close(false);Release(cdoc);LoadCap();
+  dims=(S.Dimensions)csh.Dimensions;var bc=ByRole(dims,12);var hole=((S.Balloons)csh.Balloons).Item(1);
+  foreach(var style in new[]{bc.Style,hole.Style})try{CRequire(style.PrimaryDecimalRoundOff==S.DimDecimalRoundOffTypeConstants.igDimStyleDecimal_2&&style.SecondaryDecimalRoundOff==S.DimDecimalRoundOffTypeConstants.igDimStyleDecimal_2,"Two-place precision did not persist");}finally{Release(style);}
+  CRequire(CTexts(bc).Contains("6.41")&&!CTexts(bc).Contains("6.410"),"Bolt-circle displayed precision differs");
+  CRequire(unaffected.SequenceEqual(dims.Cast<S.Dimension>().Where(d=>d.GetComment()!=bc.GetComment()).Select(EngineeringFingerprint).OrderBy(s=>s)),"Unrelated dimension changed");
+  CRequire(notes.SequenceEqual(AnnotationContent(csh)),"Callout content changed unexpectedly");
+  // The user intentionally changed BC presentation, so refresh only the
+  // dimension baseline after checking that every other dimension is identical.
+  File.WriteAllLines(Path.Combine(CapWork,"placement-before.txt"),dims.Cast<S.Dimension>().Select(EngineeringFingerprint).OrderBy(s=>s));
+  Verify19679();CheckCapCValues();
+  Console.WriteLine("PASS: counterbore and BC precision is two places after reopening; other dimensions and callout feature references preserved.");
+ }
  static double[][] CapProfile(string name){var doc=XDocument.Load(Path.Combine(CapWork,"part-audit.xml"));return doc.Root.Elements("Profile").Single(e=>(string)e.Attribute("name")==name).Elements("Line").Select(e=>((string)e.Attribute("xyz")).Split(',').Select(s=>double.Parse(s,CultureInfo.InvariantCulture)).ToArray()).ToArray();}
  static double[] CapCValues(){
   // Read engineering nominals independently from the native profile audit.
@@ -25,6 +52,7 @@ partial class CapDetailTool {
   LoadCap();foreach(D.ModelLink link in cdoc.ModelLinks){try{link.ChangeSource(Path.Combine(folder,"CAP_C.par"));}finally{Release(link);}}
   foreach(D.DrawingView view in csh.DrawingViews){try{view.Update();}finally{Release(view);}}
   CheckCapCValues();
+  ApplyCapCounterborePrecision();
   // Retain the approved tolerance amounts; calculate new limit text from the
   // changed nominals. Do not copy the previous part's absolute limit values.
   var dims=(S.Dimensions)csh.Dimensions;

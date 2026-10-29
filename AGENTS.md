@@ -10,6 +10,7 @@
 - When a cutting plane passes through the model's Base coordinate-system origin, add a native point-on constraint between the model-linked projected Base origin and the cutting-plane segment. Use `DraftingStandards/BaseOriginConstraints.cs`; retain Horizontal/Vertical constraints and verify the Base connection after view movement and save/reopen. Matching coordinates alone is insufficient.
 - Create chamfer callouts with native Chamfer Dimensions, not manually typed notes.
 - Create hole callouts with the native Callout command, using model feature references and Smart Depth variables for hole/thread sizes and depths.
+- Use two decimal places for counterbored-hole and bolt-circle dimensions, three for threads and hydraulic/air holes, and four for dowel-pin dimensions. Apply the precision to native dimensions and feature-linked callout formatting; preserve thread designations and explicit fit tolerances.
 - Ask clarifying questions when the task scope is unclear.
 - Keep pull requests small, focused, and reviewable.
 - Do not look into files outside of the project directory and its sub-directories

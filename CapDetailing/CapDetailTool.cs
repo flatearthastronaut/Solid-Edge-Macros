@@ -24,6 +24,7 @@ partial class CapDetailTool {
   else if(args[0]=="--cap-b-audit"){partPath=Path.Combine(folder,"CAP_b.par");root=Path.Combine(root,"CAP_b");Directory.CreateDirectory(root);AuditPart(false);}
   else if(args[0]=="--cap-c-audit"){partPath=Path.Combine(folder,"CAP_C.par");root=Path.Combine(root,"CAP_C");Directory.CreateDirectory(root);AuditPart(false);}
   else if(args[0]=="--cap-c-create")CreateCapC();
+  else if(args[0]=="--cap-c-hole-precision")UpdateCapCHolePrecision();
   else if(args[0]=="--cap-c-verify"){capName="CAP_C";CheckCapCValues();Verify19679();}
   else if(args[0]=="--cap-b-create")CreateCapB();
   else if(args[0]=="--cap-b-verify"){capName="CAP_b";Verify19679();}
