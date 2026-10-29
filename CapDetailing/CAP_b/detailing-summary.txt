@@ -1,0 +1,19 @@
+CAP_b native Solid Edge draft
+Output: C:\Users\greg.lentner\Documents\Codex\cap detailing refs\CAP_b.dft
+Model link: CAP_b.par in the same folder.
+
+The supplied CAP_b model matches CAP_19679 in exact feature definitions,
+profile coordinates, body bounds, and volume. The completed CAP_19679 draft
+was copied and relinked using native Solid Edge model links. The source
+reference draft remained unchanged.
+
+Retained normal company template, third-angle projection, hidden top-view
+edges, 0.625-scale top and aligned section, 0.4-scale isometric, 19 driven
+dimensions, approved tolerances, native chamfer dimensions, feature-linked
+hole callout, centerlines/marks, five surface-finish symbols, and notes.
+
+Verification passed after reopening: content and annotation positions,
+section movement/alignment, Base-origin and vertical cutting-line constraints,
+solid-body hidden-line settings, model geometry, and CAP_b model link.
+Visual review confirmed the existing clear layout. No trial drafts created.
+No files pushed.

@@ -12,8 +12,9 @@ partial class CapDetailTool {
  static D.Sheet csh;
  static D.DrawingView cface,csection,ciso;
  const double HalfOD=.0882523;
- static string CapPath {get{return Path.Combine(folder,"CAP_19679.dft");}}
- static string CapWork {get{return Path.Combine(root,"CAP_19679");}}
+ static string capName="CAP_19679";
+ static string CapPath {get{return Path.Combine(folder,capName+".dft");}}
+ static string CapWork {get{return Path.Combine(root,capName);}}
  static void CText(string text,double x,double y,double width,double height){var box=((S.TextBoxes)csh.TextBoxes).Add(x,y,0);box.Text=text;box.Width=width;ReferenceAnnotationStyle.Apply("TextNote",box);box.Edit.TextSize=height;}
  static double[] CMap(D.DrawingView v,double x,double y,double z){double a,b;v.ModelToView(x,y,z,out a,out b);v.ViewToSheet(a,b,out a,out b);return new[]{a,b};}
  static double[] Rad(D.DrawingView v,double radius,double z){return CMap(v,Math.Cos(Math.PI/8)*radius,-Math.Sin(Math.PI/8)*radius,z);}
@@ -35,5 +36,5 @@ partial class CapDetailTool {
   foreach(S.Balloon field in (S.Balloons)csh.Background.Balloons)if(field.BalloonDisplayedText=="--04")field.BalloonText="-";
   cdoc.Save();CPreview();
  }
- static void CPreview(){Console.WriteLine("Readonly="+cdoc.ReadOnly+" Interactive="+app.Interactive+" DelayCompute="+app.DelayCompute);app.Interactive=true;app.DelayCompute=false;cdoc.Activate();csh.Activate();bool stale=false;foreach(D.DrawingView view in csh.DrawingViews)stale|=!view.IsUpToDate;if(stale)cdoc.UpdateAll(true);app.StartCommand((int)F.SolidEdgeCommandConstants.seRefreshViewCommand);app.DoIdle();var window=(D.SheetWindow)app.ActiveWindow;window.FitEx(D.SheetFitConstants.igFitSheet);window.Update();if(File.Exists(Path.Combine(CapWork,"CAP_19679-drawing.jpg")))File.Delete(Path.Combine(CapWork,"CAP_19679-drawing.jpg"));window.SaveAsImage(Path.Combine(CapWork,"CAP_19679-drawing.jpg"),3000,2000,1,24,F.SeImageQualityType.seImageQualityHigh,false);Marshal.ReleaseComObject(window);}
+ static void CPreview(){Console.WriteLine("Readonly="+cdoc.ReadOnly+" Interactive="+app.Interactive+" DelayCompute="+app.DelayCompute);app.Interactive=true;app.DelayCompute=false;cdoc.Activate();csh.Activate();bool stale=false;foreach(D.DrawingView view in csh.DrawingViews)stale|=!view.IsUpToDate;if(stale)cdoc.UpdateAll(true);app.StartCommand((int)F.SolidEdgeCommandConstants.seRefreshViewCommand);app.DoIdle();var window=(D.SheetWindow)app.ActiveWindow;window.FitEx(D.SheetFitConstants.igFitSheet);window.Update();if(File.Exists(Path.Combine(CapWork,capName+"-drawing.jpg")))File.Delete(Path.Combine(CapWork,capName+"-drawing.jpg"));window.SaveAsImage(Path.Combine(CapWork,capName+"-drawing.jpg"),3000,2000,1,24,F.SeImageQualityType.seImageQualityHigh,false);Marshal.ReleaseComObject(window);}
 }

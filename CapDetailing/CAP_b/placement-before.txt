@@ -1,0 +1,19 @@
+1|0.0013782925|0|igDimDisplayTypeNominal||||||[/1.38/[/.0543/]
+1|0.0036195|0|igDimDisplayTypeLimits||||||3.68/3.56/.145/.140/[/[/]
+1|0.0036195|0|igDimDisplayTypeLimits||||||3.68/3.56/.145/.140/[/[/]
+1|0.00762|0|igDimDisplayTypeLimits||||||7.65/7.59/.301/.299/[/[/]
+1|0.0084134075|0|igDimDisplayTypeLimits||||||8.44/8.39/.3322/.3302/[/[/]
+1|0.0127|0|igDimDisplayTypeNominal||||||[/12.70/[/.500/]
+1|0.022352|0|igDimDisplayTypeNominal||||||[/22.35/[/.880/]
+1|0.0889508|0|igDimDisplayTypeLimits|%DI |||||88.98/88.93/3.503/3.501/[/[/]/%DI 
+1|0.1415796|0|igDimDisplayTypeLimits|%DI |||||141.63/141.53/5.576/5.572/[/[/]/%DI 
+1|0.1460246|0|igDimDisplayTypeLimits|%DI |||||146.05/146.00/5.750/5.748/[/[/]/%DI 
+1|0.1721358|0|igDimDisplayTypeLimits|%DI |||||172.19/172.08/6.779/6.775/[/[/]/%DI 
+1|0.17526|0|igDimDisplayTypeNominal|%DI |||||[/175.26/[/6.900/]/%DI 
+1|0.1765046|0|igDimDisplayTypeLimits|%DI |||||176.53/176.48/6.950/6.948/[/[/]/%DI 
+10|0.0006223|0.7853981634|igDimDisplayTypeNominal||||||[/.62/ X 45°/[/.0245/]
+10|0.000762|0.7853981634|igDimDisplayTypeNominal||||TYP||[/.76/ X 45°/[/.030/]/TYP
+10|0.001524|0.5235987756|igDimDisplayTypeNominal||||||[/1.52/ X 30°/[/.060/]
+2|0.000381|0|igDimDisplayTypeNominal||||TYP||R/[/.38/[/.015/]/TYP
+2|0.001524|0|igDimDisplayTypeNominal||||TYP||R/[/1.52/[/.060/]/TYP
+4|0.16129|0|igDimDisplayTypeNominal|| B.C.||||O/[/161.29/[/6.350/]/ B.C.

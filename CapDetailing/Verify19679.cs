@@ -41,7 +41,7 @@ partial class CapDetailTool {
   // Compare the model's complete audited feature definitions and profile points,
   // plus exact body range and volume, against the snapshot taken before drafting.
   string work=CapWork,oldRoot=root,oldPart=partPath;var baseline=XDocument.Load(Path.Combine(work,"part-audit.xml"));
-  try{root=Path.Combine(work,"Verified Model");Directory.CreateDirectory(root);partPath=Path.Combine(folder,"CAP_19679.par");AuditPart(false);var current=XDocument.Load(Path.Combine(root,"part-audit.xml"));VerifyGeometrySnapshot(baseline,current);}
+  try{root=Path.Combine(work,"Verified Model");Directory.CreateDirectory(root);partPath=Path.Combine(folder,capName+".par");AuditPart(false);var current=XDocument.Load(Path.Combine(root,"part-audit.xml"));VerifyGeometrySnapshot(baseline,current);}
   finally{root=oldRoot;partPath=oldPart;}
   VerifyPreservedNotes19679();report.SetAttributeValue("placementOnlyContentPreserved",true);report.SetAttributeValue("annotationPositionsSurviveReopen",true);report.SetAttributeValue("modelGeometryUnchanged",true);new XDocument(report).Save(Path.Combine(work,"final-verification.xml"));CPreview();Console.WriteLine("PASS: 3 current views; aligned section; Base and vertical constraints; 19 driven dimensions; all original displayed content and notes preserved; positions survive reopening; verified displayed limits; native hole callout; 5 attached finishes; unchanged model geometry.");
  }
