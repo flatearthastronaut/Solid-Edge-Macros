@@ -1,0 +1,26 @@
+CAP_C native Solid Edge draft
+Output: C:\Users\greg.lentner\Documents\Codex\cap detailing refs\CAP_C.dft
+Linked model: CAP_C.par in the same folder.
+
+CAP_C is a dimensional variant of CAP_19679. Its diameters, overall thickness,
+flange thickness, groove roots/widths/locations, bolt circle, small chamfer,
+and neck dimensions differ. Reused the verified drawing layout and native
+associations, then independently checked all 19 resulting nominal measurements
+against CAP_C's audited sketch geometry and unchanged round/chamfer features.
+
+Retained the previously selected family tolerance amounts: mating diameters
++/- .001 inch, groove roots +/- .002 inch, groove widths +/- .0025 inch,
+and groove locations +/- .001 inch. The new limits calculate from CAP_C's
+nominals; the previous part's absolute upper/lower limits were not copied.
+
+Normal company template; third-angle projection; hidden lines in the top view;
+aligned section; 0.625 orthographic scale and 0.4 isometric scale. Preserved
+native chamfer dimensions, feature-based hole callout, centerlines/marks,
+finish symbols, full-size text, and reference machining notes.
+
+Verified after reopening: all dimensions driven and correctly measured;
+limit arithmetic; stable annotation placement; model links; section alignment;
+Base-origin and vertical cutting-line constraints; unchanged CAP_C geometry.
+Visual review passed. Original CAP_19679 draft unchanged. No trial drafts.
+The supplied model's existing title-block metadata was retained.
+No files pushed.
