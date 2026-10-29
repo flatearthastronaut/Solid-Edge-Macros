@@ -20,9 +20,10 @@ Tolerance choices:
   displayed limits .3322/.3302 avoid silently substituting a .330 nominal.
 - Other dimensions use the template's general tolerances.
 
-The linked model save was explicitly authorized. Exact body range, volume,
+The linked model save was explicitly authorized. Exact body range,
 feature definitions, and all audited profile coordinates match the initial
-part audit. Saved-file checks also verify native displayed limit arithmetic,
+part audit. Integrated volume agrees within floating-point rounding.
+Saved-file checks also verify native displayed limit arithmetic,
 unmodified dimension values, driven associations, and the native Base-origin
 point-on and vertical cutting-line constraints. The parent view was moved and
 restored to test section alignment; these relationships also passed reopening.
@@ -31,4 +32,19 @@ final-verification.xml records the native dimensions and displayed text.
 Verified Model/part-audit.xml records the final linked part geometry.
 CAP_19679-drawing.jpg is the final visual review image.
 
-No extra CAP_19679 draft versions were created. No files were pushed.
+Placement correction, 2026-10-29:
+- CAP_19679-actual.dft supplied the view spacing and grouping reference.
+- Greg selected placement only: all 19 existing measured dimensions, displayed
+  values, tolerances, notes, callout variables, and finishes were preserved.
+- Diameter dimensions are nested beside the section. Axial dimensions are
+  grouped above and below; upper dimensions attach to upper model edges.
+- Short external leaders replace the bolt-circle line through the face view.
+  Chamfer/radius notes, the hole callout, and section caption have clear space.
+- ASME Y14.5 section 4.4 placement guidance and Y14.2/Y14.100 references are
+  recorded in DraftingStandards/README.md. This is not a compliance certification.
+- Candidate annotations were checked against exact native projected-edge keys
+  before replacing originals. Saved/reopened text locations, engineering
+  content, alignment, constraints and model geometry passed verification.
+- The temporary recovery draft was closed and removed after verification.
+
+CAP_19679.dft is the final working drawing. No files were pushed.

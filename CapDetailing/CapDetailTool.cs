@@ -26,6 +26,12 @@ partial class CapDetailTool {
   else if(args[0]=="--verify")VerifySavedDrawing();
   else if(args[0]=="--19679-final-layout")FinalLayout19679();
   else if(args[0]=="--19679-verify")Verify19679();
+  else if(args[0]=="--19679-actual-audit"){root=Path.Combine(root,"CAP_19679","Actual Reference");Directory.CreateDirectory(Path.Combine(root,"Reference Previews"));AuditReferences("CAP_19679-actual.dft");}
+  else if(args[0]=="--19679-placement-inspect")InspectPlacement19679();
+  else if(args[0]=="--19679-rearrange")Rearrange19679();
+  else if(args[0]=="--19679-links")InspectDimensionLinks19679();
+  else if(args[0]=="--19679-edge-keys")ProbeNativeKeys19679();
+  else if(args[0]=="--19679-placement-refine"){LoadCap();PlaceGrouped19679();cdoc.Save();CPreview();}
   else throw new ArgumentException("Unknown mode");
  }return 0;}catch(Exception ex){Console.WriteLine(ex);return 1;}}
  static Type Api(string library,string name){return Assembly.LoadFrom(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),"Siemens","Solid Edge 2026","Program","interop.SolidEdge"+library+"Lib.dll")).GetType("SolidEdge."+library+".Interop."+name);}

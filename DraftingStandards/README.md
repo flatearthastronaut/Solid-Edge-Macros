@@ -1,5 +1,31 @@
 # Solid Edge drafting standard
 
+## Dimension placement and visual review
+
+Use the user-supplied CAP_19679-actual.dft as the cap layout reference. A valid
+model link does not establish a readable drawing. Check the rendered sheet after
+saving and reopening, not only the dimension counts and numeric values.
+
+Apply ASME Y14.5-2018 section 4.4: group and align related dimensions; place
+shorter dimensions nearer the outline and larger dimensions farther out; minimize
+dimension/extension-line crossings; keep text clear of lines and arrowheads.
+Use 10 mm to the first dimension and 6 mm between parallel dimensions as spacing
+guides, allowing more room for stacked dual-unit limits. These are readability
+guides, not an automatic rejection test. Use short, direct leaders; neighboring
+leaders should run parallel where practical. Prefer dimensions outside the view,
+with exceptions where placing them inside communicates more clearly.
+
+For caps, organize diameter dimensions into nested banks beside the section,
+put axial dimensions on the nearest appropriate end of the section, stagger
+stacked limit text, and keep chamfer/radius leaders close to their features.
+Do not blindly move a dimension to the other end while leaving its extension
+origins attached across the full view. Preserve engineering values and ask before
+adopting different manufacturing instructions from a layout reference.
+
+Sources: [ASME Y14.5-2018, sections 4.4.1, 4.4.2.1, 4.4.4 and 4.4.8](https://calprodglobal.com/wp-content/uploads/2023/04/ASME-Y14.5-2018-Dimensioning-and-Tolerancing.pdf);
+[ASME Y14.2, Line Conventions and Lettering](https://www.asme.org/codes-standards/find-codes-standards/line-conventions-and-lettering);
+[ASME Y14.100, Engineering Drawing Practices](https://www.asme.org/codes-standards/find-codes-standards/engineering-drawing-practices).
+
 The user-provided `detailing example 1.dft` is the appearance reference. It is a copy; the original is unchanged. Forty-six dimensions were inspected on 2026-10-28.
 
 Use `ReferenceDimensionStyle.Apply(dimension.Style)` for new dimensions. The 142 presentation properties in `dimension-presentation-standard.xml` reproduce the reference, including all readable Lines and Coordinate properties, Arial 0.125-inch text, native terminator size 1, line width 0.3 mm, extension/offset gap factors 0.5, and driven color 8421376 (RGB 0,128,128). These native gap values are ratios, not lengths to convert to inches.
