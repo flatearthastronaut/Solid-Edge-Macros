@@ -10,6 +10,40 @@ using P=SolidEdge.Part.Interop;
 partial class CapDetailTool {
  const string Bushing21931Name="bushing 21931";
  static void Bushing21931Context(){capName=Bushing21931Name;}
+ static void Bushing21931Centers(){
+  Bushing21931Context();LoadCap();
+  CRequire(csh.DrawingViews.Count==3&&((S.CenterLines)csh.CenterLines).Count==0&&((S.CenterMarks)csh.CenterMarks).Count==0,"Expected approved views without center annotations");
+  var positions=csh.DrawingViews.Cast<D.DrawingView>().Select(v=>{double x,y;v.GetOrigin(out x,out y);return new[]{x,y,v.ScaleFactor};}).ToArray();
+  var content=AnnotationContent(csh);
+  // Attach to the two physical bore silhouettes and the end-view OD circle.
+  // The model axis is offset from Base, so use its audited axial center.
+  var lower=DrawbarPhysicalEdge(CMap(csection,0,.06731-.003556,.0534543));
+  var upper=DrawbarPhysicalEdge(CMap(csection,0,.06731+.003556,.0534543));
+  var circle=cface.DVCircles2d.Cast<D.DVCircle2d>().First(c=>Math.Abs(c.Radius-.0079375)<1e-9);
+  try{
+   var line=((S.CenterLines)csh.CenterLines).AddBetweenTwoParallelLines(lower.Reference,upper.Reference);
+   try{ReferenceAnnotationStyle.Apply("CenterLine",line);}finally{Release(line);}
+   var center=CMap(cface,0,.06731,.0534543);
+   var mark=((S.CenterMarks)csh.CenterMarks).AddByCenter(circle.Reference,center[0],center[1],0,true);
+   try{ReferenceAnnotationStyle.Apply("CenterMark",mark);}finally{Release(mark);}
+  }finally{Release(lower);Release(upper);Release(circle);}
+  cdoc.Save();cdoc.Close(false);Release(cdoc);LoadCap();
+  CRequire(((S.CenterLines)csh.CenterLines).Count==1&&((S.CenterMarks)csh.CenterMarks).Count==1,"Saved center annotation count differs");
+  var savedLine=((S.CenterLines)csh.CenterLines).Item(1);var savedMark=((S.CenterMarks)csh.CenterMarks).Item(1);
+  var report=new XElement("BushingCenterVerification",new XAttribute("sectionCenterlines",1),new XAttribute("endViewCenterMarks",1),new XAttribute("isoCenterAnnotations",0));
+  try{
+   ReferenceAnnotationStyle.Apply("CenterLine",savedLine,true);ReferenceAnnotationStyle.Apply("CenterMark",savedMark,true);
+   double a,b,c,d;savedLine.Range(out a,out b,out c,out d);var center=CMap(csection,0,.06731,.0534543);
+   CRequire(Math.Abs((b+d)/2-center[1])<1e-8&&a<center[0]&&c>center[0],"Section centerline is not on the bore axis");
+   report.Add(Scalars(savedLine,"FrameworkSupport","CenterLine","CenterLine"));report.Add(Scalars(savedMark,"FrameworkSupport","CenterMark","CenterMark"));
+  }finally{Release(savedLine);Release(savedMark);}
+  for(int i=1;i<=3;i++){var v=csh.DrawingViews.Item(i);try{double x,y;v.GetOrigin(out x,out y);var p=positions[i-1];CRequire(Math.Abs(x-p[0])+Math.Abs(y-p[1])+Math.Abs(v.ScaleFactor-p[2])<1e-9,"Approved view placement or scale changed");}finally{Release(v);}}
+  CRequire(ciso.Shading&&cface.Defaults_ShowHiddenEdges&&csh.SheetSetup.SheetSizeOption==D.PaperSizeConstants.igAnsiBWide,"Approved view presentation changed");
+  var cp=cface.CuttingPlanes.Item(1);try{CRequire(cp.ViewSide==F.SectionViewProfileSide.igRightProfileSide,"Section direction changed");BaseOriginConstraints.Ensure(cp,true);foreach(S.Line2d line in cp.Profile.Lines2d){try{CRequire(AxisConstraints.Has(line,(int)F.ObjectType.igVerticalRelation2d),"Cutting line lost native Vertical constraint");}finally{Release(line);}}}finally{Release(cp);}
+  CRequire(((S.Dimensions)csh.Dimensions).Count==0&&content.SequenceEqual(AnnotationContent(csh)),"Detailing advanced beyond the centerline stage");
+  new XDocument(report).Save(Path.Combine(CapWork,"center-verification.xml"));CPreview();
+  Console.WriteLine("PASS: native section centerline and end-view center mark saved/reopened; reference properties verified; approved view layout preserved; ISO has no center annotation.");
+ }
  static void Bushing21931Audit(){
   Bushing21931Context();string previousRoot=root;
   try{

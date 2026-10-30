@@ -32,6 +32,7 @@ partial class CapDetailTool {
   else if(args[0]=="--bushing21931-audit")Bushing21931Audit();
   else if(args[0]=="--bushing21931-views")Bushing21931Views();
   else if(args[0]=="--bushing21931-review")Bushing21931Review();
+  else if(args[0]=="--bushing21931-centers")Bushing21931Centers();
   else if(args[0]=="--drawbar-views")DrawbarViews();
   else if(args[0]=="--drawbar-audit"){partPath=Path.Combine(folder,"drawbar adapter OP10.par");root=Path.Combine(root,"DrawbarOP10");Directory.CreateDirectory(root);AuditPart();}
   else if(args[0]=="--cap-b-audit"){partPath=Path.Combine(folder,"CAP_b.par");root=Path.Combine(root,"CAP_b");Directory.CreateDirectory(root);AuditPart(false);}

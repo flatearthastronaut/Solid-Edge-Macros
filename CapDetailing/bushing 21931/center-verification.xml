@@ -1,0 +1,5 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BushingCenterVerification sectionCenterlines="1" endViewCenterMarks="1" isoCenterAnnotations="0">
+  <CenterLine CenterLineType="igDimCenterlineMidway" Index="1" Type="505332097" ZOrder="7" KeyPointCount="4" Layer="Default" HidePMI="False" />
+  <CenterMark Index="1" Type="505332096" ZOrder="8" KeyPointCount="1" TwoPoint="False" TextScale="1" Layer="Default" HidePMI="False" />
+</BushingCenterVerification>
