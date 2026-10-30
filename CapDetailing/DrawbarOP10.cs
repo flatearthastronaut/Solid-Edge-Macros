@@ -53,6 +53,32 @@ partial class CapDetailTool {
 
 
 partial class CapDetailTool {
+ static void DrawbarCenters(){
+  DrawbarContext();LoadCap();
+  // Preserve the user-approved view positions and section direction. Native
+  // center annotations stay associated with projected model edges.
+  var positions=csh.DrawingViews.Cast<D.DrawingView>().Select(v=>{double x,y;v.GetOrigin(out x,out y);return new[]{x,y,v.ScaleFactor};}).ToArray();
+  CRequire(((S.CenterLines)csh.CenterLines).Count==0&&((S.CenterMarks)csh.CenterMarks).Count==0,"Center annotations already exist; inspect before adding duplicates.");
+  var lower=CEdge(csection,CMap(csection,0,-.016688,-.02));
+  var upper=CEdge(csection,CMap(csection,0,.016688,-.02));
+  var line=((S.CenterLines)csh.CenterLines).AddBetweenTwoParallelLines(lower.Reference,upper.Reference);
+  ReferenceAnnotationStyle.Apply("CenterLine",line);
+  var circle=cface.DVCircles2d.Cast<D.DVCircle2d>().OrderByDescending(c=>c.Radius).First();
+  CRequire(Math.Abs(circle.Radius-.0425)<1e-8,"Unexpected end-view circle");
+  var center=CMap(cface,0,0,0);
+  var mark=((S.CenterMarks)csh.CenterMarks).AddByCenter(circle.Reference,center[0],center[1],0,true);
+  ReferenceAnnotationStyle.Apply("CenterMark",mark);
+  ciso.Shading=true;ciso.ShadingShowVisibleEdges=true;ciso.ShadingGrayscale=false;ciso.ShadingAllowPartFaceColors=true;ciso.Update();
+  cdoc.Save();cdoc.Close(false);Release(cdoc);LoadCap();
+  CRequire(ciso.Shading&&ciso.ShadingShowVisibleEdges,"Isometric shading did not persist");
+  CRequire(((S.CenterLines)csh.CenterLines).Count==1&&((S.CenterMarks)csh.CenterMarks).Count==1,"Unexpected center annotation count");
+  ReferenceAnnotationStyle.Apply("CenterLine",((S.CenterLines)csh.CenterLines).Item(1),true);
+  ReferenceAnnotationStyle.Apply("CenterMark",((S.CenterMarks)csh.CenterMarks).Item(1),true);
+  for(int i=1;i<=3;i++){var v=csh.DrawingViews.Item(i);double x,y;v.GetOrigin(out x,out y);var p=positions[i-1];CRequire(Math.Abs(x-p[0])+Math.Abs(y-p[1])+Math.Abs(v.ScaleFactor-p[2])<1e-9,"Approved view layout changed");}
+  CRequire(cface.CuttingPlanes.Item(1).ViewSide==F.SectionViewProfileSide.igRightProfileSide&&BaseOriginConstraints.Ensure(cface.CuttingPlanes.Item(1),true)==1,"Cutting plane changed");
+  CRequire(((S.Dimensions)csh.Dimensions).Count==0&&((S.Balloons)csh.Balloons).Count==0,"Expected no detailing before user review");
+  CPreview();Console.WriteLine("PASS: shaded ISO, native section centerline and end-view center mark; saved styles and approved view layout preserved. Paused for review.");
+ }
  static void DrawbarReviewViews(){
   DrawbarContext();LoadCap();cdoc.Close(false);Release(cdoc);LoadCap();
   CRequire(((S.Dimensions)csh.Dimensions).Count==0,"Saved drawing already contains dimensions; inspect before resetting.");
