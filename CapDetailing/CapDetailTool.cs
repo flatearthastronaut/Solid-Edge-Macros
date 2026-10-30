@@ -21,6 +21,9 @@ partial class CapDetailTool {
   app=Marshal.GetActiveObject("SolidEdge.Application");
   if(args.Length==0||args[0]=="--refs")AuditReferences();
   else if(args[0]=="--part")AuditPart();
+  else if(args[0]=="--drawbar-review-views")DrawbarReviewViews();
+  else if(args[0]=="--drawbar-views")DrawbarViews();
+  else if(args[0]=="--drawbar-audit"){partPath=Path.Combine(folder,"drawbar adapter OP10.par");root=Path.Combine(root,"DrawbarOP10");Directory.CreateDirectory(root);AuditPart();}
   else if(args[0]=="--cap-b-audit"){partPath=Path.Combine(folder,"CAP_b.par");root=Path.Combine(root,"CAP_b");Directory.CreateDirectory(root);AuditPart(false);}
   else if(args[0]=="--cap-c-audit"){partPath=Path.Combine(folder,"CAP_C.par");root=Path.Combine(root,"CAP_C");Directory.CreateDirectory(root);AuditPart(false);}
   else if(args[0]=="--cap-c-create")CreateCapC();
@@ -81,7 +84,7 @@ partial class CapDetailTool {
   Console.WriteLine("Part properties");var sets=(F.PropertySets)part.Properties;for(int si=1;si<=sets.Count;si++){var props=sets.Item(si);var group=new XElement("PropertySet",new XAttribute("name",props.Name));result.Add(group);for(int pi=1;pi<=props.Count;pi++){var p=props.Item(pi);try{group.Add(new XElement("Property",new XAttribute("name",p.Name),new XAttribute("value",Val(p.get_Value()))));}catch{}}}
   Console.WriteLine("Models="+part.Models.Count);foreach(P.Model model in part.Models){var m=new XElement("Model",new XAttribute("name",model.Name));result.Add(m);var body=(G.Body)model.Body;Array low=new double[3],high=new double[3];body.GetExactRange(ref low,ref high);m.SetAttributeValue("low",string.Join(",",(double[])low));m.SetAttributeValue("high",string.Join(",",(double[])high));m.SetAttributeValue("volume",body.Volume);m.SetAttributeValue("valid",body.Valid);
    string[] groups={"ExtrudedProtrusions","RevolvedProtrusions","ExtrudedCutouts","RevolvedCutouts","Holes","Rounds","Chamfers","Patterns","Threads","Mirrors"};
-   foreach(string group in groups){var property=Api("Part","Model").GetProperty(group);if(property==null)continue;object collection=property.GetValue(model,null);try{int fc=(int)((dynamic)collection).Count;Console.WriteLine(group+"="+fc);if(fc==0)continue;foreach(object feature in (IEnumerable)collection){try{string type=group.Substring(0,group.Length-1);var e=Scalars(feature,"Part",type,type);m.Add(e);if(type=="Hole")e.Add(Scalars(((P.Hole)feature).HoleData,"Part","HoleData","HoleData"));}finally{Marshal.ReleaseComObject(feature);}}}finally{Marshal.ReleaseComObject(collection);}}
+   foreach(string group in groups){var property=Api("Part","Model").GetProperty(group);if(property==null)continue;object collection=property.GetValue(model,null);try{int fc=(int)((dynamic)collection).Count;Console.WriteLine(group+"="+fc);if(fc==0)continue;foreach(object feature in (IEnumerable)collection){try{string type=group.Substring(0,group.Length-1);var e=Scalars(feature,"Part",type,type);m.Add(e);if(type=="Hole")e.Add(Scalars(((P.Hole)feature).HoleData,"Part","HoleData","HoleData"));if(type=="Thread")e.Add(Scalars(((P.Thread)feature).HoleData,"Part","HoleData","HoleData"));}finally{Marshal.ReleaseComObject(feature);}}}finally{Marshal.ReleaseComObject(collection);}}
   }
   Console.WriteLine("Profiles");foreach(P.ProfileSet set in part.ProfileSets)foreach(P.Profile profile in set.Profiles){var pr=new XElement("Profile",new XAttribute("name",profile.Name));result.Add(pr);
    foreach(S.Line2d line in profile.Lines2d){double a,b,c,d,x,y,z,u,v,w;line.GetStartPoint(out a,out b);line.GetEndPoint(out c,out d);profile.Convert2DCoordinate(a,b,out x,out y,out z);profile.Convert2DCoordinate(c,d,out u,out v,out w);pr.Add(new XElement("Line",new XAttribute("xyz",x+","+y+","+z+","+u+","+v+","+w)));}
