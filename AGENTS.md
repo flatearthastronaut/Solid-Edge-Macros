@@ -2,6 +2,7 @@
 
 ## Working Agreements
 - For future Solid Edge drafts, use the normal (new designs) draft template.
+- Start drawings at 1:1 scale on a B-size sheet. Enlarge the view scale if needed for uncrowded dimensions. C, D, E, and EE sheets may be used when necessary, but ask the user before changing sheet size.
 - Always use third-angle projection for drawings.
 - Keep section views aligned with their parent/projected views.
 - Isometric drawing views should be shaded. Add centerlines/center marks to the orthographic and section views, not to the isometric view.
@@ -13,7 +14,9 @@
 - Create chamfer callouts with native Chamfer Dimensions, not manually typed notes.
 - For repeated equal-size chamfers or radii/fillets, create only one native dimension per size and set its Dimension Prefix Subfix to `TYP(x)`, where x is the total number of physical occurrences. Count continuous revolved features once, not twice because they appear on both sides of a section.
 - Create hole callouts with the native Callout command, using model feature references and Smart Depth variables for hole/thread sizes and depths.
-- Use two decimal places for counterbored-hole and bolt-circle dimensions, three for threads and hydraulic/air holes, and four for dowel-pin dimensions. Apply the precision to native dimensions and feature-linked callout formatting; preserve thread designations and explicit fit tolerances.
+- When the user specifies a dimension as two-place, three-place, etc., this always means the number of digits after the decimal point in the inch value. Do not change metric precision to match that instruction.
+- Use two inch decimal places for counterbored-hole and bolt-circle dimensions, three for threads and hydraulic/air holes, and four for dowel-pin dimensions. Apply the precision to native dimensions and feature-linked callout formatting; preserve thread designations and explicit fit tolerances.
+- Chamfer and radius/fillet inch values use two decimal places, except values of .015 inch or less use three. Preserve metric precision independently.
 - Ask clarifying questions when the task scope is unclear.
 - Keep pull requests small, focused, and reviewable.
 - Do not look into files outside of the project directory and its sub-directories

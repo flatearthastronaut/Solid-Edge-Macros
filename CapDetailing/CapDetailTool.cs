@@ -24,6 +24,7 @@ partial class CapDetailTool {
   else if(args[0]=="--drawbar-review-views")DrawbarReviewViews();
   else if(args[0]=="--drawbar-centers")DrawbarCenters();
   else if(args[0]=="--drawbar-edge-dims")DrawbarEdgeDimensions();
+  else if(args[0]=="--drawbar-linear-dims")DrawbarLinearDimensions();
   else if(args[0]=="--drawbar-views")DrawbarViews();
   else if(args[0]=="--drawbar-audit"){partPath=Path.Combine(folder,"drawbar adapter OP10.par");root=Path.Combine(root,"DrawbarOP10");Directory.CreateDirectory(root);AuditPart();}
   else if(args[0]=="--cap-b-audit"){partPath=Path.Combine(folder,"CAP_b.par");root=Path.Combine(root,"CAP_b");Directory.CreateDirectory(root);AuditPart(false);}

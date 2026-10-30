@@ -55,6 +55,48 @@ partial class CapDetailTool {
 
 
 partial class CapDetailTool {
+ static S.DimDecimalRoundOffTypeConstants EdgeInchPrecision(double meters){return meters<=.015*Inch+1e-10?S.DimDecimalRoundOffTypeConstants.igDimStyleDecimal_3:S.DimDecimalRoundOffTypeConstants.igDimStyleDecimal_2;}
+ static S.Dimension DrawbarLinear(double y1,double z1,double y2,double z2,double tx,double ty,double expected,bool vertical,string prefix,string role){
+  var p=CMap(csection,0,y1,z1);var q=CMap(csection,0,y2,z2);var a=CEdge(csection,p);var b=CEdge(csection,q);
+  try{
+   // Model-edge endpoints retain association when the drawing regenerates.
+   var dim=((S.Dimensions)csh.Dimensions).AddDistanceBetweenObjects(a.Reference,p[0],p[1],0,true,b.Reference,q[0],q[1],0,true);
+   CStyle(dim.Style);dim.MeasurementAxisEx=S.DimAxisModeConstants.igDimAxisModeDefault;dim.MeasurementAxisDirection=vertical;dim.PrefixString=prefix;dim.SetComment(role);
+   dim.TrackDistance=vertical?tx-p[0]:p[1]-ty;dim.SetKeyPoint(8,tx,ty,0);
+   CRequire(Math.Abs(dim.Value-expected)<1e-8&&dim.StatusOfDimension==S.DimStatusConstants.seDimStatusDriven,"Incorrect "+role+": "+dim.Value);return dim;
+  }finally{Release(a);Release(b);}
+ }
+ static void DrawbarLinearDimensions(){
+  DrawbarContext();LoadCap();var dims=(S.Dimensions)csh.Dimensions;
+  CRequire(dims.Count==2||dims.Count==5,"Unexpected dimension count; inspect before editing.");
+  CRequire(EdgeInchPrecision(.015*Inch)==S.DimDecimalRoundOffTypeConstants.igDimStyleDecimal_3&&EdgeInchPrecision(.0151*Inch)==S.DimDecimalRoundOffTypeConstants.igDimStyleDecimal_2,"Inch threshold regression");
+  CRequire(csh.SheetSetup.SheetSizeOption==D.PaperSizeConstants.igAnsiBWide&&Math.Abs(csection.ScaleFactor-1)<1e-9&&Math.Abs(cface.ScaleFactor-1)<1e-9,"Expected approved 1:1 B-size layout.");
+  foreach(S.Dimension d in dims){if(d.GetComment()=="OP10-CHAMFER"||d.GetComment()=="OP10-RADIUS"){
+   var metric=d.Style.PrimaryDecimalRoundOff;d.Style.SecondaryDecimalRoundOff=EdgeInchPrecision(d.Value);CRequire(d.Style.PrimaryDecimalRoundOff==metric,"Metric precision changed");}}
+  if(dims.Count==2){
+   // Both axial dimensions originate from the lower silhouette, in nested
+   // rows. This keeps their extension lines away from the existing leaders.
+   DrawbarLinear(-.040976,0,-.040976,-.0247135861985738,.163,.123,.0247135861985738,false,"","OP10-FLANGE");
+   DrawbarLinear(-.040976,0,-.0251298696020322,-.0508,.150,.109,.0508,false,"","OP10-OVERALL");
+   DrawbarLinear(-.0266538696020322,-.049276,.0266538696020322,-.049276,.105,.180,.0533077392040644,true,"%DI ","OP10-PILOT");
+  }
+  csection.SetCaptionPosition(.150,.090);
+  cdoc.Save();cdoc.Close(false);Release(cdoc);LoadCap();dims=(S.Dimensions)csh.Dimensions;
+  var expected=new System.Collections.Generic.Dictionary<string,double>{{"OP10-CHAMFER",.001524},{"OP10-RADIUS",.00635},{"OP10-FLANGE",.0247135861985738},{"OP10-OVERALL",.0508},{"OP10-PILOT",.0533077392040644}};
+  CRequire(dims.Count==expected.Count,"Incorrect saved dimension count");
+  var report=new XElement("DrawbarLinearDimensionVerification",new XAttribute("sheet","B"),new XAttribute("orthographicScale","1:1"));
+  foreach(S.Dimension d in dims){string role=d.GetComment();CRequire(expected.ContainsKey(role)&&Math.Abs(d.Value-expected[role])<1e-8&&d.StatusOfDimension==S.DimStatusConstants.seDimStatusDriven&&string.IsNullOrEmpty(d.OverrideString),"Saved dimension differs: "+role);
+   CRequire(d.Style.PrimaryDecimalRoundOff==S.DimDecimalRoundOffTypeConstants.igDimStyleDecimal_2,"Metric precision differs");
+   CRequire(d.Style.SecondaryDecimalRoundOff==(role=="OP10-CHAMFER"||role=="OP10-RADIUS"?EdgeInchPrecision(d.Value):S.DimDecimalRoundOffTypeConstants.igDimStyleDecimal_3),"Inch precision differs");
+   CRequire(d.Style.DrivenColor==8421376&&Math.Abs(d.Style.Height-.003175)<1e-9,"Dimension styling differs");
+   var item=Scalars(d,"FrameworkSupport","Dimension","Dimension");item.Add(CTexts(d).Select(t=>new XElement("DisplayedText",t)));report.Add(item);
+   if(role=="OP10-CHAMFER")CRequire(d.SubfixString=="TYP(5)"&&Math.Abs(d.SecondValue-Math.PI/4)<1e-8,"Chamfer count or angle changed");
+  }
+  CRequire(csh.SheetSetup.SheetSizeOption==D.PaperSizeConstants.igAnsiBWide&&ciso.Shading,"Sheet or ISO changed");
+  double x,y,sx,sy;cface.GetOrigin(out x,out y);csection.GetOrigin(out sx,out sy);CRequire(Math.Abs(y-sy)<1e-9&&sx<x&&cface.ScaleFactor==1&&csection.ScaleFactor==1,"View alignment or scale changed");
+  CRequire(((S.CenterLines)csh.CenterLines).Count==1&&((S.CenterMarks)csh.CenterMarks).Count==1&&BaseOriginConstraints.Ensure(cface.CuttingPlanes.Item(1),true)==1,"Centerlines or Base constraint changed");
+  new XDocument(report).Save(Path.Combine(CapWork,"linear-dimension-verification.xml"));CPreview();Console.WriteLine("PASS: corrected inch-only chamfer/radius precision and three native dimensions; 1:1 B-size retained.");
+ }
  static void DrawbarEdgeDimensions(){
   DrawbarContext();LoadCap();
   var dims=(S.Dimensions)csh.Dimensions;CRequire(dims.Count==0||(dims.Count==2&&dims.Cast<S.Dimension>().All(d=>d.GetComment().StartsWith("OP10-"))),"Unexpected dimensions; inspect before changing.");
