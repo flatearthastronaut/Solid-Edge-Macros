@@ -1,0 +1,1 @@
+PASS after save/reopen: five distinct conical chamfer faces, 0.060 inch x 45 degrees, one native chamfer dimension with Subfix TYP(5); one toroidal fillet, R0.250 inch, one native radius dimension with no repetition subfix. Both driven, no value overrides. Approved view positions, centerlines, shaded ISO and Base-linked cutting plane retained.

@@ -5,6 +5,8 @@ using System.Xml.Linq;
 using D=SolidEdge.Draft.Interop;
 using S=SolidEdge.FrameworkSupport.Interop;
 using F=SolidEdge.Framework.Interop;
+using P=SolidEdge.Part.Interop;
+using G=SolidEdge.Geometry.Interop;
 
 partial class CapDetailTool {
  const string DrawbarName="drawbar adapter OP10";
@@ -53,6 +55,50 @@ partial class CapDetailTool {
 
 
 partial class CapDetailTool {
+ static void DrawbarEdgeDimensions(){
+  DrawbarContext();LoadCap();
+  var dims=(S.Dimensions)csh.Dimensions;CRequire(dims.Count==0||(dims.Count==2&&dims.Cast<S.Dimension>().All(d=>d.GetComment().StartsWith("OP10-"))),"Unexpected dimensions; inspect before changing.");
+  var positions=csh.DrawingViews.Cast<D.DrawingView>().Select(v=>{double x,y;v.GetOrigin(out x,out y);return new[]{x,y,v.ScaleFactor};}).ToArray();
+  // Count manufactured annular faces, not the two silhouettes of each face
+  // in a longitudinal section. This model has a single size in each feature.
+  P.PartDocument part=null;
+  for(int i=1;i<=app.Documents.Count;i++){object candidate=app.Documents.Item(i);if(string.Equals(((dynamic)candidate).FullName,Path.Combine(folder,DrawbarName+".par"),StringComparison.OrdinalIgnoreCase)){part=(P.PartDocument)candidate;break;}Release(candidate);}
+  if(part==null)part=(P.PartDocument)app.Documents.Open(Path.Combine(folder,DrawbarName+".par"));
+  int chamferCount,radiusCount;double setback,radiusValue;
+  try{
+   var model=part.Models.Item(1);CRequire(model.Chamfers.Count==1&&model.Rounds.Count==1,"Feature groups changed; re-audit sizes.");
+   var cf=model.Chamfers.Item(1);var rf=model.Rounds.Item(1);
+   var faces=(G.Faces)cf.get_Faces(G.FeatureTopologyQueryTypeConstants.igQueryAll);
+   var rounds=(G.Faces)rf.get_Faces(G.FeatureTopologyQueryTypeConstants.igQueryAll);
+   try{chamferCount=faces.Count;radiusCount=rounds.Count;setback=cf.ChamferSetbackValue1;
+    CRequire(chamferCount==5&&radiusCount==1,"Unexpected physical edge count; review feature faces.");
+    for(int i=1;i<=faces.Count;i++){var face=(G.Face)faces.Item(i);var cone=face.Geometry as G.Cone;try{CRequire(cone!=null&&Math.Abs(Math.Abs(cone.HalfAngle)-Math.PI/4)<1e-7,"Chamfer surface angle differs");}finally{Release(cone);Release(face);}}
+    var roundedFace=(G.Face)rounds.Item(1);var torus=(G.Torus)roundedFace.Geometry;try{radiusValue=torus.MinorRadius;}finally{Release(torus);Release(roundedFace);}
+   }finally{Release(faces);Release(rounds);Release(cf);Release(rf);Release(model);}
+  }finally{Release(part);}
+  CRequire(Math.Abs(setback-.001524)<1e-9&&Math.Abs(radiusValue-.00635)<1e-9,"Model sizes changed");
+  cdoc.Activate();csh.Activate();
+  if(dims.Count==0){
+  var pa=CMap(csection,0,.0425,-.01);var pc=CMap(csection,0,.041738,-.000762);var adjacent=CEdge(csection,pa);var bevel=CEdge(csection,pc);
+  var chamfer=dims.AddChamfer(adjacent.Reference,pa[0],pa[1],0,false,bevel.Reference,pc[0],pc[1],0,false,S.DimChamferModeConstants.igDimChamferModePerpendicular);
+  CStyle(chamfer.Style);chamfer.Style.ChamferUse45DegreeCharacter=false;chamfer.SetComment("OP10-CHAMFER");chamfer.SubfixString="TYP("+chamferCount+")";
+  chamfer.BreakPosition=S.DimBreakPositionConstants.igDimBreakRight;chamfer.LeaderDistance=.008;chamfer.BreakDistance=.015;chamfer.TrackDistance=.785398;PlaceChamferText(chamfer,.205,.237);
+  var arc=csection.DVArcs2d.Cast<D.DVArc2d>().OrderByDescending(a=>{double x,y;a.GetCenterPoint(out x,out y);return y;}).First();
+  var radius=dims.AddRadius(arc.Reference);CStyle(radius.Style);radius.SetComment("OP10-RADIUS");radius.SubfixString=radiusCount>1?"TYP("+radiusCount+")":"";
+  radius.BreakPosition=S.DimBreakPositionConstants.igDimBreakLeft;radius.TrackDistance=.7;radius.LeaderDistance=.006;radius.BreakDistance=.012;PlaceChamferText(radius,.088,.227);
+  CRequire(Math.Abs(chamfer.Value-setback)<1e-9&&Math.Abs(chamfer.SecondValue-Math.PI/4)<1e-7&&Math.Abs(radius.Value-radiusValue)<1e-9,"Native dimensions disagree with model features");
+  }
+  cdoc.Save();cdoc.Close(false);Release(cdoc);LoadCap();dims=(S.Dimensions)csh.Dimensions;
+  CRequire(dims.Count==2,"Expected only one chamfer and one radius dimension");
+  foreach(S.Dimension d in dims){CRequire(d.StatusOfDimension==S.DimStatusConstants.seDimStatusDriven&&string.IsNullOrEmpty(d.OverrideString),"Dimension lost model link");CRequire(d.Style.DrivenColor==8421376&&Math.Abs(d.Style.Height-.003175)<1e-9,"Dimension appearance differs");
+   if(d.DimensionType==S.DimTypeConstants.igDimTypeChamfer)CRequire(Math.Abs(d.Value-setback)<1e-9&&d.SubfixString=="TYP(5)","Chamfer size/count changed");
+   else CRequire(Math.Abs(d.Value-radiusValue)<1e-9&&string.IsNullOrEmpty(d.SubfixString),"Radius size/count changed");}
+  for(int i=1;i<=3;i++){var v=csh.DrawingViews.Item(i);double x,y;v.GetOrigin(out x,out y);var p=positions[i-1];CRequire(Math.Abs(x-p[0])+Math.Abs(y-p[1])+Math.Abs(v.ScaleFactor-p[2])<1e-9,"Approved view layout changed");}
+  CRequire(ciso.Shading&&((S.CenterLines)csh.CenterLines).Count==1&&((S.CenterMarks)csh.CenterMarks).Count==1,"Approved shading or centers changed");
+  CRequire(cface.CuttingPlanes.Item(1).ViewSide==F.SectionViewProfileSide.igRightProfileSide&&BaseOriginConstraints.Ensure(cface.CuttingPlanes.Item(1),true)==1,"Cutting plane changed");
+  CPreview();File.WriteAllText(Path.Combine(CapWork,"edge-dimension-verification.txt"),"PASS after save/reopen: five distinct conical chamfer faces, 0.060 inch x 45 degrees, one native chamfer dimension with Subfix TYP(5); one toroidal fillet, R0.250 inch, one native radius dimension with no repetition subfix. Both driven, no value overrides. Approved view positions, centerlines, shaded ISO and Base-linked cutting plane retained.");
+  Console.WriteLine("PASS: 5 chamfers, 1 continuous fillet; two native dimensions saved. Paused for review.");
+ }
  static void DrawbarCenters(){
   DrawbarContext();LoadCap();
   // Preserve the user-approved view positions and section direction. Native

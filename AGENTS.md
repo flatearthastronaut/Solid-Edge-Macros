@@ -11,6 +11,7 @@
 - Add native Horizontal or Vertical constraints to all horizontal/vertical lines created in sketches, cutting-plane profiles, and other editable drafting geometry. Use each profile's local coordinates; do not substitute visually aligned endpoints for constraints.
 - When a cutting plane passes through the model's Base coordinate-system origin, add a native point-on constraint between the model-linked projected Base origin and the cutting-plane segment. Use `DraftingStandards/BaseOriginConstraints.cs`; retain Horizontal/Vertical constraints and verify the Base connection after view movement and save/reopen. Matching coordinates alone is insufficient.
 - Create chamfer callouts with native Chamfer Dimensions, not manually typed notes.
+- For repeated equal-size chamfers or radii/fillets, create only one native dimension per size and set its Dimension Prefix Subfix to `TYP(x)`, where x is the total number of physical occurrences. Count continuous revolved features once, not twice because they appear on both sides of a section.
 - Create hole callouts with the native Callout command, using model feature references and Smart Depth variables for hole/thread sizes and depths.
 - Use two decimal places for counterbored-hole and bolt-circle dimensions, three for threads and hydraulic/air holes, and four for dowel-pin dimensions. Apply the precision to native dimensions and feature-linked callout formatting; preserve thread designations and explicit fit tolerances.
 - Ask clarifying questions when the task scope is unclear.
