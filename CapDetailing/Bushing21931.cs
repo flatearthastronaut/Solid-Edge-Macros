@@ -11,6 +11,62 @@ using G=SolidEdge.Geometry.Interop;
 partial class CapDetailTool {
  const string Bushing21931Name="bushing 21931";
  static void Bushing21931Context(){capName=Bushing21931Name;}
+ static void Bushing21931Notes(){
+  Bushing21931Context();LoadCap();var dims=(S.Dimensions)csh.Dimensions;
+  // The normal template contains an empty, unattached control-frame object.
+  // Remove only that placeholder before counting manufacturing annotations.
+  foreach(S.FeatureControlFrame empty in ((S.FeatureControlFrames)csh.FeatureControlFrames).Cast<S.FeatureControlFrame>().ToArray()){try{if(string.IsNullOrEmpty(empty.PrimaryFrame)&&string.IsNullOrEmpty(empty.SecondaryFrame)&&!empty.IsTerminatorAttachedToEntity)empty.Delete();}finally{Release(empty);}}
+  CRequire(!cdoc.ReadOnly&&dims.Count==4&&((S.Balloons)csh.Balloons).Count==0&&((F.Symbols)csh.Symbols).Count<=2&&((S.FeatureControlFrames)csh.FeatureControlFrames).Count==0,"Expected approved dimension stage without manufacturing notes; readonly="+cdoc.ReadOnly+" dims="+dims.Count+" calls="+((S.Balloons)csh.Balloons).Count+" symbols="+((F.Symbols)csh.Symbols).Count+" frames="+((S.FeatureControlFrames)csh.FeatureControlFrames).Count);
+  var before=dims.Cast<S.Dimension>().Select(EngineeringFingerprint).OrderBy(s=>s).ToArray();
+  var length=dims.Cast<S.Dimension>().Single(d=>d.GetComment()=="BUSHING21931-LENGTH");
+  string source=Path.Combine(folder,"21930-04 bushing.dft"),hash=Digest(source);bool opened=IsOpen(source);var reference=(D.DraftDocument)app.Documents.Open(source);
+  try{
+   // Copy embedded company symbols verbatim, preserving the reference's text
+   // size, color and geometry instead of reconstructing the labels.
+   var rs=reference.Sheets.Item("Sheet1");
+   for(int i=1;i<=2;i++){if(((F.Symbols)csh.Symbols).Count<i){reference.Activate();rs.Activate();var symbol=((F.Symbols)rs.Symbols).Item(i);symbol.Copy();Release(symbol);cdoc.Activate();csh.Activate();var window=(D.SheetWindow)app.ActiveWindow;window.Paste();Release(window);}var target=((F.Symbols)csh.Symbols).Item(i);double a,b,c,d;target.Range(out a,out b,out c,out d);target.Move(a,b,i==1?.270:.025,i==1?.095:.220);Release(target);}
+   Release(rs);
+  }finally{if(!opened)reference.Close(false);Release(reference);}
+  cdoc.Activate();csh.Activate();
+  var stock=((S.FeatureControlFrames)csh.FeatureControlFrames).Add(.150,.178,0);ReferenceAnnotationStyle.Apply("ToleranceNote",stock);stock.PrimaryFrame="+.012";stock.Leader=false;stock.SetTerminator(length,.150,.178,0,false);stock.SetKeyPoint(0,.150,.178,0);Release(stock);
+  var parallel=((S.FeatureControlFrames)csh.FeatureControlFrames).Add(.172225,.190,0);ReferenceAnnotationStyle.Apply("FeatureControlFrame",parallel);parallel.PrimaryFrame="%PR%VB.013[.0005]%VBA";parallel.Leader=false;parallel.SetTerminator(length,.172225,.190,0,false);Release(parallel);
+  var datum=((S.DatumFrames)csh.DatumFrames).Add(.122,.190,0);ReferenceDimensionStyle.Apply(datum.Style);datum.Datum="-A-";datum.Leader=false;datum.SetTerminator(length,.127775,.190,0,false);Release(datum);
+  // Surface-finish symbols refer to the physical end faces, and identification
+  // refers to the OD; no hole features exist that require a hole callout.
+  foreach(double z in new[]{.0423418,.0645668}){var edge=BushingBodyEdge(.07305675,z);var point=CMap(csection,0,.07305675,z);var finish=((S.SurfaceFinishSymbols)csh.SurfaceFinishSymbols).AddByTerminator(edge.Reference,point[0],point[1],0,false);ReferenceAnnotationStyle.Apply("SurfaceFinishSymbol",finish);finish.MinimumRoughnessValue="32";finish.Leader=false;finish.SetKeyPoint(1,point[0],.177,0);Release(finish);Release(edge);}
+  var od=BushingBodyEdge(.0593725,.0534543);var p=CMap(csection,0,.0593725,.0534543);
+  BushingNote("IDENTIFY\rAS REQ'D",od.Reference,p[0],p[1],.180,.115);Release(od);
+  BushingNote("SAME IN SETS OF (6)\rW/IN .013[.0005] T.I.R.",length,.150,.198,.185,.220);
+  Bushing21931NotePlacement();
+  cdoc.Save();cdoc.Close(false);Release(cdoc);LoadCap();
+  CRequire(before.SequenceEqual(((S.Dimensions)csh.Dimensions).Cast<S.Dimension>().Select(EngineeringFingerprint).OrderBy(s=>s)),"Notes changed approved dimensions");
+  CRequire(((F.Symbols)csh.Symbols).Count==2&&((S.Balloons)csh.Balloons).Count==2&&((S.FeatureControlFrames)csh.FeatureControlFrames).Count==2&&((S.DatumFrames)csh.DatumFrames).Count==1&&((S.SurfaceFinishSymbols)csh.SurfaceFinishSymbols).Count==2,"Saved note inventory differs");
+  var report=new XElement("BushingManufacturingNotes",new XAttribute("matchedSet",6),new XAttribute("setVariationInch",.0005),new XAttribute("grindStockInch",.012),new XAttribute("parallelismInch",.0005),new XAttribute("datum","A"));
+  foreach(S.Balloon call in (S.Balloons)csh.Balloons){CRequire(call.IsTerminatorAttachedToEntity,"Callout detached");report.Add(Scalars(call,"FrameworkSupport","Balloon","Callout"));}
+  foreach(S.FeatureControlFrame frame in (S.FeatureControlFrames)csh.FeatureControlFrames){CRequire(frame.IsTerminatorAttachedToEntity,"Tolerance detached");report.Add(Scalars(frame,"FrameworkSupport","FeatureControlFrame","Frame"));}
+  foreach(S.SurfaceFinishSymbol finish in (S.SurfaceFinishSymbols)csh.SurfaceFinishSymbols)CRequire(finish.IsTerminatorAttachedToEntity,"Finish detached");
+  CRequire(Digest(source)==hash,"Reference changed");new XDocument(report).Save(Path.Combine(CapWork,"notes-verification.xml"));CPreview();Console.WriteLine("PASS: reference manufacturing notes saved/reopened; native attachments retained and approved dimension content unchanged.");
+ }
+ static void BushingNote(string text,object parent,double px,double py,double x,double y){
+  var call=((S.Balloons)csh.Balloons).Add(x,y,0);try{call.Callout=1;call.Leader=true;call.BreakLine=true;ReferenceAnnotationStyle.Apply("Balloon",call);call.BalloonText=text;call.SetTerminator(parent,px,py,0,false);double a,b,c,d,e,f;F.KeyPointType kind;int handle;call.GetKeyPoint(2,out a,out b,out c,out kind,out handle);call.GetKeyPoint(4,out d,out e,out f,out kind,out handle);call.SetKeyPoint(2,x+a-d,y+b-e,0);}finally{Release(call);}
+ }
+ static void Bushing21931NotePlacement(){
+  var symbol=(F.Symbol2d)((F.Symbols)csh.Symbols).Item(1);double a,b,c,d;symbol.Range(out a,out b,out c,out d);symbol.Move(a,b,.330,.095);Release(symbol);
+  foreach(S.SurfaceFinishSymbol finish in (S.SurfaceFinishSymbols)csh.SurfaceFinishSymbols){finish.SurfaceFinishSymbol=S.DimSurfTextureSymTypeConstants.igDimSurfaceFinishBasic;CRequire(finish.IsTerminatorAttachedToEntity,"Finish detached during placement");Release(finish);}
+  var datum=((S.DatumFrames)csh.DatumFrames).Item(1);datum.SetKeyPoint(0,.118,.190,0);CRequire(datum.IsTerminatorAttachedToEntity,"Datum detached during placement");Release(datum);
+  foreach(S.Balloon call in (S.Balloons)csh.Balloons){try{if(!call.BalloonText.StartsWith("IDENTIFY"))continue;double x,y,z,tx,ty,tz;F.KeyPointType kind;int handle;call.GetKeyPoint(2,out x,out y,out z,out kind,out handle);call.GetKeyPoint(4,out tx,out ty,out tz,out kind,out handle);call.SetKeyPoint(2,.205+x-tx,.115+y-ty,0);CRequire(call.IsTerminatorAttachedToEntity,"Identification detached");}finally{Release(call);}}
+ }
+ static void Bushing21931NoteInspect(){
+  string path=Path.Combine(folder,"21930-04 bushing.dft");bool opened=IsOpen(path);var doc=(D.DraftDocument)app.Documents.Open(path);var sheet=doc.Sheets.Item("Sheet1");
+  try{foreach(string group in new[]{"TextBoxes","FeatureControlFrames","DatumFrames","SurfaceFinishSymbols","Blocks","BlockOccurrences","Symbols","Groups"}){
+   try{dynamic items=sheet.GetType().InvokeMember(group,System.Reflection.BindingFlags.GetProperty,null,sheet,null);Console.WriteLine(group+" count="+items.Count);foreach(object obj in items){try{dynamic o=obj;Console.WriteLine("  TYPE "+o.Type);foreach(string prop in new[]{"Text","PrimaryFrame","SecondaryFrame","Name","Datum","DatumIdentifier","RoughnessValue","MinimumRoughnessValue"}){try{Console.WriteLine("  "+prop+"="+obj.GetType().InvokeMember(prop,System.Reflection.BindingFlags.GetProperty,null,obj,null));}catch{}}}finally{Release(obj);}}Release(items);}catch(Exception ex){Console.WriteLine(group+" "+ex.Message);}
+  }
+  foreach(S.FeatureControlFrame f in (S.FeatureControlFrames)sheet.FeatureControlFrames)Console.WriteLine(Scalars(f,"FrameworkSupport","FeatureControlFrame","Frame"));
+  foreach(S.DatumFrame f in (S.DatumFrames)sheet.DatumFrames)Console.WriteLine(Scalars(f,"FrameworkSupport","DatumFrame","Datum"));
+  foreach(F.Symbol2d s in (F.Symbols)sheet.Symbols){double a,b,c,d;s.Range(out a,out b,out c,out d);Console.WriteLine("SYMBOL "+s.Index+" "+a+","+b+","+c+","+d+" scale="+s.ScaleFactor);}
+  foreach(string type in new[]{"FeatureControlFrames","FeatureControlFrame","DatumFrames","DatumFrame","TextBox","SurfaceFinishSymbol"}){var t=Api("FrameworkSupport",type);if(t==null)continue;Console.WriteLine("API "+type);foreach(var m in t.GetMethods().Where(m=>m.Name.StartsWith("Add")||m.Name.Contains("Terminator")||m.Name.Contains("Frame")||m.Name=="Copy"||m.Name=="SetKeyPoint"))Console.WriteLine(m.ToString());}
+  }finally{if(!opened)doc.Close(false);Release(sheet);Release(doc);}
+ }
  static void Bushing21931Spacing(){
   Bushing21931Context();app.Interactive=true;app.DelayCompute=false;LoadCap();var dims=(S.Dimensions)csh.Dimensions;CRequire(dims.Count==4,"Expected completed dimensional stage");
   // A reopened document can retain read-only access even when the file has

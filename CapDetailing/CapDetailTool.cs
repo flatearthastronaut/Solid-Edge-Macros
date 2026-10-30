@@ -46,6 +46,9 @@ partial class CapDetailTool {
   else if(args[0]=="--bushing21931-ref-parents")Bushing21931ReferenceParents();
   else if(args[0]=="--bushing21931-dim-init")Bushing21931DimensionInit();
   else if(args[0]=="--bushing21931-spacing")Bushing21931Spacing();
+  else if(args[0]=="--bushing21931-note-inspect")Bushing21931NoteInspect();
+  else if(args[0]=="--bushing21931-notes")Bushing21931Notes();
+  else if(args[0]=="--bushing21931-note-placement"){Bushing21931Context();LoadCap();Bushing21931NotePlacement();cdoc.Save();cdoc.Close(false);Release(cdoc);LoadCap();CPreview();}
   else if(args[0]=="--bushing21931-recover-spacing"){Bushing21931Context();for(int i=app.Documents.Count;i>=1;i--){dynamic doc=app.Documents.Item(i);try{if(string.Equals((string)doc.FullName,CapPath,StringComparison.OrdinalIgnoreCase)){CRequire(((S.Dimensions)((D.DraftDocument)doc).Sheets.Item("Sheet1").Dimensions).Count==4,"Unexpected recovery state");doc.Close(false);Console.WriteLine("Closed only the bushing draft; last verified disk save retained.");break;}}finally{Release(doc);}}Bushing21931Spacing();}
   else if(args[0]=="--drawbar-views")DrawbarViews();
   else if(args[0]=="--drawbar-audit"){partPath=Path.Combine(folder,"drawbar adapter OP10.par");root=Path.Combine(root,"DrawbarOP10");Directory.CreateDirectory(root);AuditPart();}
