@@ -1,0 +1,123 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Part FullName="C:\Users\greg.lentner\Documents\Codex\cap detailing refs\bushing 21931.par" Name="bushing 21931.par" Path="C:\Users\greg.lentner\Documents\Codex\cap detailing refs" ReadOnly="False" IsTemplate="False" Status="igStatusAvailable" Type="igPartDocument" Dirty="False" CreatedVersion="226.0.5.4" LastSavedVersion="226.0.7.4" InPlaceActivated="False" UndoSteps="500" IsInsightFile="False" IsGeometricVersionDirty="False" ProfileUndoSteps="100" IsFeatureLibrary="False" BodyCheck="False" DesignBodyVisible="True" ShowCurvatureCombs="True" GeometricVersion="1207449113" PhysicalPropertiesStatus="sePhysicalPropertiesStatus_Model" IsAdjustablePart="False" HardwareFile="False" HasCapturedRelationships="False" CapturedRelationshipCount="0" ComponentName="" ModelingMode="seModelingModeOrdered" DisableMoveToSynchronous="False" AutomaticTransitionToSolutionManager="False" IsMultiCADDriven="False" CutawaysCount="0" OrderedBodyInSyncVisible="True" UpdateOnFileSave="False" IsFamilyOfPartsMaster="False" IsFamilyOfPartsMember="False" IsFamilyOfPartsSource="False">
+  <PropertySet name="SummaryInformation">
+    <Property name="Title" value=" " />
+    <Property name="Subject" value=" " />
+    <Property name="Author" value="greg.lentner" />
+    <Property name="Keywords" value=" " />
+    <Property name="Comments" value="" />
+    <Property name="Template" value="normal.par" />
+    <Property name="Last Author" value="greg.lentner" />
+    <Property name="Revision Number" value="16" />
+    <Property name="Origination Date" value="05/27/2026 15:45:14" />
+    <Property name="Last Save Date" value="10/09/2026 09:49:27" />
+    <Property name="Number of pages" value="0" />
+    <Property name="Number of words" value="0" />
+    <Property name="Number of characters" value="0" />
+    <Property name="Application Name" value="Solid Edge" />
+    <Property name="Security" value="0" />
+  </PropertySet>
+  <PropertySet name="ExtendedSummaryInformation">
+    <Property name="Name of Saving Application" value="Solid Edge" />
+    <Property name="DocumentID" value="{6925F3DA-C681-4DDF-BD83-A32EF96A4EDD}" />
+    <Property name="Status" value="0" />
+    <Property name="Username" value="greg.lentner" />
+    <Property name="CreationLocale" value="1033" />
+    <Property name="Hardware" value="False" />
+    <Property name="StatusChangeDate" value="05/27/2026 15:45:14" />
+    <Property name="FriendlyUserName" value="Greg Lentner" />
+  </PropertySet>
+  <PropertySet name="DocumentSummaryInformation">
+    <Property name="Category" value=" " />
+    <Property name="Presentation Format" value="" />
+    <Property name="Byte Count" value="0" />
+    <Property name="Lines" value="0" />
+    <Property name="Paragraphs" value="0" />
+    <Property name="Slides" value="0" />
+    <Property name="Notes" value="0" />
+    <Property name="Hidden Objects" value="0" />
+    <Property name="Multimedia Clips" value="0" />
+    <Property name="Manager" value="" />
+    <Property name="Company" value="" />
+  </PropertySet>
+  <PropertySet name="Custom">
+    <Property name="Density" value="0.28298507824 lbm/in^3" />
+    <Property name="Accuracy" value="0.990" />
+    <Property name="customer" value="PARKER - ST. MARYS" />
+    <Property name="end user" value="PARKER - ST. MARYS" />
+    <Property name="tool number" value=" " />
+    <Property name="detail number" value="4" />
+    <Property name="drawing number" value="DWG #21931-" />
+    <Property name="description" value="BUSHING" />
+    <Property name="description line 2" value="-" />
+    <Property name="designer" value="-" />
+    <Property name="date designed" value="03/16/2023 00:00:00" />
+    <Property name="sheet no." value="1" />
+    <Property name="detailer" value="-" />
+    <Property name="date detailed" value="03/16/2023 00:00:00" />
+    <Property name="checker" value="-" />
+    <Property name="date checked" value="03/16/2023 00:00:00" />
+    <Property name="heat treat" value="R/C 42-46" />
+    <Property name="finish" value="PRESTO BLACKEN" />
+    <Property name="sheets total" value="-" />
+    <Property name="scale" value="FULL" />
+    <Property name="finish2" value="-" />
+    <Property name="wear item" value="N" />
+    <Property name="dave_w" value="-" />
+    <Property name="dave_b" value="04" />
+    <Property name="revision letter" value="-" />
+    <Property name="phone number" value="-" />
+    <Property name="engineer" value="-" />
+    <Property name="matl" value="6150" />
+    <Property name="machine_name" value="-" />
+    <Property name="PART NO." value="-" />
+    <Property name="PART NAME" value="-" />
+    <Property name="SEQUENCE NO." value="-" />
+    <Property name="reference" value="-" />
+    <Property name="kyle j" value="-" />
+    <Property name="sashank_sort" value="-" />
+    <Property name="MACH" value="-" />
+    <Property name="description line 3" value="-" />
+    <Property name="dave_b_callback" value="-" />
+  </PropertySet>
+  <PropertySet name="ProjectInformation">
+    <Property name="Document Number" value=" " />
+    <Property name="Revision" value="" />
+    <Property name="Project Name" value=" " />
+  </PropertySet>
+  <PropertySet name="VersionHistory" />
+  <PropertySet name="MechanicalModeling">
+    <Property name="Material" value="Steel" />
+    <Property name="Face Style" value="Steel" />
+    <Property name="Fill Style" value="ANSI32(Steel)" />
+    <Property name="Virtual Style" value="Machined steel" />
+    <Property name="Coef. of Thermal Exp" value="1.3E-05" />
+    <Property name="Thermal Conductivity" value="32" />
+    <Property name="Specific Heat" value="481" />
+    <Property name="Modulus of Elasticity" value="199947953000" />
+    <Property name="Poission's Ratio" value="0.29" />
+    <Property name="Yield Stress" value="262000766" />
+    <Property name="Ultimate Stress" value="358527364" />
+    <Property name="Elongation" value="0" />
+    <Property name="Grouping" value="Metals\Steel" />
+    <Property name="LibraryName" value="Materials" />
+  </PropertySet>
+  <Model name="Design Model" low="-0.0079375,0.0593725,0.0423417999999999" high="0.0079375,0.0752475,0.0645668" volume="3.5022448560789416E-06" valid="true">
+    <RevolvedProtrusion ShowDimensions="False" Name="RevolvedProtrusion_9" Suppress="False" Type="igRevolvedProtrusionFeatureObject" ExtentSide="igRight" Angle="6.28318530717959" ExtentType="igThreeHundredAndSixty" ModelingModeType="seModelingModeOrdered" DisplayName="RevolvedProtrusion_9" SystemName="RevolvedProtrusion_9" EdgebarName="Protrusion 9" Visible="True" ConvertToCutoutAllowed="False" />
+    <Chamfer ChamferType="igChamfer45degSetback" ChamferSetbackValue1="0.000762" ChamferSetbackAngle="45" ShowDimensions="False" Name="Chamfer_4" Suppress="False" Type="igChamferFeatureObject" ModelingModeType="seModelingModeOrdered" DisplayName="Chamfer_4" SystemName="Chamfer_4" EdgebarName="Chamfer 4" Visible="True" />
+  </Model>
+  <Profile name="Profile_33">
+    <Line xyz="4.60742833046246E-18,0.0752475,0.0423417999999999,3.63539703711595E-18,0.0593725,0.0423417999999999" />
+    <Line xyz="3.63539703711595E-18,0.0593725,0.0423417999999999,3.63539703711595E-18,0.0593725,0.0645668" />
+    <Line xyz="3.63539703711595E-18,0.0593725,0.0645668,4.60742833046246E-18,0.0752475,0.0645668" />
+    <Line xyz="4.60742833046246E-18,0.0752475,0.0645668,4.60742833046246E-18,0.0752475,0.0423417999999999" />
+  </Profile>
+  <Profile name="Profile_34">
+    <Line xyz="4.12141268378921E-18,0.06731,0.0645668,4.12141268378921E-18,0.06731,0.0423417999999999" />
+    <Line xyz="4.60742833046247E-18,0.0752475,0.0423417999999999,4.33914769349883E-18,0.070866,0.0423417999999999" />
+    <Line xyz="4.33914769349883E-18,0.070866,0.0423417999999999,4.33914769349883E-18,0.070866,0.0645668" />
+    <Line xyz="4.33914769349883E-18,0.070866,0.0645668,4.60742833046247E-18,0.0752475,0.0645668" />
+    <Line xyz="4.60742833046247E-18,0.0752475,0.0645668,4.60742833046247E-18,0.0752475,0.0423417999999999" />
+    <Circle xyz="4.12141268378921E-18,0.06731,0.0645668" radius="0.0079375" />
+  </Profile>
+</Part>
