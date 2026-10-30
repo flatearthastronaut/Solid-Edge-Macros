@@ -5,6 +5,7 @@
 - Default drawing stages are: (1) drawing views, section/cutting-plane layout, and shaded ISO; (2) centerlines and center marks; (3) chamfer and radius/fillet dimensions; (4) linear, diameter, and angular dimensions; (5) notes and feature-linked thread/hole callouts. Let the user direct any additional stages or explicitly change/combine the sequence. Resolve requested corrections within the current stage before advancing.
 - Preserve approved work while adding the next stage. Check placement for overlaps and crossings, maintain model associations and reference presentation, and verify saved results before presenting them for review.
 - Record new general detailing rules in these project guidelines as the user supplies them, and apply them to future drawings. Keep part-specific exceptions scoped to that job; the user's latest explicit instruction takes precedence over an older rule.
+- When a reference drawing is available, match its applicable detailing, dimension precision, and tolerance format. A different model nominal alone is not a reason to increase displayed precision: for example, the user approved displaying a .625-inch model OD as .63 to match a two-place reference and its title-block tolerance. Retain the exact model-linked measurement; do not override the value or alter model geometry to match rounded text.
 - For future Solid Edge drafts, use the normal (new designs) draft template.
 - Start drawings at 1:1 scale on a B-size sheet. Enlarge the view scale if needed for uncrowded dimensions. C, D, E, and EE sheets may be used when necessary, but ask the user before changing sheet size.
 - Always use third-angle projection for drawings.
@@ -25,6 +26,7 @@
 - Use two inch decimal places for counterbored-hole and bolt-circle dimensions, three for threads and hydraulic/air holes, and four for dowel-pin dimensions. Apply the precision to native dimensions and feature-linked callout formatting; preserve thread designations and explicit fit tolerances.
 - Chamfer and radius/fillet inch values use two decimal places, except values of .015 inch or less use three. Preserve metric precision independently.
 - Ask clarifying questions when the task scope is unclear.
+- If a detailing step needs prolonged investigation, stop after a brief focused troubleshooting attempt and ask Greg for guidance instead of repeating speculative fixes.
 - Keep pull requests small, focused, and reviewable.
 - Do not look into files outside of the project directory and its sub-directories
 - When making changes to macro programs compile them after making modifications and drop the executable file in a sub-directory called "Compiled Executables"

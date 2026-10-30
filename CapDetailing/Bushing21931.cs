@@ -11,6 +11,156 @@ using G=SolidEdge.Geometry.Interop;
 partial class CapDetailTool {
  const string Bushing21931Name="bushing 21931";
  static void Bushing21931Context(){capName=Bushing21931Name;}
+ static void Bushing21931Spacing(){
+  Bushing21931Context();app.Interactive=true;app.DelayCompute=false;LoadCap();var dims=(S.Dimensions)csh.Dimensions;CRequire(dims.Count==4,"Expected completed dimensional stage");
+  // A reopened document can retain read-only access even when the file has
+  // no read-only attribute. Request normal write access once; fail before any
+  // geometry or annotation changes if Solid Edge cannot grant it.
+  if(cdoc.ReadOnly){bool available=false;cdoc.SeekWriteAccess(out available);CRequire(available&&!cdoc.ReadOnly,"Solid Edge could not grant write access; ask Greg before further recovery attempts.");}
+  var before=dims.Cast<S.Dimension>().Select(EngineeringFingerprint).OrderBy(s=>s).ToArray();
+  // At 1:1 the 7.112 mm bore leaves less room than the dual-unit text needs.
+  // The standing rule permits enlarging views; 2:1 also matches 21930-04.
+  cface.ScaleDimensionsAndAnnotations=false;csection.ScaleDimensionsAndAnnotations=false;ciso.ScaleDimensionsAndAnnotations=false;
+  Console.WriteLine("Initial scales: end="+cface.ScaleFactor+" section="+csection.ScaleFactor+" iso="+ciso.ScaleFactor+"; locked="+cface.LockView+","+csection.LockView+" readonly="+cdoc.ReadOnly);
+  if(cface.ScaleFactor!=2){Console.WriteLine("Scaling end view");cface.ScaleFactor=2;}
+  if(csection.ScaleFactor!=2){Console.WriteLine("Scaling section view");csection.ScaleFactor=2;}
+  Console.WriteLine("Updating scaled views");cface.Update();csection.Update();BushingPlaceView(cface,.285,.145);BushingPlaceView(csection,.150,.145);
+  foreach(S.Dimension dim in dims){switch(dim.GetComment()){
+   case "BUSHING21931-OD":dim.SetKeyPoint(8,.085,.145,0);break;
+   case "BUSHING21931-ID":dim.SetKeyPoint(8,.111,.145,0);break;
+   case "BUSHING21931-LENGTH":dim.SetKeyPoint(8,.150,.190,0);break;
+   case "BUSHING21931-CHAMFER":PlaceChamferText(dim,.202,.149);break;
+  }}
+  var cp=cface.CuttingPlanes.Item(1);var line=cp.Profile.Lines2d.Item(1);try{double a,b,c,d;line.GetStartPoint(out a,out b);line.GetEndPoint(out c,out d);cp.SetCaptionPosition(true,a+.025,b);cp.SetCaptionPosition(false,c+.025,d);CRequire(AxisConstraints.Has(line,(int)F.ObjectType.igVerticalRelation2d),"Cutting-plane constraint changed during scale adjustment");}finally{Release(line);Release(cp);}
+  cdoc.Activate();csh.Activate();cdoc.UpdatePropertyTextCacheAndDisplay();app.DoIdle();
+  cdoc.Save();cdoc.Close(false);Release(cdoc);LoadCap();dims=(S.Dimensions)csh.Dimensions;
+  CRequire(before.SequenceEqual(dims.Cast<S.Dimension>().Select(EngineeringFingerprint).OrderBy(s=>s)),"Scale adjustment changed dimensional content");
+  var aCenter=CMap(cface,0,.06731,.0534543);var bCenter=CMap(csection,0,.06731,.0534543);CRequire(Math.Abs(aCenter[0]-.285)+Math.Abs(bCenter[0]-.150)+Math.Abs(aCenter[1]-.145)+Math.Abs(bCenter[1]-.145)<1e-8,"Approved view centers or alignment changed");
+  CRequire(cface.ScaleFactor==2&&csection.ScaleFactor==2&&ciso.ScaleFactor==1&&ciso.Shading&&csh.SheetSetup.SheetSizeOption==D.PaperSizeConstants.igAnsiBWide,"Scale or sheet configuration differs");
+  var report=new XElement("BushingMainDimensionVerification",new XAttribute("reference","21930-04 bushing.dft"),new XAttribute("diameterInchPlaces",2),new XAttribute("lengthToleranceInch",.001),new XAttribute("orthographicScale","2:1"),new XAttribute("sheet","B"));
+  foreach(S.Dimension dim in dims){CRequire(dim.StatusOfDimension==S.DimStatusConstants.seDimStatusDriven&&string.IsNullOrEmpty(dim.OverrideString),"Scaled dimension lost model link");if(dim.DimensionType==S.DimTypeConstants.igDimTypeSDiameter){var edge=BushingBodyEdge(.06731+dim.Value/2,.0534543);try{BushingDiameterParents(dim,edge);}finally{Release(edge);}}
+   var item=Scalars(dim,"FrameworkSupport","Dimension","Dimension");item.Add(CTexts(dim).Select(t=>new XElement("DisplayedText",t)));report.Add(item);
+  }
+  new XDocument(report).Save(Path.Combine(CapWork,"main-dimension-verification.xml"));CPreview();Console.WriteLine("PASS: 2:1 end/section views retain native alignment and exact dimension content; shaded ISO 1:1; B sheet unchanged.");
+ }
+ static void Bushing21931DimensionInit(){
+  Bushing21931Context();LoadCap();var dims=(S.Dimensions)csh.Dimensions;var axis=((S.CenterLines)csh.CenterLines).Item(1);var edge=BushingBodyEdge(.0752475,.0534543);var p=BushingSegment(edge);int j=p[0]<p[2]?0:2;
+  try{foreach(bool normal in new[]{false,true}){var init=dims.DimInitData;S.Dimension dim=null;try{init.ClearCreationData();init.SetType(S.DimTypeConstants.igDimTypeSDiameter);init.SetAxisMode(S.DimAxisModeConstants.igDimAxisModeDefault);init.SetNormalDiameterMode(normal);init.SetNumberOfParents(2);init.SetParentByIndex(0,axis,false,false,false,false,p[j],.145,0);init.SetParentByIndex(1,edge.Reference,true,false,false,false,p[j],p[j+1],0);init.SetDimPositionMode(true);init.SetDimPosition(.098,.145,0);dim=dims.AddDimension(init);dim.DisplayHalf=true;dim.MeasurementAxisDirection=true;Console.WriteLine("INIT normal="+normal+" value="+dim.Value+" keys="+dim.KeyPointCount+" axis="+dim.MeasurementAxisEx);}catch(Exception ex){Console.WriteLine("INIT normal="+normal+" "+ex.Message);}finally{if(dim!=null){dim.Delete();Release(dim);}Release(init);}}}finally{Release(edge);Release(axis);}
+ }
+ static void Bushing21931ReferenceParents(){
+  string path=Path.Combine(folder,"21930-04 bushing.dft");bool open=IsOpen(path);var doc=(D.DraftDocument)app.Documents.Open(path);
+  try{foreach(S.Dimension dim in (S.Dimensions)doc.Sheets.Item("Sheet1").Dimensions){if(dim.DimensionType!=S.DimTypeConstants.igDimTypeSDiameter)continue;int count;dim.GetRelatedCount(out count);Console.WriteLine("REF DIM "+dim.Value+" parents="+count);
+   for(int i=0;i<count;i++){object related=null,target=null;double x,y,z;bool key;try{dim.GetRelated(i,out related,out x,out y,out z,out key);var reference=related as F.Reference;target=reference==null?related:reference.Object;Console.WriteLine("PARENT "+i+" ref="+(reference!=null)+" key="+key+" pick="+x+","+y+","+z+" DVLine="+(target is D.DVLine2d)+" CenterLine="+(target is S.CenterLine)+" Line2d="+(target is S.Line2d)+" DVCircle="+(target is D.DVCircle2d));var line=target as D.DVLine2d;if(line!=null){double a,b,c,d;line.GetStartPoint(out a,out b);line.GetEndPoint(out c,out d);Console.WriteLine("LINE "+a+","+b+" / "+c+","+d+" member="+line.ModelMember.ComponentName);}}finally{if(!object.ReferenceEquals(target,related))Release(target);Release(related);}}
+  }}finally{if(!open)doc.Close(false);Release(doc);}
+ }
+ static D.DVLine2d BushingBodyEdge(double y,double z){
+  var point=CMap(csection,0,y,z);D.DVLine2d selected=null;
+  foreach(D.DVLine2d edge in csection.DVLines2d){bool keep=false;try{
+   var member=edge.ModelMember;bool physical;try{physical=member.ComponentType==D.ModelMemberComponentTypeConstants.seSolidBodyMemberType&&member.DisplayType!=D.ModelMemberDisplayTypeConstants.seHidePart;}finally{Release(member);}
+   if(!physical||edge.ShowHideEdgeOverride==D.DVShowHideEdgeOverrideType.DVShowHideEdgeOverrideHide)continue;
+   var p=BushingSegment(edge);double dx=p[2]-p[0],dy=p[3]-p[1],l=dx*dx+dy*dy;if(l<1e-18)continue;
+   double t=Math.Max(0,Math.Min(1,((point[0]-p[0])*dx+(point[1]-p[1])*dy)/l));
+   if(Math.Abs(p[0]+t*dx-point[0])+Math.Abs(p[1]+t*dy-point[1])<1e-8){CRequire(selected==null,"Ambiguous physical dimension edge");selected=edge;keep=true;}
+  }finally{if(!keep)Release(edge);}}
+  CRequire(selected!=null,"Physical model edge not found for dimension");return selected;
+ }
+ static S.Dimension BushingSizeDimension(bool diameter,double radius,double x,double y,string role){
+  D.DVLine2d a,b;double[] p,q;
+  if(diameter){
+   a=BushingBodyEdge(.06731-radius,.0534543);b=BushingBodyEdge(.06731+radius,.0534543);
+   // Use each silhouette's left endpoint so the extension gaps start at the
+   // nearest physical feature, not at the middle of the section or a bevel.
+   var pa=BushingSegment(a);var pb=BushingSegment(b);int ia=pa[0]<pa[2]?0:2,ib=pb[0]<pb[2]?0:2;p=new[]{pa[ia],pa[ia+1]};q=new[]{pb[ib],pb[ib+1]};
+  }else{
+   a=BushingBodyEdge(.07305675,.0423418);b=BushingBodyEdge(.07305675,.0645668);
+   p=CMap(csection,0,.0752475,.0423418);q=CMap(csection,0,.0752475,.0645668);
+  }
+  try{
+   var dims=(S.Dimensions)csh.Dimensions;
+   var axis=((S.CenterLines)csh.CenterLines).Item(1);S.Dimension dim;
+   try{
+    if(diameter){
+     // The legacy AddSymmetricalDiameter overload forces an explicit axis
+     // for a CenterLine parent. Initialize the default axis explicitly to
+     // reproduce the reference's nine-keypoint, two-sided native dimension.
+     var init=dims.DimInitData;try{init.ClearCreationData();init.SetType(S.DimTypeConstants.igDimTypeSDiameter);init.SetAxisMode(S.DimAxisModeConstants.igDimAxisModeDefault);init.SetNormalDiameterMode(false);init.SetNumberOfParents(2);init.SetParentByIndex(0,axis,false,false,false,false,p[0],(p[1]+q[1])/2,0);init.SetParentByIndex(1,b.Reference,true,false,false,false,q[0],q[1],0);init.SetDimPositionMode(true);init.SetDimPosition(x,y,0);dim=dims.AddDimension(init);}finally{Release(init);}
+    }else dim=dims.AddDistanceBetweenObjects(a.Reference,p[0],p[1],0,true,b.Reference,q[0],q[1],0,true);
+   }finally{Release(axis);}
+   try{
+    var style=dim.Style;try{CStyle(style);style.PrimaryDecimalRoundOff=diameter?S.DimDecimalRoundOffTypeConstants.igDimStyleDecimal_1:S.DimDecimalRoundOffTypeConstants.igDimStyleDecimal_2;style.SecondaryDecimalRoundOff=diameter?S.DimDecimalRoundOffTypeConstants.igDimStyleDecimal_2:S.DimDecimalRoundOffTypeConstants.igDimStyleDecimal_3;
+     if(!diameter){style.PrimaryLinearToleranceUnits=S.DimLinearUnitConstants.igDimStyleLinearInches;dim.DisplayType=S.DimDispTypeConstants.igDimDisplayTypeUnitTolerance;dim.PrimaryUpperTolerance=".001";dim.PrimaryLowerTolerance="-.001";dim.DisplayType=S.DimDispTypeConstants.igDimDisplayTypeLimits;}
+     // The user explicitly selected .63 for the .625 OD. RoundUpOdd from the
+     // general reference would produce .62 at this tie; use native half-up
+     // rounding for this OD only, without changing or overriding its value.
+     if(role=="BUSHING21931-OD")style.RoundUp=S.DimRoundUpTypeConstants.igDimStyleRoundUpAll;
+    }finally{Release(style);}
+    dim.SetComment(role);if(diameter)dim.DisplayHalf=true;else dim.MeasurementAxisEx=S.DimAxisModeConstants.igDimAxisModeDefault;dim.MeasurementAxisDirection=diameter;
+    // Native symmetric diameters measure twice the distance from the linked
+    // centerline to a silhouette; the vertical axis excludes endpoint X offsets.
+    dim.TrackDistance=diameter?x-p[0]:p[1]-y;dim.SetKeyPoint(8,x,y,0);
+    CRequire(Math.Abs(dim.Value-(diameter?2*radius:.022225))<1e-9&&dim.StatusOfDimension==S.DimStatusConstants.seDimStatusDriven,"Native dimension differs from model: "+role+" measured="+dim.Value+" status="+dim.StatusOfDimension);if(diameter)BushingDiameterParents(dim,b);else VerifyParents(dim,new object[]{a,b});return dim;
+   }catch{dim.Delete();Release(dim);throw;}
+  }finally{Release(a);Release(b);}
+ }
+ static void BushingDiameterParents(S.Dimension dim,D.DVLine2d expected){
+  int count;dim.GetRelatedCount(out count);CRequire(count==2,"Symmetric diameter must retain centerline and physical edge");int axes=0,edges=0;
+  var axis=((S.CenterLines)csh.CenterLines).Item(1);
+  try{for(int i=0;i<count;i++){object related=null,target=null;double x,y,z;bool key;
+   try{dim.GetRelated(i,out related,out x,out y,out z,out key);var reference=related as F.Reference;target=reference==null?related:reference.Object;
+    var line=target as D.DVLine2d;var center=target as S.CenterLine;
+    if(line!=null){CRequire(NativeEdgeKey(line)==NativeEdgeKey(expected),"Symmetric diameter attached to wrong physical edge");edges++;}
+    else{CRequire(center!=null&&SameNativeObject(center,axis),"Symmetric diameter lost native centerline association");axes++;}
+   }finally{if(!object.ReferenceEquals(target,related))Release(target);Release(related);}
+  }}finally{Release(axis);}CRequire(axes==1&&edges==1,"Incorrect symmetric diameter parent roles");
+ }
+ static void Bushing21931DimensionLayout(){
+  Bushing21931Context();LoadCap();var dims=(S.Dimensions)csh.Dimensions;CRequire(dims.Count==4,"Expected four dimensions");
+  var before=dims.Cast<S.Dimension>().Select(EngineeringFingerprint).OrderBy(s=>s).ToArray();
+  var oldDiameters=dims.Cast<S.Dimension>().Where(d=>d.DimensionType==S.DimTypeConstants.igDimTypeSDiameter).ToArray();var replacements=new System.Collections.Generic.List<S.Dimension>();
+  try{foreach(S.Dimension old in oldDiameters){bool outer=old.GetComment()=="BUSHING21931-OD";var fresh=BushingSizeDimension(true,old.Value/2,outer?.098:.123,.145,old.GetComment());replacements.Add(fresh);CRequire(fresh.KeyPointCount==9&&EngineeringFingerprint(old)==EngineeringFingerprint(fresh),"Reference-style replacement changed dimension content");}
+   foreach(var old in oldDiameters)old.Delete();
+  }catch{foreach(var fresh in replacements)fresh.Delete();throw;}finally{foreach(var fresh in replacements)Release(fresh);foreach(var old in oldDiameters)Release(old);}
+  cdoc.Save();cdoc.Close(false);Release(cdoc);LoadCap();dims=(S.Dimensions)csh.Dimensions;
+  CRequire(before.SequenceEqual(dims.Cast<S.Dimension>().Select(EngineeringFingerprint).OrderBy(s=>s)),"Dimension content changed during full-display placement");
+  var report=new XElement("BushingMainDimensionVerification",new XAttribute("reference","21930-04 bushing.dft"),new XAttribute("diameterInchPlaces",2),new XAttribute("lengthToleranceInch",.001));
+  foreach(S.Dimension dim in dims){if(dim.DimensionType==S.DimTypeConstants.igDimTypeSDiameter){CRequire(dim.DisplayHalf&&dim.KeyPointCount==9&&dim.StatusOfDimension==S.DimStatusConstants.seDimStatusDriven,"Reference diameter display did not persist: half="+dim.DisplayHalf+" keys="+dim.KeyPointCount+" status="+dim.StatusOfDimension);var edge=BushingBodyEdge(.06731+dim.Value/2,.0534543);try{BushingDiameterParents(dim,edge);}finally{Release(edge);}}
+   var item=Scalars(dim,"FrameworkSupport","Dimension","Dimension");item.Add(CTexts(dim).Select(t=>new XElement("DisplayedText",t)));report.Add(item);
+  }
+  new XDocument(report).Save(Path.Combine(CapWork,"main-dimension-verification.xml"));CPreview();Console.WriteLine("PASS: full symmetric diameter display matches reference; content and model links preserved after reopening.");
+ }
+ static void Bushing21931MainDimensions(){
+  Bushing21931Context();LoadCap();var dims=(S.Dimensions)csh.Dimensions;CRequire(dims.Count==1&&dims.Item(1).GetComment()=="BUSHING21931-CHAMFER","Expected approved chamfer stage");
+  string chamfer=EngineeringFingerprint(dims.Item(1));var notes=AnnotationContent(csh);
+  var positions=csh.DrawingViews.Cast<D.DrawingView>().Select(v=>{double x,y;v.GetOrigin(out x,out y);return new[]{x,y,v.ScaleFactor};}).ToArray();
+  var added=new System.Collections.Generic.List<S.Dimension>();bool saved=false;
+  try{
+   // Match 21930-04: nominal two-place diameters in nested left banks, and
+   // three-place inch length limits above the external faces. Keep the exact
+   // .625-inch model diameter even though the approved display rounds to .63.
+   added.Add(BushingSizeDimension(true,.0079375,.098,.145,"BUSHING21931-OD"));
+   added.Add(BushingSizeDimension(true,.003556,.123,.145,"BUSHING21931-ID"));
+   var length=BushingSizeDimension(false,0,.150,.182,"BUSHING21931-LENGTH");added.Add(length);
+   var limits=CTexts(length);CRequire(limits.Contains(".876")&&limits.Contains(".874")&&limits.Contains("22.25")&&limits.Contains("22.20"),"Length limits do not match the reference's +/- .001 inch tolerance");
+   CRequire(CTexts(added[0]).Contains(".63")&&CTexts(added[1]).Contains(".28"),"Diameter precision does not match reference: OD="+string.Join("|",CTexts(added[0]))+" ID="+string.Join("|",CTexts(added[1])));
+   cdoc.Save();saved=true;
+  }catch{if(!saved)foreach(var dim in added)dim.Delete();throw;}finally{foreach(var dim in added)Release(dim);}
+  cdoc.Close(false);Release(cdoc);LoadCap();dims=(S.Dimensions)csh.Dimensions;CRequire(dims.Count==4,"Saved dimension count differs");
+  var expected=new System.Collections.Generic.Dictionary<string,double>{{"BUSHING21931-OD",.015875},{"BUSHING21931-ID",.007112},{"BUSHING21931-LENGTH",.022225}};
+  var report=new XElement("BushingMainDimensionVerification",new XAttribute("reference","21930-04 bushing.dft"),new XAttribute("diameterInchPlaces",2),new XAttribute("lengthToleranceInch",.001));
+  foreach(S.Dimension dim in dims){
+   string role=dim.GetComment();if(role=="BUSHING21931-CHAMFER"){CRequire(EngineeringFingerprint(dim)==chamfer,"Approved chamfer changed");continue;}
+   CRequire(expected.ContainsKey(role)&&Math.Abs(dim.Value-expected[role])<1e-9&&dim.StatusOfDimension==S.DimStatusConstants.seDimStatusDriven&&string.IsNullOrEmpty(dim.OverrideString),"Saved nominal or association changed");
+   bool diameter=role!="BUSHING21931-LENGTH";CRequire(dim.DimensionType==(diameter?S.DimTypeConstants.igDimTypeSDiameter:S.DimTypeConstants.igDimTypeLinear),"Incorrect native dimension type");
+   var style=dim.Style;try{CRequire(style.PrimaryDecimalRoundOff==(diameter?S.DimDecimalRoundOffTypeConstants.igDimStyleDecimal_1:S.DimDecimalRoundOffTypeConstants.igDimStyleDecimal_2)&&style.SecondaryDecimalRoundOff==(diameter?S.DimDecimalRoundOffTypeConstants.igDimStyleDecimal_2:S.DimDecimalRoundOffTypeConstants.igDimStyleDecimal_3)&&style.DrivenColor==8421376&&Math.Abs(style.ProjectionOffsetGap-.5)<1e-9,"Reference dimension presentation differs");}finally{Release(style);}
+   D.DVLine2d a,b;if(diameter){double r=dim.Value/2;a=BushingBodyEdge(.06731-r,.0534543);b=BushingBodyEdge(.06731+r,.0534543);}else{a=BushingBodyEdge(.07305675,.0423418);b=BushingBodyEdge(.07305675,.0645668);}
+   try{if(diameter)BushingDiameterParents(dim,b);else VerifyParents(dim,new object[]{a,b});}finally{Release(a);Release(b);}
+   var item=Scalars(dim,"FrameworkSupport","Dimension","Dimension");item.Add(CTexts(dim).Select(t=>new XElement("DisplayedText",t)));report.Add(item);
+   if(!diameter)CRequire(TextPoint(dim)[1]>.1529375&&dim.DisplayType==S.DimDispTypeConstants.igDimDisplayTypeLimits&&CTexts(dim).Contains(".876")&&CTexts(dim).Contains(".874"),"External length placement or limits changed");
+  }
+  for(int i=1;i<=3;i++){var view=csh.DrawingViews.Item(i);try{double x,y;view.GetOrigin(out x,out y);var p=positions[i-1];CRequire(Math.Abs(x-p[0])+Math.Abs(y-p[1])+Math.Abs(view.ScaleFactor-p[2])<1e-9,"Approved view layout changed");}finally{Release(view);}}
+  CRequire(ciso.Shading&&((S.CenterLines)csh.CenterLines).Count==1&&((S.CenterMarks)csh.CenterMarks).Count==1&&notes.SequenceEqual(AnnotationContent(csh)),"Approved centerlines or notes changed");
+  new XDocument(report).Save(Path.Combine(CapWork,"main-dimension-verification.xml"));CPreview();Console.WriteLine("PASS: native OD, bore and overall length dimensions saved/reopened; exact physical parents checked; reference precision and length limits retained. Paused for review.");
+ }
  static double[] BushingSegment(D.DVLine2d line){double a,b,c,d;line.GetStartPoint(out a,out b);line.GetEndPoint(out c,out d);csection.ViewToSheet(a,b,out a,out b);csection.ViewToSheet(c,d,out c,out d);return new[]{a,b,c,d};}
  static bool BushingJoined(double[] a,double[] b){for(int i=0;i<4;i+=2)for(int j=0;j<4;j+=2)if(Math.Abs(a[i]-b[j])+Math.Abs(a[i+1]-b[j+1])<1e-8)return true;return false;}
  static void Bushing21931EdgeDimensions(){

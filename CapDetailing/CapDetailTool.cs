@@ -18,8 +18,15 @@ partial class CapDetailTool {
  const double Inch=.0254;
  [STAThread]static int Main(string[] args){try{using(var filter=new BusyFilter()){
   root=Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,".."));
-  app=Marshal.GetActiveObject("SolidEdge.Application");
+  try{app=Marshal.GetActiveObject("SolidEdge.Application");}
+  catch(COMException ex){
+   // Permit this explicit bushing retry to start Solid Edge when the user has
+   // closed it. Other modes retain the existing attach-only behavior.
+   if(ex.ErrorCode!=unchecked((int)0x800401E3)||args.Length==0||args[0]!="--bushing21931-spacing")throw;
+   app=Activator.CreateInstance(Type.GetTypeFromProgID("SolidEdge.Application"));app.Visible=true;
+  }
   if(args.Length==0||args[0]=="--refs")AuditReferences();
+  else if(args[0]=="--app-status"){Console.WriteLine("HWND="+app.hWnd+" visible="+app.Visible+" docs="+app.Documents.Count);for(int i=1;i<=app.Documents.Count;i++){dynamic doc=app.Documents.Item(i);try{Console.WriteLine(doc.FullName+" dirty="+doc.Dirty);}finally{Release(doc);}}}
   else if(args[0]=="--part")AuditPart();
   else if(args[0]=="--drawbar-review-views")DrawbarReviewViews();
   else if(args[0]=="--drawbar-centers")DrawbarCenters();
@@ -34,6 +41,12 @@ partial class CapDetailTool {
   else if(args[0]=="--bushing21931-review")Bushing21931Review();
   else if(args[0]=="--bushing21931-centers")Bushing21931Centers();
   else if(args[0]=="--bushing21931-edge-dims")Bushing21931EdgeDimensions();
+  else if(args[0]=="--bushing21931-main-dims")Bushing21931MainDimensions();
+  else if(args[0]=="--bushing21931-dim-layout")Bushing21931DimensionLayout();
+  else if(args[0]=="--bushing21931-ref-parents")Bushing21931ReferenceParents();
+  else if(args[0]=="--bushing21931-dim-init")Bushing21931DimensionInit();
+  else if(args[0]=="--bushing21931-spacing")Bushing21931Spacing();
+  else if(args[0]=="--bushing21931-recover-spacing"){Bushing21931Context();for(int i=app.Documents.Count;i>=1;i--){dynamic doc=app.Documents.Item(i);try{if(string.Equals((string)doc.FullName,CapPath,StringComparison.OrdinalIgnoreCase)){CRequire(((S.Dimensions)((D.DraftDocument)doc).Sheets.Item("Sheet1").Dimensions).Count==4,"Unexpected recovery state");doc.Close(false);Console.WriteLine("Closed only the bushing draft; last verified disk save retained.");break;}}finally{Release(doc);}}Bushing21931Spacing();}
   else if(args[0]=="--drawbar-views")DrawbarViews();
   else if(args[0]=="--drawbar-audit"){partPath=Path.Combine(folder,"drawbar adapter OP10.par");root=Path.Combine(root,"DrawbarOP10");Directory.CreateDirectory(root);AuditPart();}
   else if(args[0]=="--cap-b-audit"){partPath=Path.Combine(folder,"CAP_b.par");root=Path.Combine(root,"CAP_b");Directory.CreateDirectory(root);AuditPart(false);}
