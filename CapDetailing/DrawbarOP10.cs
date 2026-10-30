@@ -55,6 +55,48 @@ partial class CapDetailTool {
 
 
 partial class CapDetailTool {
+ static void DrawbarThreadDiameters(){
+  DrawbarContext();LoadCap();var dims=(S.Dimensions)csh.Dimensions;
+  CRequire(dims.Count==5||dims.Count==7,"Unexpected dimension count; inspect before editing.");
+  if(dims.Count==5){
+   var oldFlange=dims.Cast<S.Dimension>().Single(d=>d.GetComment()=="OP10-FLANGE");var oldOverall=dims.Cast<S.Dimension>().Single(d=>d.GetComment()=="OP10-OVERALL");
+   var flange=DrawbarLinear(.040976,0,.040976,-.0247135861985738,.163,.242,.0247135861985738,false,"","OP10-FLANGE");
+   var overall=DrawbarLinear(.040976,0,.0251298696020322,-.0508,.150,.256,.0508,false,"","OP10-OVERALL");
+   CRequire(EngineeringFingerprint(flange)==EngineeringFingerprint(oldFlange)&&EngineeringFingerprint(overall)==EngineeringFingerprint(oldOverall),"Repositioning changed length content");oldFlange.Delete();oldOverall.Delete();
+   var major=DrawbarLinear(-.0425,-.001524,.0425,-.001524,.238,.183,.085,true,"%DI ","OP10-THREAD-MAJOR");
+   // The measured nominal stays 85 mm. Both manufacturing deviations are
+   // negative inches; native limit display calculates the resulting sizes.
+   major.Style.PrimaryLinearToleranceUnits=S.DimLinearUnitConstants.igDimStyleLinearInches;
+   major.DisplayType=S.DimDispTypeConstants.igDimDisplayTypeUnitTolerance;
+   major.PrimaryUpperTolerance="-0.002";major.PrimaryLowerTolerance="-0.006";
+   major.DisplayType=S.DimDispTypeConstants.igDimDisplayTypeLimits;
+   DrawbarLinear(-.016688,-.001524,.016688,-.001524,.202,.180,.033376,true,"%DI ","OP10-THREAD-MINOR");
+   // Relocate the chamfer leader to the matching lower bevel, clear of the
+   // new upper length extension lines and the two diameter banks.
+   var oldChamfer=dims.Cast<S.Dimension>().Single(d=>d.GetComment()=="OP10-CHAMFER");
+   var pa=CMap(csection,0,-.0425,-.01);var pc=CMap(csection,0,-.041738,-.000762);var adjacent=CEdge(csection,pa);var bevel=CEdge(csection,pc);
+   var chamfer=dims.AddChamfer(adjacent.Reference,pa[0],pa[1],0,false,bevel.Reference,pc[0],pc[1],0,false,S.DimChamferModeConstants.igDimChamferModePerpendicular);
+   CopyDimensionContent(oldChamfer,chamfer);CRequire(EngineeringFingerprint(chamfer)==EngineeringFingerprint(oldChamfer),"Chamfer content changed");oldChamfer.Delete();
+   chamfer.BreakPosition=S.DimBreakPositionConstants.igDimBreakRight;chamfer.LeaderDistance=.008;chamfer.BreakDistance=.015;chamfer.TrackDistance=.785398;PlaceChamferText(chamfer,.202,.147);
+   var radius=dims.Cast<S.Dimension>().Single(d=>d.GetComment()=="OP10-RADIUS");PlaceChamferText(radius,.088,.215);
+  }
+  var stableChamfer=dims.Cast<S.Dimension>().Single(d=>d.GetComment()=="OP10-CHAMFER");stableChamfer.SetTextOffsets(0,0);stableChamfer.TrackDistance=3.92699081698724;stableChamfer.BreakDistance=.022;stableChamfer.LeaderDistance=.0047625;
+  var stableRadius=dims.Cast<S.Dimension>().Single(d=>d.GetComment()=="OP10-RADIUS");stableRadius.SetTextOffsets(0,0);stableRadius.BreakDistance=.028;stableRadius.LeaderDistance=-.0047625;
+  csection.SetCaptionPosition(.150,.105);
+  cdoc.Save();cdoc.Close(false);Release(cdoc);LoadCap();dims=(S.Dimensions)csh.Dimensions;
+  CRequire(dims.Count==7,"Expected seven dimensions after reopening");
+  var ext=dims.Cast<S.Dimension>().Single(d=>d.GetComment()=="OP10-THREAD-MAJOR");
+  CRequire(ext.DisplayType==S.DimDispTypeConstants.igDimDisplayTypeLimits&&Math.Abs(ext.Value-.085)<1e-9,"External nominal/limits changed");
+  CRequire(ext.PrimaryUpperTolerance.StartsWith("-")&&ext.PrimaryLowerTolerance.StartsWith("-"),"Upper/lower tolerances must both be negative");
+  var text=CTexts(ext);CRequire(text.Contains("84.95")&&text.Contains("84.85")&&text.Contains("3.344")&&text.Contains("3.340"),"External displayed limits disagree with -.002/-.006 inch deviations");
+  foreach(string role in new[]{"OP10-FLANGE","OP10-OVERALL"})CRequire(TextPoint(dims.Cast<S.Dimension>().Single(d=>d.GetComment()==role))[1]>.2225,"Outside length is not above the section");
+  var minor=dims.Cast<S.Dimension>().Single(d=>d.GetComment()=="OP10-THREAD-MINOR");CRequire(Math.Abs(minor.Value-.033376)<1e-9,"Internal minor diameter differs from model");
+  var report=new XElement("ThreadDiameterVerification",new XAttribute("nominalExternalMM",85),new XAttribute("upperDeviationInch",-.002),new XAttribute("lowerDeviationInch",-.006));
+  foreach(S.Dimension d in dims){CRequire(d.StatusOfDimension==S.DimStatusConstants.seDimStatusDriven&&string.IsNullOrEmpty(d.OverrideString),"Dimension lost model association");var item=Scalars(d,"FrameworkSupport","Dimension","Dimension");item.Add(CTexts(d).Select(t=>new XElement("DisplayedText",t)));report.Add(item);}
+  CRequire(csh.SheetSetup.SheetSizeOption==D.PaperSizeConstants.igAnsiBWide&&cface.ScaleFactor==1&&csection.ScaleFactor==1&&ciso.Shading,"Approved sheet/view presentation changed");
+  CRequire(BaseOriginConstraints.Ensure(cface.CuttingPlanes.Item(1),true)==1,"Base constraint missing");
+  new XDocument(report).Save(Path.Combine(CapWork,"thread-diameter-verification.xml"));CPreview();Console.WriteLine("PASS: external lengths above section; external major limits 3.344/3.340 inch from negative native tolerances; internal minor diameter 1.314 inch; all seven dimensions driven.");
+ }
  static S.DimDecimalRoundOffTypeConstants EdgeInchPrecision(double meters){return meters<=.015*Inch+1e-10?S.DimDecimalRoundOffTypeConstants.igDimStyleDecimal_3:S.DimDecimalRoundOffTypeConstants.igDimStyleDecimal_2;}
  static S.Dimension DrawbarLinear(double y1,double z1,double y2,double z2,double tx,double ty,double expected,bool vertical,string prefix,string role){
   var p=CMap(csection,0,y1,z1);var q=CMap(csection,0,y2,z2);var a=CEdge(csection,p);var b=CEdge(csection,q);

@@ -1,0 +1,60 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ThreadDiameterVerification nominalExternalMM="85" upperDeviationInch="-0.002" lowerDeviationInch="-0.006">
+  <Dimension Value="0.00635" DimensionType="igDimTypeRadial" Constraint="False" Leader="True" Jogged="False" TerminatorPosition="False" OffsetLeader="False" BreakPosition="igDimBreakLeft" BreakDistance="0.0280000008642673" MeasurementAxis="False" MeasurementAxisDirection="False" ProjectionArc="igDimProjArcNone" TrackDistance="0.699999988079071" LeaderDistance="-0.0189421139657497" DisplayType="igDimDisplayTypeNominal" TrackAngle="-99" TextScale="1" DisplayByName="False" Inspection="False" PrefixInside="False" StatusOfDimension="seDimStatusDriven" GroupMemberType="seDimNotAGroupMember" Index="1" Type="488188096" ZOrder="9" KeyPointCount="5" SecondValue="0" ChamferDimensionMode="igDimChamferModeNotApplicable" VariableTableName="V44001" MeasurementAxisEx="igDimAxisModeDefault" ProjectionLineAngle1="5.81194639041577" ProjectionLineAngle2="5.81194639041577" Formula="" DisplayName="V44001" SystemName="V44001" Expose="0" ExposeName="" SubfixAlignment="seSubfixAlignLeft" Layer="Default" AbsoluteTrackDistance="0.699999988079071" PMITrackDistance="0" UseStandardLimitAndFitTolerance="False" InhibitZeroToleranceDisplay="False" HidePMI="False" RadialExtensionDistance="0" True3DSketchDimension="False" UnitsType="1" IsReadOnly="True" EnablePrefix="True">
+    <DisplayedText>R</DisplayedText>
+    <DisplayedText>[</DisplayedText>
+    <DisplayedText>6.35</DisplayedText>
+    <DisplayedText>[</DisplayedText>
+    <DisplayedText>.25</DisplayedText>
+    <DisplayedText>]</DisplayedText>
+  </Dimension>
+  <Dimension Value="0.0533077392040643" DimensionType="igDimTypeLinear" Constraint="False" Leader="False" Jogged="False" TerminatorPosition="False" OffsetLeader="False" BreakPosition="igDimBreakCenter" BreakDistance="0.5" MeasurementAxis="False" MeasurementAxisDirection="True" ProjectionLineDirection="False" TrackDistance="0.0211239997297525" LeaderDistance="0.00476250005885959" PrefixString="%DI " DisplayType="igDimDisplayTypeNominal" TrackAngle="-99" TextScale="1" DisplayByName="False" Inspection="False" PrefixInside="False" StatusOfDimension="seDimStatusDriven" GroupMemberType="seDimNotAGroupMember" Index="2" Type="488188096" ZOrder="10" KeyPointCount="9" SecondValue="0" ChamferDimensionMode="igDimChamferModeNotApplicable" VariableTableName="V43501" MeasurementAxisEx="igDimAxisModeDefault" ProjectionLineAngle1="3.14159265358979" ProjectionLineAngle2="3.14159265358979" Formula="" DisplayName="V43501" SystemName="V43501" Expose="0" ExposeName="" SubfixAlignment="seSubfixAlignLeft" Layer="Default" AbsoluteTrackDistance="0.0211239997297525" PMITrackDistance="0" UseStandardLimitAndFitTolerance="False" InhibitZeroToleranceDisplay="False" HidePMI="False" PrefixDisplayedText="%DI " RadialExtensionDistance="0" True3DSketchDimension="False" UnitsType="1" IsReadOnly="True" EnablePrefix="True">
+    <DisplayedText>[</DisplayedText>
+    <DisplayedText>53.31</DisplayedText>
+    <DisplayedText>[</DisplayedText>
+    <DisplayedText>2.099</DisplayedText>
+    <DisplayedText>]</DisplayedText>
+    <DisplayedText>%DI </DisplayedText>
+  </Dimension>
+  <Dimension Value="0.0247135861985738" DimensionType="igDimTypeLinear" Constraint="False" Leader="False" Jogged="False" TerminatorPosition="False" OffsetLeader="False" BreakPosition="igDimBreakCenter" BreakDistance="0.5" MeasurementAxis="False" MeasurementAxisDirection="False" ProjectionLineDirection="False" TrackDistance="0.00899999961256981" LeaderDistance="0.00476250005885959" DisplayType="igDimDisplayTypeNominal" TrackAngle="-99" TextScale="1" DisplayByName="False" Inspection="False" PrefixInside="False" StatusOfDimension="seDimStatusDriven" GroupMemberType="seDimNotAGroupMember" Index="3" Type="488188096" ZOrder="11" KeyPointCount="9" SecondValue="0" ChamferDimensionMode="igDimChamferModeNotApplicable" VariableTableName="V43505" MeasurementAxisEx="igDimAxisModeDefault" ProjectionLineAngle1="1.5707963267949" ProjectionLineAngle2="1.5707963267949" Formula="" DisplayName="V43505" SystemName="V43505" Expose="0" ExposeName="" SubfixAlignment="seSubfixAlignLeft" Layer="Default" AbsoluteTrackDistance="0.00899999961256981" PMITrackDistance="0" UseStandardLimitAndFitTolerance="False" InhibitZeroToleranceDisplay="False" HidePMI="False" RadialExtensionDistance="0" True3DSketchDimension="False" UnitsType="1" IsReadOnly="True" EnablePrefix="True">
+    <DisplayedText>[</DisplayedText>
+    <DisplayedText>24.71</DisplayedText>
+    <DisplayedText>[</DisplayedText>
+    <DisplayedText>.973</DisplayedText>
+    <DisplayedText>]</DisplayedText>
+  </Dimension>
+  <Dimension Value="0.0508" DimensionType="igDimTypeLinear" Constraint="False" Leader="False" Jogged="False" TerminatorPosition="False" OffsetLeader="False" BreakPosition="igDimBreakCenter" BreakDistance="0.5" MeasurementAxis="False" MeasurementAxisDirection="False" ProjectionLineDirection="False" TrackDistance="0.0230000000447035" LeaderDistance="0.00476250005885959" DisplayType="igDimDisplayTypeNominal" TrackAngle="-99" TextScale="1" DisplayByName="False" Inspection="False" PrefixInside="False" StatusOfDimension="seDimStatusDriven" GroupMemberType="seDimNotAGroupMember" Index="4" Type="488188096" ZOrder="12" KeyPointCount="9" SecondValue="0" ChamferDimensionMode="igDimChamferModeNotApplicable" VariableTableName="V43510" MeasurementAxisEx="igDimAxisModeDefault" ProjectionLineAngle1="1.5707963267949" ProjectionLineAngle2="1.5707963267949" Formula="" DisplayName="V43510" SystemName="V43510" Expose="0" ExposeName="" SubfixAlignment="seSubfixAlignLeft" Layer="Default" AbsoluteTrackDistance="0.0230000000447035" PMITrackDistance="0" UseStandardLimitAndFitTolerance="False" InhibitZeroToleranceDisplay="False" HidePMI="False" RadialExtensionDistance="0" True3DSketchDimension="False" UnitsType="1" IsReadOnly="True" EnablePrefix="True">
+    <DisplayedText>[</DisplayedText>
+    <DisplayedText>50.80</DisplayedText>
+    <DisplayedText>[</DisplayedText>
+    <DisplayedText>2.000</DisplayedText>
+    <DisplayedText>]</DisplayedText>
+  </Dimension>
+  <Dimension Value="0.085" DimensionType="igDimTypeLinear" Constraint="False" Leader="False" Jogged="False" TerminatorPosition="False" OffsetLeader="False" BreakPosition="igDimBreakCenter" BreakDistance="0.535294115543365" MeasurementAxis="False" MeasurementAxisDirection="True" ProjectionLineDirection="True" TrackDistance="0.0641240030527115" LeaderDistance="0.00476250005885959" PrefixString="%DI " PrimaryUpperTolerance="-0.002" PrimaryLowerTolerance="-0.006" DisplayType="igDimDisplayTypeLimits" TrackAngle="-99" TextScale="1" DisplayByName="False" Inspection="False" PrefixInside="False" StatusOfDimension="seDimStatusDriven" GroupMemberType="seDimNotAGroupMember" Index="5" Type="488188096" ZOrder="13" KeyPointCount="9" SecondValue="0" ChamferDimensionMode="igDimChamferModeNotApplicable" VariableTableName="V43512" MeasurementAxisEx="igDimAxisModeDefault" ProjectionLineAngle1="0" ProjectionLineAngle2="0" Formula="" DisplayName="V43512" SystemName="V43512" Expose="0" ExposeName="" SubfixAlignment="seSubfixAlignLeft" Layer="Default" AbsoluteTrackDistance="0.0641240030527115" PMITrackDistance="0" UseStandardLimitAndFitTolerance="False" InhibitZeroToleranceDisplay="False" HidePMI="False" PrefixDisplayedText="%DI " RadialExtensionDistance="0" True3DSketchDimension="False" UnitsType="1" IsReadOnly="True" EnablePrefix="True">
+    <DisplayedText>84.95</DisplayedText>
+    <DisplayedText>84.85</DisplayedText>
+    <DisplayedText>3.344</DisplayedText>
+    <DisplayedText>3.340</DisplayedText>
+    <DisplayedText>[</DisplayedText>
+    <DisplayedText>[</DisplayedText>
+    <DisplayedText>]</DisplayedText>
+    <DisplayedText>%DI </DisplayedText>
+  </Dimension>
+  <Dimension Value="0.033376" DimensionType="igDimTypeLinear" Constraint="False" Leader="False" Jogged="False" TerminatorPosition="False" OffsetLeader="False" BreakPosition="igDimBreakCenter" BreakDistance="0.5" MeasurementAxis="False" MeasurementAxisDirection="True" ProjectionLineDirection="True" TrackDistance="0.028124000877142" LeaderDistance="0.00476250005885959" PrefixString="%DI " DisplayType="igDimDisplayTypeNominal" TrackAngle="-99" TextScale="1" DisplayByName="False" Inspection="False" PrefixInside="False" StatusOfDimension="seDimStatusDriven" GroupMemberType="seDimNotAGroupMember" Index="6" Type="488188096" ZOrder="14" KeyPointCount="9" SecondValue="0" ChamferDimensionMode="igDimChamferModeNotApplicable" VariableTableName="V43999" MeasurementAxisEx="igDimAxisModeDefault" ProjectionLineAngle1="0" ProjectionLineAngle2="0" Formula="" DisplayName="V43999" SystemName="V43999" Expose="0" ExposeName="" SubfixAlignment="seSubfixAlignLeft" Layer="Default" AbsoluteTrackDistance="0.028124000877142" PMITrackDistance="0" UseStandardLimitAndFitTolerance="False" InhibitZeroToleranceDisplay="False" HidePMI="False" PrefixDisplayedText="%DI " RadialExtensionDistance="0" True3DSketchDimension="False" UnitsType="1" IsReadOnly="True" EnablePrefix="True">
+    <DisplayedText>[</DisplayedText>
+    <DisplayedText>33.38</DisplayedText>
+    <DisplayedText>[</DisplayedText>
+    <DisplayedText>1.314</DisplayedText>
+    <DisplayedText>]</DisplayedText>
+    <DisplayedText>%DI </DisplayedText>
+  </Dimension>
+  <Dimension Value="0.00152400000000003" DimensionType="igDimTypeChamfer" Constraint="False" Leader="True" Jogged="False" TerminatorPosition="True" OffsetLeader="False" BreakPosition="igDimBreakRight" BreakDistance="0.0219999998807907" MeasurementAxis="False" MeasurementAxisDirection="False" TrackDistance="3.92699074745178" LeaderDistance="0.0232277493923903" SubfixString="TYP(5)" DisplayType="igDimDisplayTypeNominal" TrackAngle="-99" TextScale="1" DisplayByName="False" Inspection="False" PrefixInside="False" StatusOfDimension="seDimStatusDriven" GroupMemberType="seDimNotAGroupMember" Index="7" Type="488188096" ZOrder="15" KeyPointCount="3" SecondValue="0.785398163397445" ChamferDimensionMode="igDimChamferModePerpendicular" VariableTableName="V43997" MeasurementAxisEx="igDimAxisModeImplied" ProjectionLineAngle1="2.35619449615479" ProjectionLineAngle2="2.35619449615479" Formula="" DisplayName="V43997" SystemName="V43997" Expose="0" ExposeName="" SubfixAlignment="seSubfixAlignLeft" Layer="Default" AbsoluteTrackDistance="2.35619449615479" PMITrackDistance="0" UseStandardLimitAndFitTolerance="False" InhibitZeroToleranceDisplay="False" HidePMI="False" SubfixDisplayedText="TYP(5)" RadialExtensionDistance="0" True3DSketchDimension="False" UnitsType="1" IsReadOnly="True" EnablePrefix="True">
+    <DisplayedText>[</DisplayedText>
+    <DisplayedText>1.52</DisplayedText>
+    <DisplayedText> X 45°</DisplayedText>
+    <DisplayedText>[</DisplayedText>
+    <DisplayedText>.06</DisplayedText>
+    <DisplayedText>]</DisplayedText>
+    <DisplayedText>TYP(5)</DisplayedText>
+  </Dimension>
+</ThreadDiameterVerification>
