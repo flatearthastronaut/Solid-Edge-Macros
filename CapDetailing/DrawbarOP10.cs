@@ -9,6 +9,82 @@ using P=SolidEdge.Part.Interop;
 using G=SolidEdge.Geometry.Interop;
 
 partial class CapDetailTool {
+ static void DrawbarCalloutPlacement(){
+  DrawbarContext();LoadCap();var calls=(S.Balloons)csh.Balloons;CRequire(calls.Count==2,"Expected two thread callouts");
+  var before=AnnotationContent(csh);var inside=calls.Cast<S.Balloon>().Single(c=>c.BalloonText.Contains("%ZT"));
+  // Keep the lower leader between the cutting-plane arrow and its A label.
+  // Only its elbow moves; the bore-edge attachment remains native.
+  double cx,cy,cz,tx,ty,tz;F.KeyPointType kind;int handle;
+  inside.GetKeyPoint(2,out cx,out cy,out cz,out kind,out handle);
+  inside.GetKeyPoint(4,out tx,out ty,out tz,out kind,out handle);
+  Console.WriteLine("Callout control="+cx+","+cy+" text="+tx+","+ty);
+  inside.SetKeyPoint(2,.353+cx-tx,.107+cy-ty,0);Release(inside);
+  cdoc.Save();cdoc.Close(false);Release(cdoc);LoadCap();
+  CRequire(before.SequenceEqual(AnnotationContent(csh)),"Callout content changed during placement");
+  var report=new XElement("ThreadCalloutVerification",new XAttribute("internalPreset","HC -THR'D M[I] NON B.C."));
+  foreach(S.Balloon call in (S.Balloons)csh.Balloons){CRequire(call.IsTerminatorAttachedToEntity,"Callout detached");report.Add(Scalars(call,"FrameworkSupport","Balloon","Callout"));}
+  new XDocument(report).Save(Path.Combine(CapWork,"thread-callout-verification.xml"));CPreview();
+  Console.WriteLine("PASS: leader placement saved/reopened; feature attachments and displayed text retained.");
+ }
+ static S.Balloon DrawbarThreadCallout(double radius,double angle,string text,double x,double y,string expected){
+  // End-view circles provide native feature references while leaving the
+  // approved section dimension banks undisturbed. Never replace unresolved
+  // feature variables with manually entered thread sizes.
+  var circle=cface.DVCircles2d.Cast<D.DVCircle2d>().First(c=>Math.Abs(c.Radius-radius)<1e-8);
+  var point=CMap(cface,radius*Math.Cos(angle),radius*Math.Sin(angle),0);
+  var call=((S.Balloons)csh.Balloons).Add(x,y,0);
+  try{
+   call.Callout=1;call.Leader=true;call.BreakLine=true;
+   call.SetTerminator(circle.Reference,point[0],point[1],0,false);
+   ReferenceAnnotationStyle.Apply("Balloon",call);
+   var style=call.Style;
+   try{style.SmartDepthThreadThru="THRU";style.SmartDepthThreadFinite="%{%TD/DU} DP.";}finally{Release(style);}
+   call.BalloonText=text;call.CalloutHorizontalAlignment=S.TextJustificationConstants.igTextJustifyLeft;
+   // Move the native elbow with the text's offset, not the attached arrow.
+   double cx,cy,cz,tx,ty,tz;F.KeyPointType kind;int handle;
+   call.GetKeyPoint(2,out cx,out cy,out cz,out kind,out handle);
+   call.GetKeyPoint(4,out tx,out ty,out tz,out kind,out handle);
+   call.SetKeyPoint(2,x+Math.Abs(cx-tx),y+cy-ty,0);
+   cdoc.UpdatePropertyTextCacheAndDisplay();
+   Console.WriteLine("CALLOUT "+call.BalloonDisplayedText);
+   CRequire(call.IsTerminatorAttachedToEntity&&call.BalloonDisplayedText.Contains(expected)&&!call.BalloonDisplayedText.Contains("Error"),"Unresolved thread feature reference: "+expected);
+   return call;
+  }catch{call.Delete();Release(call);throw;}finally{Release(circle);}
+ }
+ static void DrawbarCallouts(){
+  DrawbarContext();LoadCap();var dims=(S.Dimensions)csh.Dimensions;
+  CRequire(dims.Count==7&&((S.Balloons)csh.Balloons).Count==0,"Expected approved seven-dimension drawing without callouts");
+  var before=dims.Cast<S.Dimension>().Select(EngineeringFingerprint).OrderBy(s=>s).ToArray();
+  // Read the user's authorized saved settings, retaining the generic
+  // non-bolt-circle template. Other saved drawbar notes contain job-specific
+  // gauge limits and must not be transferred to this model.
+  string path=@"\\nu-coop-gibbs\new-coop\CO-OP-TOOl\solid_edge\Configs\user configs\Greg L\REPORTS\DraftCallout.txt";
+  string raw=File.ReadAllText(path),name="HC -THR'D M[I] NON B.C.";
+  var block=System.Text.RegularExpressions.Regex.Matches(raw,@"(?ms)^<<\r?\n(.*?)^>>").Cast<System.Text.RegularExpressions.Match>().Select(m=>m.Groups[1].Value).Single(s=>s.StartsWith(name+"\r")||s.StartsWith(name+"\n"));
+  string saved=block.Substring(block.IndexOf('\n')+1);saved=saved.Substring(0,saved.IndexOf("[00]",StringComparison.Ordinal));
+  saved=System.Text.RegularExpressions.Regex.Replace(saved,@"[\r\n]+","\r").Trim();
+  CRequire(saved.Contains("%TS")&&saved.Contains("%ZT")&&saved.Contains("%QC")&&!saved.Contains("EQ. SP."),"Unexpected saved threaded-hole preset");
+  S.Balloon inside=null,outside=null;
+  try{
+   inside=DrawbarThreadCallout(.016688,-Math.PI/4,saved,.353,.107,"M35");
+   CRequire(inside.BalloonDisplayedText.Contains("THRU")&&inside.BalloonDisplayedText.Contains("(1)"),"Internal through-thread/quantity incorrect");
+   outside=DrawbarThreadCallout(.0425,Math.PI*3/4,"%TS THR'D",.275,.253,"M85 x 2");
+   CRequire(before.SequenceEqual(dims.Cast<S.Dimension>().Select(EngineeringFingerprint).OrderBy(s=>s)),"Approved dimensions changed");
+   cdoc.Save();
+  }catch{if(outside!=null)outside.Delete();if(inside!=null)inside.Delete();throw;}finally{Release(outside);Release(inside);}
+  cdoc.Close(false);Release(cdoc);LoadCap();
+  var calls=(S.Balloons)csh.Balloons;CRequire(calls.Count==2,"Callout count changed after reopening");
+  CRequire(before.SequenceEqual(((S.Dimensions)csh.Dimensions).Cast<S.Dimension>().Select(EngineeringFingerprint).OrderBy(s=>s)),"Saved dimensions changed");
+  var report=new XElement("ThreadCalloutVerification",new XAttribute("internalPreset",name));
+  foreach(S.Balloon call in calls){
+   CRequire(call.Callout==1&&call.IsTerminatorAttachedToEntity&&call.BalloonText.Contains("%TS")&&!call.BalloonDisplayedText.Contains("Error"),"Saved callout lost feature association");
+   var style=call.Style;try{CRequire(Math.Abs(style.Height-.003175)<1e-9&&style.DrivenColor==8421376&&style.SmartDepthThreadThru=="THRU","Saved callout presentation differs");}finally{Release(style);}
+   report.Add(Scalars(call,"FrameworkSupport","Balloon","Callout"));
+  }
+  CRequire(cface.Defaults_ShowHiddenEdges&&ciso.Shading&&BaseOriginConstraints.Ensure(cface.CuttingPlanes.Item(1),true)==1,"Approved views changed");
+  new XDocument(report).Save(Path.Combine(CapWork,"thread-callout-verification.xml"));CPreview();
+  Console.WriteLine("PASS: two native model-linked thread callouts saved/reopened; seven dimensions preserved. Paused for review.");
+ }
  const string DrawbarName="drawbar adapter OP10";
  static void DrawbarContext(){capName=DrawbarName;}
  static void DrawbarViews(){
