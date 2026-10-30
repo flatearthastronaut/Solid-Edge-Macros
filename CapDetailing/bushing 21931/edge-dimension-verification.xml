@@ -1,0 +1,12 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BushingEdgeDimensionVerification physicalChamfers="2" setbackInch="0.03" radiusFeatures="0">
+  <Chamfer Value="0.000761999999999985" DimensionType="igDimTypeChamfer" Constraint="False" Leader="True" Jogged="False" TerminatorPosition="False" OffsetLeader="False" BreakPosition="igDimBreakRight" BreakDistance="-0.00585873331874609" MeasurementAxis="False" MeasurementAxisDirection="False" TrackDistance="0.785398185253143" LeaderDistance="0.00476250005885959" SubfixString="TYP(2)" DisplayType="igDimDisplayTypeNominal" TrackAngle="-99" TextScale="1" DisplayByName="False" Inspection="False" PrefixInside="False" StatusOfDimension="seDimStatusDriven" GroupMemberType="seDimNotAGroupMember" Index="1" Type="488188096" ZOrder="9" KeyPointCount="3" SecondValue="0.785398163397448" ChamferDimensionMode="igDimChamferModePerpendicular" VariableTableName="V43701" MeasurementAxisEx="igDimAxisModeImplied" ProjectionLineAngle1="3.9269908110248" ProjectionLineAngle2="3.9269908110248" Formula="" DisplayName="V43701" SystemName="V43701" Expose="0" ExposeName="" SubfixAlignment="seSubfixAlignLeft" Layer="Default" AbsoluteTrackDistance="-2.35619449615479" PMITrackDistance="0" UseStandardLimitAndFitTolerance="False" InhibitZeroToleranceDisplay="False" HidePMI="False" SubfixDisplayedText="TYP(2)" RadialExtensionDistance="0" True3DSketchDimension="False" UnitsType="1" IsReadOnly="True" EnablePrefix="True">
+    <DisplayedText>[</DisplayedText>
+    <DisplayedText>.8</DisplayedText>
+    <DisplayedText> X 45°</DisplayedText>
+    <DisplayedText>[</DisplayedText>
+    <DisplayedText>.03</DisplayedText>
+    <DisplayedText>]</DisplayedText>
+    <DisplayedText>TYP(2)</DisplayedText>
+  </Chamfer>
+</BushingEdgeDimensionVerification>

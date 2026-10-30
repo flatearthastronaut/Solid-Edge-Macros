@@ -6,10 +6,62 @@ using D=SolidEdge.Draft.Interop;
 using S=SolidEdge.FrameworkSupport.Interop;
 using F=SolidEdge.Framework.Interop;
 using P=SolidEdge.Part.Interop;
+using G=SolidEdge.Geometry.Interop;
 
 partial class CapDetailTool {
  const string Bushing21931Name="bushing 21931";
  static void Bushing21931Context(){capName=Bushing21931Name;}
+ static double[] BushingSegment(D.DVLine2d line){double a,b,c,d;line.GetStartPoint(out a,out b);line.GetEndPoint(out c,out d);csection.ViewToSheet(a,b,out a,out b);csection.ViewToSheet(c,d,out c,out d);return new[]{a,b,c,d};}
+ static bool BushingJoined(double[] a,double[] b){for(int i=0;i<4;i+=2)for(int j=0;j<4;j+=2)if(Math.Abs(a[i]-b[j])+Math.Abs(a[i+1]-b[j+1])<1e-8)return true;return false;}
+ static void Bushing21931EdgeDimensions(){
+  Bushing21931Context();LoadCap();var dims=(S.Dimensions)csh.Dimensions;
+  CRequire(dims.Count==0,"Expected the approved centerline stage without dimensions");
+  var positions=csh.DrawingViews.Cast<D.DrawingView>().Select(v=>{double x,y;v.GetOrigin(out x,out y);return new[]{x,y,v.ScaleFactor};}).ToArray();
+  var notes=AnnotationContent(csh);P.PartDocument part=null;string path=Path.Combine(folder,Bushing21931Name+".par");
+  for(int i=1;i<=app.Documents.Count;i++){object item=app.Documents.Item(i);if(string.Equals(((dynamic)item).FullName,path,StringComparison.OrdinalIgnoreCase)){part=(P.PartDocument)item;break;}Release(item);}
+  if(part==null)part=(P.PartDocument)app.Documents.Open(path);
+  int count;double setback;
+  try{
+   var model=part.Models.Item(1);try{
+    CRequire(model.Chamfers.Count==1&&model.Rounds.Count==0,"Model feature groups differ from the initial audit; inspect before dimensioning");
+    var feature=model.Chamfers.Item(1);var faces=(G.Faces)feature.get_Faces(G.FeatureTopologyQueryTypeConstants.igQueryAll);
+    try{
+     // Each continuous conical face is one physical chamfer. Its two section
+     // silhouettes must not double the TYP count.
+     count=faces.Count;setback=feature.ChamferSetbackValue1;CRequire(count>0&&Math.Abs(setback-.000762)<1e-9,"Chamfer size changed");
+     for(int i=1;i<=faces.Count;i++){var face=(G.Face)faces.Item(i);var cone=face.Geometry as G.Cone;try{CRequire(cone!=null&&Math.Abs(Math.Abs(cone.HalfAngle)-Math.PI/4)<1e-7,"Chamfer is not a 45 degree cone");}finally{Release(cone);Release(face);}}
+    }finally{Release(faces);Release(feature);}
+   }finally{Release(model);}
+  }finally{Release(part);}
+  cdoc.Activate();csh.Activate();Console.WriteLine("Physical chamfers="+count+" setback inch="+setback/Inch+"; no rounds/fillets");
+  var center=CMap(csection,0,.06731,.0534543);
+  var edges=csection.DVLines2d.Cast<D.DVLine2d>().Where(l=>l.ShowHideEdgeOverride!=D.DVShowHideEdgeOverrideType.DVShowHideEdgeOverrideHide).ToArray();
+  try{
+   var bevel=edges.Single(l=>{var p=BushingSegment(l);return (p[0]+p[2])/2>center[0]&&(p[1]+p[3])/2<center[1]&&Math.Abs(Math.Abs(p[2]-p[0])-setback)<1e-8&&Math.Abs(Math.Abs(p[3]-p[1])-setback)<1e-8;});
+   var bevelPoints=BushingSegment(bevel);
+   var adjacent=edges.Where(l=>{var p=BushingSegment(l);return Math.Abs(p[3]-p[1])<1e-9&&l.Length>setback*2&&BushingJoined(p,bevelPoints);}).OrderByDescending(l=>l.Length).First();
+   var p1=BushingSegment(adjacent);
+   var dim=dims.AddChamfer(adjacent.Reference,(p1[0]+p1[2])/2,(p1[1]+p1[3])/2,0,false,bevel.Reference,(bevelPoints[0]+bevelPoints[2])/2,(bevelPoints[1]+bevelPoints[3])/2,0,false,S.DimChamferModeConstants.igDimChamferModePerpendicular);
+   try{
+    var style=dim.Style;try{CStyle(style);style.PrimaryDecimalRoundOff=S.DimDecimalRoundOffTypeConstants.igDimStyleDecimal_1;style.SecondaryDecimalRoundOff=EdgeInchPrecision(setback);style.ChamferUse45DegreeCharacter=false;}finally{Release(style);}
+    dim.SetComment("BUSHING21931-CHAMFER");dim.SubfixString=count>1?"TYP("+count+")":"";dim.BreakPosition=S.DimBreakPositionConstants.igDimBreakRight;dim.TrackDistance=Math.PI/4;dim.BreakDistance=.012;dim.LeaderDistance=.0047625;
+    PlaceChamferText(dim,.183,.150);
+    CRequire(Math.Abs(dim.Value-setback)<1e-9&&Math.Abs(dim.SecondValue-Math.PI/4)<1e-8&&dim.StatusOfDimension==S.DimStatusConstants.seDimStatusDriven,"Native chamfer dimension disagrees with the model");
+   }finally{Release(dim);}
+  }finally{foreach(var edge in edges)Release(edge);}
+  cdoc.Save();cdoc.Close(false);Release(cdoc);LoadCap();dims=(S.Dimensions)csh.Dimensions;
+  CRequire(dims.Count==1,"Expected exactly one chamfer dimension");var saved=dims.Item(1);var report=new XElement("BushingEdgeDimensionVerification",new XAttribute("physicalChamfers",count),new XAttribute("setbackInch",setback/Inch),new XAttribute("radiusFeatures",0));
+  try{
+   CRequire(saved.DimensionType==S.DimTypeConstants.igDimTypeChamfer&&saved.StatusOfDimension==S.DimStatusConstants.seDimStatusDriven&&string.IsNullOrEmpty(saved.OverrideString)&&Math.Abs(saved.Value-setback)<1e-9&&Math.Abs(saved.SecondValue-Math.PI/4)<1e-8,"Saved chamfer lost model association or size");
+   CRequire(saved.SubfixString==(count>1?"TYP("+count+")":""),"Physical repetition count changed");
+   var style=saved.Style;try{CRequire(style.PrimaryDecimalRoundOff==S.DimDecimalRoundOffTypeConstants.igDimStyleDecimal_1&&style.SecondaryDecimalRoundOff==S.DimDecimalRoundOffTypeConstants.igDimStyleDecimal_2&&style.DrivenColor==8421376&&Math.Abs(style.Height-.003175)<1e-9,"Saved chamfer presentation differs");}finally{Release(style);}
+   var item=Scalars(saved,"FrameworkSupport","Dimension","Chamfer");item.Add(CTexts(saved).Select(t=>new XElement("DisplayedText",t)));report.Add(item);
+  }finally{Release(saved);}
+  for(int i=1;i<=3;i++){var view=csh.DrawingViews.Item(i);try{double x,y;view.GetOrigin(out x,out y);var p=positions[i-1];CRequire(Math.Abs(x-p[0])+Math.Abs(y-p[1])+Math.Abs(view.ScaleFactor-p[2])<1e-9,"Approved view layout changed");}finally{Release(view);}}
+  CRequire(ciso.Shading&&((S.CenterLines)csh.CenterLines).Count==1&&((S.CenterMarks)csh.CenterMarks).Count==1&&notes.SequenceEqual(AnnotationContent(csh)),"Approved center annotations or notes changed");
+  new XDocument(report).Save(Path.Combine(CapWork,"edge-dimension-verification.xml"));CPreview();
+  Console.WriteLine("PASS: one native .03 inch x 45 degree chamfer dimension with TYP("+count+"); reference metric precision retained; no radius features. Saved and reopened for review.");
+ }
  static void Bushing21931Centers(){
   Bushing21931Context();LoadCap();
   CRequire(csh.DrawingViews.Count==3&&((S.CenterLines)csh.CenterLines).Count==0&&((S.CenterMarks)csh.CenterMarks).Count==0,"Expected approved views without center annotations");
