@@ -1,6 +1,10 @@
 # Project Guidelines
 
 ## Working Agreements
+- Use the step-by-step review approach for all future drawings. Complete, check, and save one stage, show the result, and ask whether it looks correct. Wait for the user's approval before starting the next stage; an approval applies to the completed stage, not to all remaining detailing.
+- Default drawing stages are: (1) drawing views, section/cutting-plane layout, and shaded ISO; (2) centerlines and center marks; (3) chamfer and radius/fillet dimensions; (4) linear, diameter, and angular dimensions; (5) notes and feature-linked thread/hole callouts. Let the user direct any additional stages or explicitly change/combine the sequence. Resolve requested corrections within the current stage before advancing.
+- Preserve approved work while adding the next stage. Check placement for overlaps and crossings, maintain model associations and reference presentation, and verify saved results before presenting them for review.
+- Record new general detailing rules in these project guidelines as the user supplies them, and apply them to future drawings. Keep part-specific exceptions scoped to that job; the user's latest explicit instruction takes precedence over an older rule.
 - For future Solid Edge drafts, use the normal (new designs) draft template.
 - Start drawings at 1:1 scale on a B-size sheet. Enlarge the view scale if needed for uncrowded dimensions. C, D, E, and EE sheets may be used when necessary, but ask the user before changing sheet size.
 - Always use third-angle projection for drawings.
