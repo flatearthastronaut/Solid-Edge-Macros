@@ -55,6 +55,38 @@ partial class CapDetailTool {
 
 
 partial class CapDetailTool {
+ static D.DVLine2d DrawbarPhysicalEdge(double[] point){
+  // The projected cutting-profile/Base graphics can be coincident with a
+  // physical silhouette. Exclude hidden and overlength construction lines;
+  // otherwise endpoint snapping can select a cutting-plane extension point.
+  D.DVLine2d best=null;double gap=double.MaxValue;
+  foreach(D.DVLine2d line in csection.DVLines2d){
+   if(line.ShowHideEdgeOverride==D.DVShowHideEdgeOverrideType.DVShowHideEdgeOverrideHide||line.Length>.09)continue;
+   double x,y,a,b;line.GetStartPoint(out x,out y);line.GetEndPoint(out a,out b);csection.ViewToSheet(x,y,out x,out y);csection.ViewToSheet(a,b,out a,out b);
+   double dx=a-x,dy=b-y,l=dx*dx+dy*dy;if(l<1e-18)continue;double t=Math.Max(0,Math.Min(1,((point[0]-x)*dx+(point[1]-y)*dy)/l));double dist=Math.Sqrt(Math.Pow(x+t*dx-point[0],2)+Math.Pow(y+t*dy-point[1],2));
+   if(dist<gap){gap=dist;best=line;}
+  }
+  CRequire(gap<1e-7,"No physical edge at dimension origin");return best;
+ }
+ static void DrawbarFixExtensions(){
+  DrawbarContext();LoadCap();var dims=(S.Dimensions)csh.Dimensions;CRequire(dims.Count==7,"Expected current seven-dimension draft");
+  var original=dims.Cast<S.Dimension>().Select(EngineeringFingerprint).OrderBy(s=>s).ToArray();
+  foreach(string role in new[]{"OP10-FLANGE","OP10-OVERALL"}){
+   var old=dims.Cast<S.Dimension>().Single(d=>d.GetComment()==role);
+   int count;old.GetRelatedCount(out count);for(int i=0;i<count;i++){object obj=null;double x,y,z;bool key;old.GetRelated(i,out obj,out x,out y,out z,out key);var reference=obj as F.Reference;object target=reference==null?null:reference.Object;try{var line=target as D.DVLine2d;if(line!=null){double a,b,c,d;line.GetStartPoint(out a,out b);line.GetEndPoint(out c,out d);Console.WriteLine(role+" previous parent length="+line.Length+" endpoints="+a+","+b+" / "+c+","+d);}}finally{Release(target);Release(obj);}}
+   bool flange=role=="OP10-FLANGE";
+   var fresh=DrawbarLinear(.040976,0,flange?.040976:.0251298696020322,flange?-.0247135861985738:-.0508,flange?.163:.150,flange?.242:.256,old.Value,false,"",role);
+   CRequire(EngineeringFingerprint(old)==EngineeringFingerprint(fresh),"Dimension engineering content changed");old.Delete();
+  }
+  cdoc.Save();cdoc.Close(false);Release(cdoc);LoadCap();dims=(S.Dimensions)csh.Dimensions;
+  CRequire(original.SequenceEqual(dims.Cast<S.Dimension>().Select(EngineeringFingerprint).OrderBy(s=>s)),"Saved dimension content changed");
+  foreach(string role in new[]{"OP10-FLANGE","OP10-OVERALL"}){
+   var dim=dims.Cast<S.Dimension>().Single(d=>d.GetComment()==role);CRequire(dim.StatusOfDimension==S.DimStatusConstants.seDimStatusDriven,"Dimension detached");
+   int count;dim.GetRelatedCount(out count);for(int i=0;i<count;i++){object obj=null;double x,y,z;bool key;dim.GetRelated(i,out obj,out x,out y,out z,out key);var reference=(F.Reference)obj;var target=(D.DVLine2d)reference.Object;try{CRequire(target.Length<.09,"Still attached to construction geometry");}finally{Release(target);Release(obj);}}
+   CRequire(Math.Abs(dim.Style.ProjectionOffsetGap-.5)<1e-9,"Reference offset-gap setting changed");
+  }
+  CPreview();Console.WriteLine("PASS: both lengths reattached to physical model edges; reference extension gap retained; seven dimensions and all displayed values preserved.");
+ }
  static void DrawbarThreadDiameters(){
   DrawbarContext();LoadCap();var dims=(S.Dimensions)csh.Dimensions;
   CRequire(dims.Count==5||dims.Count==7,"Unexpected dimension count; inspect before editing.");
@@ -99,7 +131,7 @@ partial class CapDetailTool {
  }
  static S.DimDecimalRoundOffTypeConstants EdgeInchPrecision(double meters){return meters<=.015*Inch+1e-10?S.DimDecimalRoundOffTypeConstants.igDimStyleDecimal_3:S.DimDecimalRoundOffTypeConstants.igDimStyleDecimal_2;}
  static S.Dimension DrawbarLinear(double y1,double z1,double y2,double z2,double tx,double ty,double expected,bool vertical,string prefix,string role){
-  var p=CMap(csection,0,y1,z1);var q=CMap(csection,0,y2,z2);var a=CEdge(csection,p);var b=CEdge(csection,q);
+  var p=CMap(csection,0,y1,z1);var q=CMap(csection,0,y2,z2);var a=DrawbarPhysicalEdge(p);var b=DrawbarPhysicalEdge(q);
   try{
    // Model-edge endpoints retain association when the drawing regenerates.
    var dim=((S.Dimensions)csh.Dimensions).AddDistanceBetweenObjects(a.Reference,p[0],p[1],0,true,b.Reference,q[0],q[1],0,true);
