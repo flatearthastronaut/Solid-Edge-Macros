@@ -24,7 +24,7 @@ namespace CoopManager
         readonly Icon windowIcon;
         readonly bool admin;
         List<Entry> catalog=new List<Entry>();
-        bool busy, rendering, categoryEditPending;
+        bool busy, rendering, categoryEditPending, sizingFrames;
         public ManagerForm():this(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Coop",AppInfo.SettingsFolder,"settings.xml"),true,AppInfo.Admin){}
         internal ManagerForm(string settingsPath,bool autoRefresh,bool adminEdition=false)
         {
@@ -73,14 +73,46 @@ namespace CoopManager
             status.Dock=DockStyle.Fill; status.AutoEllipsis=true; status.Text=admin?"Assign categories in the table; publish selected builds to the shared folder.":"Close Solid Edge before updating add-ins."; layout.Controls.Add(status,0,4);
             try{if(File.Exists(settings)){var x=XDocument.Load(settings);source.Text=admin?((string)x.Root.Element("source")??source.Text):AppInfo.SourceSetting((string)x.Root.Element("source"));local.Text=(string)x.Root.Element("local")??local.Text;}}
             catch(Exception ex){ReportError("Could not load remembered paths",ex);}
+            frames.Layout+=delegate{SizeCategoryFrames();};
+            Shown+=delegate{SizeCategoryFrames();};
             if(autoRefresh)Shown+=async delegate{await RefreshList();};
             FormClosing+=delegate(object sender,FormClosingEventArgs e){if(busy){e.Cancel=true;ShowStatus("Wait for the current operation to finish.");}};
+        }
+        void SizeCategoryFrames()
+        {
+            if(sizingFrames || grids.Count!=Categories.All.Length)return;
+            sizingFrames=true;
+            frames.SuspendLayout();
+            try
+            {
+                // Reserve real data-row space, including the title, help bar and column header.
+                // Percentage weights based on package counts let a large macro catalog squeeze
+                // these smaller categories until their only rows were clipped.
+                for(int i=1;i<Categories.All.Length;i++)
+                {
+                    var grid=grids[Categories.All[i]];var group=(GroupBox)grid.Parent;
+                    int rows=i==1?1:2;
+                    int height=group.Height-group.DisplayRectangle.Height+group.Margin.Vertical;
+                    height+=group.Controls.Cast<Control>().Where(c=>c.Dock==DockStyle.Top).Sum(c=>c.Height);
+                    height+=grid.ColumnHeadersHeight+grid.Rows.Cast<DataGridViewRow>().Take(rows).Sum(r=>r.Height);
+                    height+=Math.Max(0,rows-grid.Rows.Count)*grid.RowTemplate.Height+2;
+                    int viewport=grid.ClientSize.Width-(grid.Rows.Count>rows?SystemInformation.VerticalScrollBarWidth:0);
+                    if(grid.Columns.GetColumnsWidth(DataGridViewElementStates.Visible)>viewport)height+=SystemInformation.HorizontalScrollBarHeight;
+                    frames.RowStyles[i].SizeType=SizeType.Absolute;
+                    if(frames.RowStyles[i].Height!=height)frames.RowStyles[i].Height=height;
+                }
+                // The macros retain all remaining space and scroll independently. The lower
+                // frames keep their reserved rows after refresh, recategorization and resizing.
+                frames.RowStyles[0].SizeType=SizeType.Percent;frames.RowStyles[0].Height=100;
+            }
+            finally{frames.ResumeLayout(true);sizingFrames=false;}
         }
         DataGridView CreateGrid()
         {
             var grid=new DataGridView{Dock=DockStyle.Fill,AllowUserToAddRows=false,AllowUserToDeleteRows=false,AutoGenerateColumns=false,RowHeadersVisible=false,
                 SelectionMode=DataGridViewSelectionMode.FullRowSelect,BackgroundColor=Color.White,BorderStyle=BorderStyle.None,AllowUserToResizeRows=false};
             grid.RowTemplate.Height=40;
+            grid.ColumnWidthChanged+=delegate{SizeCategoryFrames();};
             grid.Columns.Add(new DataGridViewCheckBoxColumn{Name="Pick",HeaderText="Select",Width=48});
             grid.Columns.Add(new DataGridViewImageColumn{Name="Icon",HeaderText="",ReadOnly=true,Width=44,ImageLayout=DataGridViewImageCellLayout.Normal});
             var names=new[]{"Package","Available","Installed","Status"}; var widths=new[]{205,105,135,170};
@@ -155,7 +187,7 @@ namespace CoopManager
                     grid.Rows.Add(row);Diagnostics.Info("CATALOG package="+entry.Name+" category="+category+" available="+entry.AvailableVersion+" installed="+entry.InstalledVersion+" status="+entry.Status);
                 }
                 foreach(var grid in grids.Values){grid.ClearSelection();grid.CurrentCell=null;}
-                for(int i=0;i<Categories.All.Length;i++)frames.RowStyles[i].Height=Math.Max(2,grids[Categories.All[i]].Rows.Count)+1.5f;
+                SizeCategoryFrames();
             }
             finally{rendering=false;}
         }

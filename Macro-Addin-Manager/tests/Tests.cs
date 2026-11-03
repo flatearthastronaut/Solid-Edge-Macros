@@ -297,6 +297,7 @@ internal static partial class Tests
         PublicationRecoveryCases();
         StableMacroCases();
         ImplementationHelpCases();
+        FrameLayoutCases();
         string evidence = string.Join("\n", Directory.GetFiles(Diagnostics.LogDirectory,"*.log").Select(File.ReadAllText));
         Assert(evidence.Contains("INSTALL SUCCESS") && evidence.Contains("COPY VERIFIED"), "Successful operations persisted");
         Assert(evidence.Contains("INSTALL FAILED") && evidence.Contains("ROLLBACK SUCCESS") && evidence.Contains("System.IO.IOException"), "Failures and rollback details persisted");

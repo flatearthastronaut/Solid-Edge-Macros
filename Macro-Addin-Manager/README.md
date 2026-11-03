@@ -1,11 +1,13 @@
-# Solid Edge Macro & Add-in Manager v1.13
+# Solid Edge Macro & Add-in Manager v1.14
 
 Run either executable on 64-bit Windows with .NET Framework 4.x. No Solid Edge interop DLLs are needed by the manager itself.
 
-- **User:** `Compiled Executables/SE Macro Manager v1.13.exe` installs and updates programs from the shared folder. Categories are read-only; the category lock/unlock button has been removed.
-- **Admin:** `Compiled Executables/SE Macro Manager Admin v1.13.exe` publishes local builds and assigns **Solid Edge Macros**, **Solid Edge Add-ins**, or **Windows Programs** in the table's Category dropdown. Changes are saved to the shared catalog immediately.
+- **User:** `Compiled Executables/SE Macro Manager v1.14.exe` installs and updates programs from the shared folder. Categories are read-only; the category lock/unlock button has been removed.
+- **Admin:** `Compiled Executables/SE Macro Manager Admin v1.14.exe` publishes local builds and assigns **Solid Edge Macros**, **Solid Edge Add-ins**, or **Windows Programs** in the table's Category dropdown. Changes are saved to the shared catalog immediately.
 
 Both executables compile the same `ManagerForm` in `Program.cs`, artwork, category frames, grids, icon handling, path controls, and status footer. The `ADMIN` build flag selects publishing actions and different defaults; it does not fork the interface. Build both whenever changing the UI.
+
+The v1.14 layout reserves one complete data row for **Solid Edge Add-ins** and two for **Windows Programs**, including space for frame titles, table headers, the Windows help button and any horizontal scrollbar. **Solid Edge Macros** uses the remaining space. Additional entries scroll within their category; catalog refreshes and category changes no longer squeeze the smaller frames. Both editions retain the default 1140 × 850 window size.
 
 ## Stable macro ribbon targets (v1.11)
 

@@ -7,6 +7,41 @@ using CoopManager;
 
 internal static partial class Tests
 {
+    static void FrameLayoutCases()
+    {
+        Case("category-frame-layout",(s,l)=>{
+            foreach(bool admin in new[]{false,true})using(var manager=new ManagerForm(Path.Combine(l,"layout.xml"),false,admin))
+            {
+                manager.ShowInTaskbar=false;manager.Opacity=0;manager.Show();Application.DoEvents();
+                var entries=Enumerable.Range(1,40).Select(i=>new Entry{Name="Macro "+i.ToString("00"),Category=Categories.Macros,Status="Published"}).Concat(new[]{
+                    new Entry{Name="Shared SE add-ins",Category=Categories.Addins,Status="Shared only"},
+                    new Entry{Name="SE Macro Manager",Category=Categories.Windows,Status="Published"},
+                    new Entry{Name="SolidEdgeConvert",Category=Categories.Windows,Status="Published"}
+                }).ToList();
+                manager.PopulateEntries(entries);Application.DoEvents();
+                var tables=Descendants(manager).OfType<DataGridView>().ToDictionary(g=>g.Parent.Text);
+                var addins=tables[Categories.Addins];var windows=tables[Categories.Windows];var macros=tables[Categories.Macros];
+                Assert(addins.DisplayedRowCount(false)==1,"Default layout shows the complete add-in row with many macros");
+                Assert(windows.DisplayedRowCount(false)==2,"Default layout shows two complete Windows program rows including its help bar");
+                int macroHeight=macros.Height,addinHeight=addins.Height,windowsHeight=windows.Height;
+                using(var bitmap=new Bitmap(manager.Width,manager.Height))
+                {manager.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));bitmap.Save(Path.Combine("tests","bin",admin?"admin-frame-layout.png":"user-frame-layout.png"));}
+                manager.PopulateEntries(new Entry[0]);manager.PopulateEntries(entries);Application.DoEvents();
+                Assert(addins.Height==addinHeight && windows.Height==windowsHeight,"Catalog repopulation keeps reserved frame heights");
+                manager.Size=manager.MinimumSize;Application.DoEvents();
+                Assert(addins.DisplayedRowCount(false)==1 && windows.DisplayedRowCount(false)==2,"Minimum window still shows the reserved complete rows");
+                manager.Size=new Size(1240,950);Application.DoEvents();
+                Assert(macros.Height>macroHeight && addins.Height==addinHeight && windows.Height==windowsHeight,"Growing the window gives additional space to macros");
+                manager.Size=new Size(1140,850);
+                entries.Add(new Entry{Name="Another add-in",Category=Categories.Addins});
+                entries.Add(new Entry{Name="Another program",Category=Categories.Windows});
+                manager.PopulateEntries(entries);Application.DoEvents();
+                Assert(addins.DisplayedRowCount(false)==1 && windows.DisplayedRowCount(false)==2,"Additional lower-category entries scroll without shrinking row slots");
+                windows.Columns["Package"].Width+=500;Application.DoEvents();
+                Assert(windows.DisplayedRowCount(false)==2,"Horizontal scrollbar does not consume a required Windows row");
+            }
+        });
+    }
     static void ImplementationHelpCases()
     {
         Case("implementation-help",(s,l)=>{
