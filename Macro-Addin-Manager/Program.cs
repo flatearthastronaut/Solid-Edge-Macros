@@ -178,19 +178,26 @@ namespace CoopManager
             if(disposing){foreach(var grid in grids.Values)if(!grid.IsDisposed)grid.Rows.Clear();icons.Dispose();}base.Dispose(disposing);
             if(disposing){if(windowIcon!=null)windowIcon.Dispose();foreach(var image in artwork)image.Dispose();actionFont.Dispose();}
         }
-        async Task Publish(bool all)
+        internal async Task Publish(bool all)
         {
             if(!admin||busy)return;
             foreach(var grid in grids.Values)grid.EndEdit();
             if(categoryEditPending){ShowStatus("Wait for the category change to finish, then publish.");return;}
             var chosen=Rows().Where(r=>r.Tag is Entry && (all||Convert.ToBoolean(r.Cells[0].Value))).Select(r=>(Entry)r.Tag).Where(e=>e.Actionable).ToList();
-            if(chosen.Count==0){ShowStatus("Select a new or changed build, or refresh the catalog.");return;}
-            if(MessageBox.Show(this,"Publish these builds to "+local.Text.Trim()+"?\r\n\r\n"+string.Join("\r\n",chosen.Select(e=>e.Name+" "+e.AvailableVersion+" — "+categories.Get(e)))+
+            if(chosen.Count==0 && !all){ShowStatus("Select a new or changed build, or use Publish / clean all to retry backup cleanup.");return;}
+            if(chosen.Count>0 && MessageBox.Show(this,"Publish these builds to "+local.Text.Trim()+"?\r\n\r\n"+string.Join("\r\n",chosen.Select(e=>e.Name+" "+e.AvailableVersion+" — "+categories.Get(e)))+
                 "\r\n\r\nOlder releases and unversioned aliases of these programs will be removed from the share after the new builds are verified.","Review publication",MessageBoxButtons.OKCancel,MessageBoxIcon.Information)!=DialogResult.OK)return;
             Busy(true);
             try
             {
                 SavePaths();string builds=source.Text.Trim(),shared=local.Text.Trim();
+                // A completed build is no longer actionable in the grid, but its backup cleanup
+                // may still need retrying. Keep Publish / clean all usable in that state.
+                if(chosen.Count==0)
+                {
+                    await Task.Run(()=>{Installer.ValidateRoots(builds,shared);using(Publisher.Lock(shared)){} });
+                    Log("Publication backup cleanup complete; no new builds to publish.");
+                }
                 foreach(var entry in chosen){string category=categories.Get(entry);Log("Publishing "+entry.Name+"…");await Task.Run(()=>Publisher.Publish(entry.Available,builds,shared,category));Log("Published "+entry.Name);}
             }
             catch(Exception ex){ReportError("PUBLICATION STOPPED",ex);MessageBox.Show(this,ex.Message,"Publication stopped",MessageBoxButtons.OK,MessageBoxIcon.Warning);}

@@ -122,10 +122,73 @@ namespace CoopManager
             var gate=new FileStream(Files.Child(control,"publish.lock"),FileMode.OpenOrCreate,FileAccess.ReadWrite,FileShare.None);
             try
             {
-                if(Directory.GetDirectories(control,"transaction-*").Length>0)throw new IOException("An interrupted publication needs recovery in "+control+". Review recovery.xml and backups before publishing again.");
+                // A completed publication may have been interrupted only while deleting backups.
+                // Retry that cleanup under the same exclusive lock, after verifying its live build.
+                foreach(string txn in Directory.GetDirectories(control,"transaction-*"))ResumeCommittedCleanup(shared,control,txn);
                 return gate;
             }
             catch{gate.Dispose();throw;}
+        }
+        static void WriteJournal(string txn,XElement journal)
+        {
+            // Never truncate the only recovery record while marking the publication committed.
+            // If writing/replacing fails, the original uncommitted record remains available.
+            string path=Files.Child(txn,"recovery.xml"),temporary=Files.Child(txn,"recovery.xml.tmp");
+            new XDocument(journal).Save(temporary);
+            if(File.Exists(path))File.Replace(temporary,path,null);else File.Move(temporary,path);
+        }
+        internal static void CleanupTransaction(string control,string txn)
+        {
+            if(!Files.Inside(control,txn) || !Files.Full(Path.GetDirectoryName(txn)).Equals(Files.Full(control),StringComparison.OrdinalIgnoreCase))
+                throw new IOException("Refusing cleanup outside the publication transaction directory.");
+            // Preflight catches locked backups and Exclude trees before deleting anything. A lock
+            // can still arrive later, so explicitly delete recovery.xml LAST, never recursively
+            // together with the backups. This preserves evidence even after partial cleanup.
+            CheckRemovable(txn);
+            string journal=Files.Child(txn,"recovery.xml");
+            foreach(string child in Directory.GetFileSystemEntries(txn))
+            {
+                if(Files.Full(child).Equals(Files.Full(journal),StringComparison.OrdinalIgnoreCase))continue;
+                if(Directory.Exists(child))Files.RemoveTree(txn,child);else File.Delete(child);
+            }
+            if(File.Exists(journal))File.Delete(journal);
+            Directory.Delete(txn,false);
+        }
+        static string SharedJournalPath(string shared,string path)
+        {
+            // Journal data is not authority to inspect or modify arbitrary paths. Published
+            // packages are direct children of this share; links and other roots are rejected.
+            if(string.IsNullOrWhiteSpace(path) || !Path.IsPathRooted(path) ||
+                !Files.Full(Path.GetDirectoryName(path)).Equals(Files.Full(shared),StringComparison.OrdinalIgnoreCase))
+                throw new IOException("Recovery record contains a path outside the shared publish folder.");
+            return Files.Child(shared,Path.GetFileName(path));
+        }
+        static void ResumeCommittedCleanup(string shared,string control,string txn)
+        {
+            Files.NoLinks(txn);
+            // An empty directory can remain if shutdown occurred after the last file was removed.
+            if(Directory.GetFileSystemEntries(txn).Length==0){Directory.Delete(txn,false);return;}
+            string path=Files.Child(txn,"recovery.xml");
+            if(!File.Exists(path))throw new IOException("Publication backup needs review at "+txn+". Its recovery.xml is missing; keep the remaining backups. Do not delete them to dismiss this warning.");
+            XElement journal;
+            try
+            {
+                using(var reader=System.Xml.XmlReader.Create(path,new System.Xml.XmlReaderSettings{DtdProcessing=System.Xml.DtdProcessing.Prohibit,XmlResolver=null,MaxCharactersInDocument=1024*1024}))
+                    journal=XDocument.Load(reader).Root;
+            }
+            catch(System.Xml.XmlException ex){throw new IOException("Publication recovery record is unreadable at "+path+". Keep the backups for review.",ex);}
+            if(journal==null || journal.Name!="publication" || (string)journal.Attribute("committed")!="true" || string.IsNullOrEmpty((string)journal.Attribute("publishedHash")))
+                throw new IOException("An interrupted or older publication needs recovery at "+txn+". Review recovery.xml and backups before publishing again.");
+            string destination=SharedJournalPath(shared,(string)journal.Attribute("destination"));
+            if(!File.Exists(destination) || Files.Hash(destination)!=(string)journal.Attribute("publishedHash"))
+                throw new IOException("Published build does not match its recovery record: "+destination+". Backups retained at "+txn);
+            foreach(var obsolete in journal.Elements("obsolete"))
+            {
+                string original=SharedJournalPath(shared,(string)obsolete.Attribute("path"));
+                if(File.Exists(original)||Directory.Exists(original))throw new IOException("An old release reappeared after publication: "+original+". Review backups at "+txn);
+            }
+            try{CleanupTransaction(control,txn);Diagnostics.Info("PUBLISH CLEANUP RESUMED "+txn);}
+            catch(Exception ex){throw new IOException("Publication completed, but old backup cleanup is still blocked at "+txn+". Close programs using those backups, then retry. The recovery record is retained until all backups are removed.",ex);}
         }
         public static string OutputName(Package p)
         {
@@ -194,10 +257,10 @@ namespace CoopManager
                 {
                     Stage(p,staged);
                     if(hadCategories)Files.Copy(categoryPath,Path.Combine(txn,"previous-categories.xml"));
-                    var recovery=new XElement("publication",new XAttribute("destination",destination),new XAttribute("previousBuild",existed),
+                    var recovery=new XElement("publication",new XAttribute("destination",destination),new XAttribute("previousBuild",existed),new XAttribute("publishedHash",Files.Hash(staged)),
                         new XAttribute("previousCategories",hadCategories),new XAttribute("categoryFile",categoryPath),
                         obsolete.Select((item,index)=>new XElement("obsolete",new XAttribute("path",item.Path),new XAttribute("backup",Files.Child(txn,"obsolete-"+index)))));
-                    new XDocument(recovery).Save(Path.Combine(txn,"recovery.xml"));
+                    WriteJournal(txn,recovery);
                     // Publish a complete file by rename/replace on the destination filesystem. A user
                     // can see the previous or new complete build, never a partially copied ZIP/EXE.
                     next.WriteShared(shared);categoryWritten=true;
@@ -212,7 +275,7 @@ namespace CoopManager
                         if(Directory.Exists(from))Directory.Move(from,to);else File.Move(from,to);
                         moved.Add(new KeyValuePair<string,string>(from,to));
                     }
-                    recovery.SetAttributeValue("committed",true);new XDocument(recovery).Save(Path.Combine(txn,"recovery.xml"));
+                    recovery.SetAttributeValue("committed",true);WriteJournal(txn,recovery);
                     Diagnostics.Info("PUBLISH SUCCESS package="+p.Release.Name+" destination="+destination+" category="+category);
                 }
                 catch(Exception error)
@@ -230,7 +293,7 @@ namespace CoopManager
                         }
                         else if(published && !existed && File.Exists(destination))File.Delete(destination);
                         if(categoryWritten){if(hadCategories)previous.WriteShared(shared);else if(File.Exists(categoryPath))File.Delete(categoryPath);}
-                        Files.RemoveTree(control,txn);
+                        CleanupTransaction(control,txn);
                     }
                     catch(Exception recovery){throw new IOException(error.Message+" Recovery required at "+txn+": "+recovery.Message,error);}
                     Diagnostics.Error("PUBLISH FAILED package="+p.Release.Name,error);throw;
@@ -239,8 +302,8 @@ namespace CoopManager
                 {
                     // Deleting the committed transaction deletes the obsolete releases. If cleanup
                     // fails, they remain private (not in the user catalog) with a recovery journal.
-                    try{Files.RemoveTree(control,txn);}
-                    catch(Exception error){throw new IOException("Build published, but publication cleanup needs attention: "+txn,error);}
+                    try{CleanupTransaction(control,txn);}
+                    catch(Exception error){throw new IOException("Build published, but old backup cleanup is blocked at "+txn+". Close programs using those backups, then retry publishing; the manager will verify the published build and retry cleanup. The recovery record is retained until all backups are removed.",error);}
                 }
             }
         }

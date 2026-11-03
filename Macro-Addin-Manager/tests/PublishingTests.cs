@@ -87,7 +87,7 @@ internal static partial class Tests
             Throws(()=>Publisher.Publish(p,s,l,Categories.Macros),"Publisher blocks downgrade");
             Assert(!BuildCatalog.Compare(s,l).Single(e=>e.Name=="Macro").Actionable,"Newer shared build not selectable");
             Throws(()=>Publisher.Publish(p,s,s,Categories.Macros),"Publisher blocks overlapping paths");
-            Directory.CreateDirectory(Path.Combine(l,".se-publisher","transaction-interrupted"));
+            Write(Path.Combine(l,".se-publisher","transaction-interrupted","payload"),"incomplete staging");
             Throws(()=>CategoryPreferences.AssignShared(l,new Entry{Available=p},Categories.Macros),"Interrupted transaction blocks category writes");
         });
         Case("publish-ambiguity",(s,l)=>{

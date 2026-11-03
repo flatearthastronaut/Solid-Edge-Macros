@@ -294,6 +294,7 @@ internal static partial class Tests
             Assert(!Catalog.Compare(s,l).Single(e=>e.Available!=null && e.Available.Bundle).Details.Contains("Exclude"),"Excluded folder absent from suite details");
         });
         PublishingCases();
+        PublicationRecoveryCases();
         StableMacroCases();
         ImplementationHelpCases();
         string evidence = string.Join("\n", Directory.GetFiles(Diagnostics.LogDirectory,"*.log").Select(File.ReadAllText));

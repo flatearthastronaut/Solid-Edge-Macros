@@ -1,9 +1,9 @@
-# Solid Edge Macro & Add-in Manager v1.12
+# Solid Edge Macro & Add-in Manager v1.13
 
 Run either executable on 64-bit Windows with .NET Framework 4.x. No Solid Edge interop DLLs are needed by the manager itself.
 
-- **User:** `Compiled Executables/SE Macro Manager v1.12.exe` installs and updates programs from the shared folder. Categories are read-only; the category lock/unlock button has been removed.
-- **Admin:** `Compiled Executables/SE Macro Manager Admin v1.12.exe` publishes local builds and assigns **Solid Edge Macros**, **Solid Edge Add-ins**, or **Windows Programs** in the table's Category dropdown. Changes are saved to the shared catalog immediately.
+- **User:** `Compiled Executables/SE Macro Manager v1.13.exe` installs and updates programs from the shared folder. Categories are read-only; the category lock/unlock button has been removed.
+- **Admin:** `Compiled Executables/SE Macro Manager Admin v1.13.exe` publishes local builds and assigns **Solid Edge Macros**, **Solid Edge Add-ins**, or **Windows Programs** in the table's Category dropdown. Changes are saved to the shared catalog immediately.
 
 Both executables compile the same `ManagerForm` in `Program.cs`, artwork, category frames, grids, icon handling, path controls, and status footer. The `ADMIN` build flag selects publishing actions and different defaults; it does not fork the interface. Build both whenever changing the UI.
 
@@ -37,7 +37,9 @@ New and changed builds are staged on the share and verified before atomic replac
 
 `Exclude` directories remain untouched. If an obsolete package folder itself contains a nested `Exclude`, publication stops with an explanation so the admin can move that archive outside the old package before retrying. It will not delete the excluded content to clean up its parent.
 
-Interrupted publications preserve `.se-publisher/transaction-*` and block further admin writes. Review `recovery.xml`, `previous-build` when present, `previous-categories.xml`, and each `obsolete` path/backup pair. To roll back an uncommitted transaction, restore the obsolete backups to their recorded paths, restore the previous current build (or remove the newly introduced destination if `previousBuild` is false), and restore the prior category catalog. A `committed="true"` journal means publication and old-release moves completed; verify the new build before completing deletion of the remaining transaction backups. An interruption during staging may leave only a payload with no journal; no live build has been changed at that stage. Recovery is manual, and user installation recovery under `.se-manager` remains separate.
+Interrupted publications preserve `.se-publisher/transaction-*`. In v1.13, a completed publication's cleanup is retried on the next admin write while holding the exclusive publisher lock. Automatic cleanup requires a readable `committed="true"` journal, a `publishedHash` matching the current destination, and no reappeared obsolete paths. Journal paths must be direct children of the selected share. The recovery record is written atomically and deleted **after** every backup, so a locked obsolete executable cannot leave backups without their journal. Locked cleanup has a distinct message: close programs using the backups, then retry. **Publish / clean all** retries this cleanup even when every build already shows Published and no rows are actionable. Empty transaction directories left after cleanup are safely removed. Cleanup preserves `Exclude` folders.
+
+Uncommitted, malformed, missing-journal, changed-build, or older transactions without a recorded checksum still require manual review. Review `recovery.xml`, `previous-build` when present, `previous-categories.xml`, and each `obsolete` path/backup pair. To roll back an uncommitted transaction, restore obsolete backups to their recorded paths, restore the previous current build (or remove the newly introduced destination if `previousBuild` is false), and restore the prior category catalog. Never assume a missing journal means staging only: older manager versions could delete the journal before encountering a locked backup during cleanup. Preserve and identify those files before recovery. User installation recovery under `.se-manager` remains separate.
 
 ## How to Implement
 
