@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 1,
+  "status": "implementation-in-progress; macro-launcher-built; legacy-utilities-not-yet-migrated",
+  "suiteName": "Hammill Add-ins",
+  "branding": {
+    "legacyName": "BWH Addins",
+    "displayName": "Hammill Add-ins",
+    "primaryColor": "#729403",
+    "primaryColorRgb": [114, 148, 3],
+    "requirement": "Use Hammill branding in the rebuilt add-in description, command groups, windows, help, and distribution package."
+  },
+  "icons": {
+    "status": "style-approved; production-icons-pending",
+    "selectedStyle": "B - Shaded CAD",
+    "approvedReference": "Icon Artwork/Hammill-Shaded-CAD-Green-v1.png",
+    "generationRecord": "Icon Artwork/Hammill-Shaded-CAD-Green-v1.json",
+    "buttonTools": ["oring-finder", "add-sketch", "occurrence-viewer", "batch-approval-export"],
+    "suiteIcon": true,
+    "requirement": "Provide a consistent family of small and large native ribbon icons, with labeled concept previews for user selection before producing final assets. Use Hammill green #729403 as the primary brand accent, retaining neutral material colors where appropriate. Component Display has no button or icon."
+  },
+  "targetSolidEdge": "2026",
+  "architecture": "x64",
+  "approach": "One add-in with separately maintained commands and shared Solid Edge integration.",
+  "macroLauncher": {
+    "status": "v0.1-built; 30-offline-checks-passed; live-SE-validation-pending",
+    "implementation": "Hammill-Macro-Launcher",
+    "initialPackaging": "Separate launcher module with its own COM identity; preserve the legacy add-in during migration.",
+    "ribbonTab": "Hammill Macros",
+    "folderSource": "User Macro Manager settings.xml local element; use its Documents/Add-ins default only when no local preference is saved.",
+    "discovery": "Read local .se-manager package manifests with stableCopies=1; select one stable main EXE per package, with explicit overrides for ambiguous packages.",
+    "refresh": "Each Solid Edge startup/add-in connection; advance the managed GUI version only when the catalog or presentation changes.",
+    "launch": "Run only the macro whose button is clicked, using its executable directory as the working directory.",
+    "configuration": "Optional HammillMacros.xml in the user's local install folder controls name, group, environment, icon, enabled state and an explicitly selected manifest-owned executable.",
+    "customizationNote": "A changed GUI version rebuilds this add-in's cached ribbon and may reset its customized button placement or shortcuts; verify in live SE testing."
+  },
+  "scopeDecision": {
+    "date": "2026-11-03",
+    "requestedExclusions": "Remove dimension formatting, Fill Hole Table, Bolt Finder, Turbo Ballooning, and Turbo Callout from the rebuilt suite.",
+    "legacyFiles": "Preserve the original binaries and supporting files as recovery references. This scope file does not change an installed add-in."
+  },
+  "commands": [
+    {
+      "key": "oring-finder",
+      "name": "O-Ring Finder",
+      "disposition": "retain",
+      "legacyTypes": ["SEAddIn.ORingFinder", "SEAddIn.ORingWindow"],
+      "requestedChanges": [
+        "Read Oring_table.txt from beside the installed add-in DLL instead of the embedded ORing4 resource.",
+        "Reload the table when O-Ring Finder is invoked so table edits take effect without recompiling.",
+        "Preserve the existing comma-separated table format: part number, nominal width, and inside diameter in inches."
+      ],
+      "tableSource": {
+        "kind": "external-file",
+        "fileName": "Oring_table.txt",
+        "pathBase": "installed-add-in-directory",
+        "reload": "each-command-invocation",
+        "embeddedFallback": false,
+        "validation": "Validate the table before selecting any sizes or changing any part properties. Report missing files and invalid rows clearly; do not silently use old embedded data.",
+        "distribution": "Include the table alongside the rebuilt DLL and preserve user-edited table data during updates."
+      },
+      "migrationChecks": [
+        "Preserve O_ and O- part-name recognition and the ID and WD dimension conventions.",
+        "Verify size selection, units, pressure options, and external Oring_table.txt data.",
+        "Verify that editing the external table affects the next invocation without rebuilding and that missing or invalid files stop processing clearly.",
+        "Review property changes and document saving before migrating the acceptance action."
+      ]
+    },
+    {
+      "key": "add-sketch",
+      "name": "Add Sketch",
+      "disposition": "retain",
+      "legacyTypes": ["SEAddIn.AddSketch"],
+      "migrationChecks": [
+        "Verify reference-plane selection and requested sketch count against the 2026 API.",
+        "Handle unavailable documents and invalid selections with clear errors."
+      ]
+    },
+    {
+      "key": "component-display",
+      "name": "Component Display",
+      "disposition": "retain",
+      "invocation": "event-driven; no launch button",
+      "ribbonButton": false,
+      "iconRequired": false,
+      "legacyTypes": ["SEAddIn.RefStyle"],
+      "migrationChecks": [
+        "Preserve applicable UC_, REF_, NORM_, UNDO_, THRD, and TB display rules after reviewing their exact scope.",
+        "Verify the legacy command-event trigger against the 2026 SDK.",
+        "Verify behavior for nested assembly and part drawing-view members."
+      ]
+    },
+    {
+      "key": "occurrence-viewer",
+      "name": "Occurrence Viewer",
+      "disposition": "retain",
+      "legacyTypes": ["SEAddIn.OccuranceFinder", "SEAddIn.Occur"],
+      "migrationChecks": [
+        "Preserve show/hide criteria and optional subassembly traversal.",
+        "Verify every property filter and visibility result with representative assemblies."
+      ]
+    },
+    {
+      "key": "batch-approval-export",
+      "name": "Batch Approval/export",
+      "disposition": "retain",
+      "legacyTypes": ["SEAddIn.BatchPrint"],
+      "migrationChecks": [
+        "Verify drawing DWG/PDF and assembly STEP/3D PDF export support and options.",
+        "Review file naming, destination selection, existing-file handling, and source-document state."
+      ]
+    },
+    {
+      "key": "dimension-formatting",
+      "name": "Dimension formatting",
+      "disposition": "exclude"
+    },
+    {
+      "key": "fill-hole-table",
+      "name": "Fill Hole Table",
+      "disposition": "exclude"
+    },
+    {
+      "key": "bolt-finder",
+      "name": "Bolt Finder",
+      "disposition": "exclude"
+    },
+    {
+      "key": "turbo-ballooning",
+      "name": "Turbo Ballooning",
+      "disposition": "exclude"
+    },
+    {
+      "key": "turbo-callout",
+      "name": "Turbo Callout",
+      "disposition": "exclude"
+    }
+  ],
+  "pendingRequirements": [
+    "Specific behavior changes requested for retained commands.",
+    "Additional commands for future releases."
+  ]
+}

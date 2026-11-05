@@ -1,0 +1,28 @@
+{
+  "artifact": "Hammill-Shaded-CAD-Green-v1.png",
+  "purpose": "Approved icon style reference; individual production icons are not yet exported.",
+  "selectedStyle": "B - Shaded CAD",
+  "userSelection": "B",
+  "brandColor": {
+    "hex": "#729403",
+    "rgb": [
+      114,
+      148,
+      3
+    ]
+  },
+  "tools": [
+    "O-Ring Finder",
+    "Add Sketch",
+    "Occurrence Viewer",
+    "Batch Approval/export"
+  ],
+  "suiteIcon": "Hammill",
+  "componentDisplay": {
+    "button": false,
+    "icon": false
+  },
+  "generationMethod": "Built-in image_gen",
+  "originalPrompt": "Use case: ui-mockup.\nAsset type: preview-only icon concept board for Hammill Add-ins, a professional Solid Edge CAD add-in suite.\nCreate a polished wide landscape icon-design comparison sheet showing ONE coherent design direction: \"B — Shaded CAD\". Pure white background, comfortable whitespace. Header text exact: \"HAMMILL ADD-INS\". Subheader exact: \"B — Shaded CAD\".\nA single perfectly aligned horizontal row of FIVE evenly spaced large icons with exact short labels below each. No cards, no rounded app-tile backgrounds, no wallpaper. Style: traditional professional CAD toolbar artwork, restrained isometric depth, gentle bevels, subtle metallic/material shading, strong clean silhouettes and restrained color. Keep complexity low enough for readable 24–32 pixel ribbon icons. No photorealistic scenes, no glossy toy appearance, no excessive shadows. Use steel gray, restrained blue, and conventional pencil/plus accents, coherent as a family.\nIcons from left to right:\n1. Label \"O-Ring Finder\". A dark rubber torus viewed slightly obliquely, central hole visible, with a small blue-handled magnifying glass lower right. Distinguish torus from lens rim.\n2. Label \"Add Sketch\". A tilted sketch plane with a simple line sketch, a short drafting pencil and a clear plus sign.\n3. Label \"Occurrence Viewer\". Three small shaded assembly blocks connected by a simple hierarchy, with an eye glyph.\n4. Label \"Batch Export\". Two slightly layered drawing sheets, minimal drafting marks, and a thick outward/right export arrow.\n5. Label \"Hammill\". A compact machined capital H monogram, beveled steel edges and blue face, no invented official company logo claims.\nShow one enlarged icon above each label, and a second smaller rendition of the SAME icon below the label to suggest toolbar use. Small rendition is a visual preview, not a claimed pixel-perfect output. No extra controls or icons. Absolutely no Component Display icon. This is a concept review sheet, not final production assets. Crisp, balanced and professional. All text legible and correctly spelled.",
+  "colorRefinementPrompt": "Use case: precise-object-edit. Edit the attached Hammill Add-ins icon preview sheet, option B, preserving the entire composition, all icon shapes and 3D structure, typography, exact labels, white background, and both rows of large/small icons. Change the brand palette only. Replace the blue brand colors with Hammill's olive green base #729403, RGB (114,148,3); use this exact hue as the midtone, with appropriate lighter highlights and darker shaded edges for the B — Shaded CAD style. Change the dark blue HAMMILL ADD-INS heading to brand green. The magnifying-glass handle, sketch plane accent edges and sketch lines, plus sign, assembly connectors, eye iris, export arrow, and H monogram face should use #729403-based green. Keep the O-ring dark rubber, machined bevels and cube blocks neutral steel-gray, white/gray paper, graphite drafting lines, and yellow pencil/pink eraser. Change blue-tinted glass to neutral clear pale gray glass with a restrained green reflection. Do not tint the steel or O-ring green. Do not add icons, especially no Component Display icon. Keep all existing text unchanged. Preserve legibility of the small icon renditions. Output one revised preview board, not a montage with the old board."
+}
