@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "implementation-in-progress; macro-launcher-built; legacy-utilities-not-yet-migrated",
+  "status": "implementation-in-progress; macro-launcher-built; oring-finder-standalone-built; remaining-legacy-utilities-not-yet-migrated",
   "suiteName": "Hammill Add-ins",
   "branding": {
     "legacyName": "BWH Addins",
@@ -14,13 +14,13 @@
     "selectedStyle": "B - Shaded CAD",
     "approvedReference": "Icon Artwork/Hammill-Shaded-CAD-Green-v1.png",
     "generationRecord": "Icon Artwork/Hammill-Shaded-CAD-Green-v1.json",
-    "buttonTools": ["oring-finder", "add-sketch", "occurrence-viewer", "batch-approval-export"],
+    "buttonTools": ["add-sketch", "occurrence-viewer", "batch-approval-export"],
     "suiteIcon": true,
     "requirement": "Provide a consistent family of small and large native ribbon icons, with labeled concept previews for user selection before producing final assets. Use Hammill green #729403 as the primary brand accent, retaining neutral material colors where appropriate. Component Display has no button or icon."
   },
   "targetSolidEdge": "2026",
   "architecture": "x64",
-  "approach": "One add-in with separately maintained commands and shared Solid Edge integration.",
+  "approach": "Add-in commands with shared Solid Edge integration, plus independently maintained standalone macros discovered by Hammill Macro Launcher.",
   "macroLauncher": {
     "status": "v0.1-built; 30-offline-checks-passed; live-SE-validation-pending",
     "implementation": "Hammill-Macro-Launcher",
@@ -42,21 +42,25 @@
     {
       "key": "oring-finder",
       "name": "O-Ring Finder",
-      "disposition": "retain",
+      "disposition": "standalone-macro",
+      "implementation": "../O-Ring Finder",
+      "status": "v1.0-built; offline-regression-tested; live-SE-acceptance-pending",
+      "decisionDate": "2026-11-06",
       "legacyTypes": ["SEAddIn.ORingFinder", "SEAddIn.ORingWindow"],
       "requestedChanges": [
-        "Read Oring_table.txt from beside the installed add-in DLL instead of the embedded ORing4 resource.",
-        "Reload the table when O-Ring Finder is invoked so table edits take effect without recompiling.",
+        "Extract O-Ring Finder into a standalone EXE; no add-in registration or legacy DLL dependency.",
+        "Read Oring_table.txt from beside the running EXE instead of the embedded ORing4 resource; allow selection of an external table.",
+        "Reload the table on startup, on Reload table / assembly, and before applying a size so edits take effect without recompiling.",
         "Preserve the existing comma-separated table format: part number, nominal width, and inside diameter in inches."
       ],
       "tableSource": {
         "kind": "external-file",
         "fileName": "Oring_table.txt",
-        "pathBase": "installed-add-in-directory",
-        "reload": "each-command-invocation",
+        "pathBase": "running-executable-directory; optional --table path or session file selection",
+        "reload": "each-scan-and-before-apply",
         "embeddedFallback": false,
         "validation": "Validate the table before selecting any sizes or changing any part properties. Report missing files and invalid rows clearly; do not silently use old embedded data.",
-        "distribution": "Include the table alongside the rebuilt DLL and preserve user-edited table data during updates."
+        "distribution": "Include the table alongside the EXE. Builds preserve an existing output table. Macro Manager updates replace packaged files, so back up customized installed tables or keep the authoritative table outside the package and select it with --table."
       },
       "migrationChecks": [
         "Preserve O_ and O- part-name recognition and the ID and WD dimension conventions.",
