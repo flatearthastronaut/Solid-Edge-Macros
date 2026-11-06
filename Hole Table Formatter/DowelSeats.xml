@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pin Sizes.doc, Dowel Pins table. Inch nominals are the midpoint of the
+     published fit limits, not the differently rounded hole-creation presets. -->
+<DowelSeats units="inches" source="Pin Sizes.doc" sha256="7131C32EE4B59439E6C0B6641C0DDF212155A43B5C5271E0D83F86E7C13827C8">
+  <Seat pin="1/8 inch" fit="PF" diameter=".12475" depth=".19" halfWidth=".00025" />
+  <Seat pin="3/16 inch" fit="PF" diameter=".18725" depth=".28" halfWidth=".00025" />
+  <Seat pin="1/4 inch" fit="PF" diameter=".24975" depth=".38" halfWidth=".00025" />
+  <Seat pin="5/16 inch" fit="PF" diameter=".31225" depth=".50" halfWidth=".00025" />
+  <Seat pin="3/8 inch" fit="PF" diameter=".37475" depth=".62" halfWidth=".00025" />
+  <Seat pin="1/2 inch" fit="PF" diameter=".4995" depth=".68" halfWidth=".0005" />
+  <Seat pin="5/8 inch" fit="PF" diameter=".6245" depth=".88" halfWidth=".0005" />
+  <Seat pin="3/4 inch" fit="PF" diameter=".7495" depth="1.12" halfWidth=".0005" />
+  <Seat pin="1 inch" fit="PF" diameter=".9995" depth="1.50" halfWidth=".0005" />
+  <Seat pin="1/8 inch" fit="SF" diameter=".12575" depth=".25" halfWidth=".00025" />
+  <Seat pin="3/16 inch" fit="SF" diameter=".18825" depth=".28" halfWidth=".00025" />
+  <Seat pin="1/4 inch" fit="SF" diameter=".25075" depth=".31" halfWidth=".00025" />
+  <Seat pin="5/16 inch" fit="SF" diameter=".31325" depth=".31" halfWidth=".00025" />
+  <Seat pin="3/8 inch" fit="SF" diameter=".37575" depth=".32" halfWidth=".00025" />
+  <Seat pin="1/2 inch" fit="SF" diameter=".501" depth=".38" halfWidth=".0005" />
+  <Seat pin="5/8 inch" fit="SF" diameter=".626" depth=".43" halfWidth=".0005" />
+  <Seat pin="3/4 inch" fit="SF" diameter=".751" depth=".44" halfWidth=".0005" />
+  <Seat pin="1 inch" fit="SF" diameter="1.001" depth=".56" halfWidth=".0005" />
+  <Seat pin="3 mm" fit="PF" diameter=".11775" depth=".20" halfWidth=".00025" />
+  <Seat pin="4 mm" fit="PF" diameter=".15725" depth=".25" halfWidth=".00025" />
+  <Seat pin="5 mm" fit="PF" diameter=".19675" depth=".30" halfWidth=".00025" />
+  <Seat pin="6 mm" fit="PF" diameter=".23595" depth=".35" halfWidth=".00025" />
+  <Seat pin="8 mm" fit="PF" diameter=".31475" depth=".47" halfWidth=".00025" />
+  <Seat pin="10 mm" fit="PF" diameter=".39345" depth=".60" halfWidth=".00025" />
+  <Seat pin="12 mm" fit="PF" diameter=".472" depth=".70" halfWidth=".0005" />
+  <Seat pin="16 mm" fit="PF" diameter=".6295" depth=".95" halfWidth=".0005" />
+  <Seat pin="3 mm" fit="SF" diameter=".11875" depth=".25" halfWidth=".00025" />
+  <Seat pin="4 mm" fit="SF" diameter=".15825" depth=".28" halfWidth=".00025" />
+  <Seat pin="5 mm" fit="SF" diameter=".19775" depth=".31" halfWidth=".00025" />
+  <Seat pin="6 mm" fit="SF" diameter=".23695" depth=".34" halfWidth=".00025" />
+  <Seat pin="8 mm" fit="SF" diameter=".31575" depth=".38" halfWidth=".00025" />
+  <Seat pin="10 mm" fit="SF" diameter=".39445" depth=".41" halfWidth=".00025" />
+  <Seat pin="12 mm" fit="SF" diameter=".4735" depth=".54" halfWidth=".0005" />
+  <Seat pin="16 mm" fit="SF" diameter=".631" depth=".69" halfWidth=".0005" />
+</DowelSeats>
