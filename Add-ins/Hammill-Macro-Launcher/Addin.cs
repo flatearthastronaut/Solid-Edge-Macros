@@ -7,14 +7,15 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using Microsoft.Win32;
+using Hammill.Automation;
 using SolidEdgeFramework;
 using Environment = System.Environment;
 
-[assembly: AssemblyTitle("Hammill Macro Launcher")]
+[assembly: AssemblyTitle("Hammill Add-ins")]
 [assembly: AssemblyCompany("Hammill")]
 [assembly: AssemblyProduct("Hammill Add-ins")]
-[assembly: AssemblyVersion("0.1.0.0")]
-[assembly: AssemblyFileVersion("0.1.0.0")]
+[assembly: AssemblyVersion("0.2.0.0")]
+[assembly: AssemblyFileVersion("0.2.0.0")]
 [assembly: ComVisible(false)]
 
 namespace Hammill.MacroLauncher
@@ -35,6 +36,9 @@ namespace Hammill.MacroLauncher
         };
         private SolidEdgeFramework.AddIn native;
         private ISEAddInEvents_Event events;
+        private ISEApplicationEvents_Event applicationEvents;
+        private object hostApplication;
+        private bool updatingComponentDisplay;
         private MacroCatalog catalog;
         private IconResources icons;
         private string logPath;
@@ -43,6 +47,7 @@ namespace Hammill.MacroLauncher
         public void OnConnection(object application, SeConnectMode mode, SolidEdgeFramework.AddIn addIn)
         {
             native = addIn;
+            hostApplication = application; // Borrowed host reference; never forcibly release it.
             string userData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             string cache = Path.Combine(userData, "Hammill", "MacroLauncher");
             logPath = Path.Combine(cache, "launcher.log");
@@ -56,12 +61,14 @@ namespace Hammill.MacroLauncher
                 native.GuiVersion = state.Version;
                 try { icons = IconResources.Create(catalog, Path.Combine(Path.GetDirectoryName(typeof(Addin).Assembly.Location), "Hammill.MacroLauncher.Resources.dll"), cache, state.Signature); }
                 catch (Exception error) { catalog.Notices.Add("Icons unavailable; showing text buttons: " + error.Message); }
-                native.Description = "Hammill Macro Launcher";
+                native.Description = "Hammill Add-ins";
                 native.Visible = true;
                 events = (ISEAddInEvents_Event)native.AddInEvents;
                 events.OnCommand += OnCommand;
                 events.OnCommandHelp += OnHelp;
                 events.OnCommandUpdateUI += OnUpdateUI;
+                applicationEvents = (ISEApplicationEvents_Event)((SolidEdgeFramework.Application)application).ApplicationEvents;
+                applicationEvents.BeforeCommandRun += BeforeHostCommand;
                 Log("Startup: " + catalog.Entries.Count + " macro(s); folder=" + catalog.Folder);
                 foreach (string message in catalog.Notices) Log(message);
             }
@@ -88,11 +95,14 @@ namespace Hammill.MacroLauncher
             catch (Exception error) { Log("Ribbon setup failed for " + category + ": " + error); }
         }
 
-        private void RegisterButton(ISEAddInEx2 target, string environment, int id, string key, string label, string group, string tooltip, int image)
+        internal void RegisterButton(ISEAddInEx2 target, string environment, int id, string key, string label, string group, string tooltip, int image)
         {
             Array names = new string[] { "Hammill.MacroLauncher." + key + "\n" + label + "\n" + tooltip + "\n" + label };
             Array ids = new int[] { id };
-            Array styles = new int[] { image < 0 ? (int)SeButtonStyle.seButtonCaption : (int)SeButtonStyle.seButtonIconAndCaption };
+            // SDK Addins/VC/SEAddin.cpp uses IconAndCaptionBelow to request a
+            // large ribbon button. Providing a large bitmap alone does not select
+            // that layout; keep caption-only controls usable if artwork is absent.
+            Array styles = new int[] { image < 0 ? (int)SeButtonStyle.seButtonCaption : (int)SeButtonStyle.seButtonIconAndCaptionBelow };
             target.SetAddInInfoEx2(icons == null ? typeof(Addin).Assembly.Location : icons.FileName, environment,
                 "Hammill Macros\n" + group, image, image < 0 ? -1 : image + 1, -1, -1, 1, ref names, ref ids, ref styles);
             // SE replaces IDs in the output array with session-specific IDs. Its OnCommand events
@@ -122,6 +132,14 @@ namespace Hammill.MacroLauncher
         }
 
         private void OnHelp(int window, int help, int id) { OnCommand(1); }
+        private void BeforeHostCommand(int command)
+        {
+            if(updatingComponentDisplay || command != ComponentDisplay.UpdateViewsCommand)return;
+            updatingComponentDisplay=true;
+            try { int changed=ComponentDisplay.BeforeCommand(hostApplication,command,Log); if(changed != 0)Log("Component Display: updated " + changed + " member(s)."); }
+            catch(Exception error) { Log("Component Display failed: " + error.Message); }
+            finally { updatingComponentDisplay=false; }
+        }
         private void OnUpdateUI(int id, ref int flags, out string text, ref int bitmap)
         {
             // Called frequently by SE: no filesystem scans, hashing or XML reads on this path.
@@ -131,6 +149,13 @@ namespace Hammill.MacroLauncher
 
         public void OnDisconnection(SeDisconnectMode mode)
         {
+            var hostEvents=applicationEvents; applicationEvents=null;
+            if(hostEvents != null)
+            {
+                try { hostEvents.BeforeCommandRun -= BeforeHostCommand; } catch(Exception error) { Log(error.Message); }
+                ComScope.Release(hostEvents);
+            }
+            hostApplication=null;
             var subscription = events; events = null;
             if (subscription != null)
             {
@@ -161,8 +186,8 @@ namespace Hammill.MacroLauncher
             using (var key = Registry.ClassesRoot.CreateSubKey("CLSID\\{" + type.GUID + "}"))
             {
                 key.SetValue("AutoConnect", 1, RegistryValueKind.DWord);
-                key.SetValue("409", "Hammill Macro Launcher");
-                key.SetValue("Summary", "Adds locally installed Macro Manager tools to the Hammill Macros ribbon at startup.");
+                key.SetValue("409", "Hammill Add-ins");
+                key.SetValue("Summary", "Macro ribbon launcher and automatic draft Component Display.");
                 using (key.CreateSubKey("Implemented Categories\\{26B1D2D1-2B03-11D2-B589-080036E8B802}")) { }
                 foreach (string environment in Environments.Keys) using (key.CreateSubKey("Environment Categories\\" + environment)) { }
             }

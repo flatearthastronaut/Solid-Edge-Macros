@@ -3,6 +3,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using Hammill.MacroLauncher;
@@ -25,12 +26,15 @@ internal static class Tests
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] static extern IntPtr LoadLibraryEx(string name, IntPtr file, uint flags);
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] static extern IntPtr FindResource(IntPtr module, IntPtr name, IntPtr type);
     [DllImport("kernel32.dll")] static extern uint SizeofResource(IntPtr module, IntPtr resource);
+    [DllImport("kernel32.dll")] static extern IntPtr LoadResource(IntPtr module, IntPtr resource);
+    [DllImport("kernel32.dll")] static extern IntPtr LockResource(IntPtr resource);
     [DllImport("kernel32.dll")] static extern bool FreeLibrary(IntPtr module);
 
     static int Main()
     {
         try
         {
+            ComponentDisplayTests.Run(Check);
             // All filesystem activity remains inside this project's ignored test workspace.
             run = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".work", Guid.NewGuid().ToString("N"));
             local = Path.Combine(run, "Installed Macros"); documents = Path.Combine(run, "Documents"); settings = Path.Combine(run, "settings.xml");
@@ -50,6 +54,32 @@ internal static class Tests
             Check(catalog.Entries.Single(x => x.Key == "tool").IconPath == Path.Combine(local, "Tool.png"), "stable companion icon is discovered");
             Check(catalog.Entries.Single(x => x.Key == "other").Path.EndsWith("Other\\Compiled Executables\\Other.exe"), "nested stable package target works");
             Check(catalog.Notices.Count == 0, "valid manager packages produce no warnings");
+
+            var target = new RibbonTarget();
+            var addin = new Addin();
+            addin.RegisterButton(target, Addin.ApplicationEnvironment, 100, "tool", "Tool", "Installed macros", "Run Tool", 120);
+            Check(target.Style == (int)SolidEdgeFramework.SeButtonStyle.seButtonIconAndCaptionBelow && target.SmallImage == 120 && target.LargeImage == 121,
+                "native macro registration requests a large icon with its caption below and the correct large resource");
+            Check(target.CommandId == 100 && target.CommandCount == 1 && target.Group == "Hammill Macros\nInstalled macros" && target.Names.Contains("Hammill.MacroLauncher.tool"),
+                "large button retains the macro command identity and group");
+            addin.RegisterButton(target, Addin.ApplicationEnvironment, 1, "status", "Macro folder", "Launcher", "Show folder", -1);
+            Check(target.Style == (int)SolidEdgeFramework.SeButtonStyle.seButtonCaption && target.SmallImage == -1 && target.LargeImage == -1 && target.CommandId == 1,
+                "caption-only controls do not request an unavailable large image");
+
+            // A real v0.1 signature snapshot: simulate upgrading with the same
+            // installed macros, captions and artwork, plus pre-existing IDs.
+            var oldLines = new System.Collections.Generic.List<string> { "hammill-launcher-ribbon-v1", catalog.Folder.ToLowerInvariant() };
+            foreach (var entry in catalog.Entries.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
+                oldLines.Add(entry.Key + "|" + entry.Path.ToLowerInvariant() + "|" + entry.Name + "|" + entry.Group + "|" + entry.Environments + "|" +
+                    (entry.IconPath == null ? "default" : MacroCatalog.Hash(File.ReadAllBytes(entry.IconPath))));
+            string migrationPath = Path.Combine(run, "migration.xml");
+            new XDocument(new XElement("ribbon", new XAttribute("version", 7), new XAttribute("signature", MacroCatalog.Hash(Encoding.UTF8.GetBytes(String.Join("\n", oldLines)))),
+                new XElement("command", new XAttribute("key", "tool"), new XAttribute("id", 150)),
+                new XElement("command", new XAttribute("key", "other"), new XAttribute("id", 151)))).Save(migrationPath);
+            var upgraded = RibbonState.Update(migrationPath, catalog);
+            Check(upgraded.Version == 8 && catalog.Entries.Single(x => x.Key == "tool").CommandId == 150 && catalog.Entries.Single(x => x.Key == "other").CommandId == 151,
+                "upgrading small-button cache refreshes GUI once without changing existing macro IDs");
+            Check(RibbonState.Update(migrationPath, Scan()).Version == 8, "subsequent large-button startup reuses the refreshed GUI");
 
             string statePath = Path.Combine(run, "State", "ribbon.xml");
             var state1 = RibbonState.Update(statePath, catalog); int toolId = catalog.Entries.Single(x => x.Key == "tool").CommandId;
@@ -98,7 +128,7 @@ internal static class Tests
             File.Delete(Path.Combine(local, "HammillMacros.xml")); Package("tool", true, "Tool.exe", "Tool.png");
 
             var resourcesCatalog = Scan(); var resourcesState = RibbonState.Update(statePath, resourcesCatalog);
-            string template = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "Compiled Executables", "Hammill-Macro-Launcher-v0.1", "Hammill.MacroLauncher.Resources.dll"));
+            string template = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "Compiled Executables", "Hammill-Macro-Launcher-v0.2", "Hammill.MacroLauncher.Resources.dll"));
             var resources = IconResources.Create(resourcesCatalog, template, Path.Combine(run, "IconCache"), resourcesState.Signature);
             IntPtr module = LoadLibraryEx(resources.FileName, IntPtr.Zero, 2);
             Check(module != IntPtr.Zero, "generated ribbon resource DLL loads as data");
@@ -107,6 +137,9 @@ internal static class Tests
                 int id = resources.ResourceIds[resourcesCatalog.Entries.Single(x => x.Key == "tool").CommandId];
                 IntPtr small = FindResource(module, new IntPtr(id), new IntPtr(2)), large = FindResource(module, new IntPtr(id + 1), new IntPtr(2));
                 Check(small != IntPtr.Zero && large != IntPtr.Zero && SizeofResource(module, large) > SizeofResource(module, small), "small and large bitmap resources are present");
+                IntPtr largeDib = LockResource(LoadResource(module, large));
+                Check(largeDib != IntPtr.Zero && Marshal.ReadInt32(largeDib, 4) == 32 && Marshal.ReadInt32(largeDib, 8) == 32,
+                    "the large-button bitmap supplied to Solid Edge is 32 by 32 pixels");
             }
             finally { if (module != IntPtr.Zero) FreeLibrary(module); }
             Check(IconResources.Create(resourcesCatalog, template, Path.Combine(run, "IconCache"), resourcesState.Signature).FileName == resources.FileName, "unchanged icon resources are reused");

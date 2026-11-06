@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "implementation-in-progress; macro-launcher-built; oring-finder-standalone-built; remaining-legacy-utilities-not-yet-migrated",
+  "status": "retained-tools-migrated; one-combined-add-in-and-four-standalone-macros-built; live-acceptance-partially-complete",
   "suiteName": "Hammill Add-ins",
   "branding": {
     "legacyName": "BWH Addins",
@@ -14,18 +14,20 @@
     "selectedStyle": "B - Shaded CAD",
     "approvedReference": "Icon Artwork/Hammill-Shaded-CAD-Green-v1.png",
     "generationRecord": "Icon Artwork/Hammill-Shaded-CAD-Green-v1.json",
-    "buttonTools": ["add-sketch", "occurrence-viewer", "batch-approval-export"],
+    "buttonTools": [],
+    "standaloneMacroIcons": ["oring-finder", "add-sketch", "occurrence-viewer", "batch-approval-export"],
     "suiteIcon": true,
     "requirement": "Provide a consistent family of small and large native ribbon icons, with labeled concept previews for user selection before producing final assets. Use Hammill green #729403 as the primary brand accent, retaining neutral material colors where appropriate. Component Display has no button or icon."
   },
   "targetSolidEdge": "2026",
   "architecture": "x64",
-  "approach": "Add-in commands with shared Solid Edge integration, plus independently maintained standalone macros discovered by Hammill Macro Launcher.",
+  "approach": "One Hammill add-in combines the macro ribbon launcher and automatic Component Display. O-Ring Finder, Add Sketch, Occurrence Viewer, and Batch Approval/export are independently distributed standalone macros.",
   "macroLauncher": {
-    "status": "v0.1-built; 30-offline-checks-passed; live-SE-validation-pending",
+    "status": "v0.2-built; 46-offline-checks-passed; combined-add-in-live-SE-validation-pending",
     "implementation": "Hammill-Macro-Launcher",
-    "initialPackaging": "Separate launcher module with its own COM identity; preserve the legacy add-in during migration.",
+    "initialPackaging": "Keep the existing Hammill launcher COM identity and package family for upgrades; display as Hammill Add-ins and include Component Display. Unregister BWH separately during cutover; preserve its original files as a recovery reference.",
     "ribbonTab": "Hammill Macros",
+    "macroButtonStyle": "Large icon with caption below; refresh existing cached small-button layout once on upgrade.",
     "folderSource": "User Macro Manager settings.xml local element; use its Documents/Add-ins default only when no local preference is saved.",
     "discovery": "Read local .se-manager package manifests with stableCopies=1; select one stable main EXE per package, with explicit overrides for ambiguous packages.",
     "refresh": "Each Solid Edge startup/add-in connection; advance the managed GUI version only when the catalog or presentation changes.",
@@ -34,7 +36,8 @@
     "customizationNote": "A changed GUI version rebuilds this add-in's cached ribbon and may reset its customized button placement or shortcuts; verify in live SE testing."
   },
   "scopeDecision": {
-    "date": "2026-11-03",
+    "date": "2026-11-06",
+    "requestedStructure": "Extract Add Sketch, Occurrence Viewer, and Batch Approval/export into standalone macros; move automatic Component Display into Hammill so only one add-in is distributed. O-Ring Finder was already extracted.",
     "requestedExclusions": "Remove dimension formatting, Fill Hole Table, Bolt Finder, Turbo Ballooning, and Turbo Callout from the rebuilt suite.",
     "legacyFiles": "Preserve the original binaries and supporting files as recovery references. This scope file does not change an installed add-in."
   },
@@ -72,7 +75,9 @@
     {
       "key": "add-sketch",
       "name": "Add Sketch",
-      "disposition": "retain",
+      "disposition": "standalone-macro",
+      "implementation": "../Add Sketch",
+      "status": "v1.0-built; 13-offline-checks-passed; live-SE-created-two-native-sketches-in-isolated-assembly",
       "legacyTypes": ["SEAddIn.AddSketch"],
       "migrationChecks": [
         "Verify reference-plane selection and requested sketch count against the 2026 API.",
@@ -83,6 +88,9 @@
       "key": "component-display",
       "name": "Component Display",
       "disposition": "retain",
+      "implementation": "Hammill-Macro-Launcher/ComponentDisplay.cs",
+      "status": "migrated-into-Hammill-v0.2; offline-rule-checks-passed; live-event-acceptance-pending",
+      "trigger": "BeforeCommandRun for DetailDrawingViewsUpdateViews (57083), active Draft only.",
       "invocation": "event-driven; no launch button",
       "ribbonButton": false,
       "iconRequired": false,
@@ -96,7 +104,9 @@
     {
       "key": "occurrence-viewer",
       "name": "Occurrence Viewer",
-      "disposition": "retain",
+      "disposition": "standalone-macro",
+      "implementation": "../Occurrence Viewer",
+      "status": "v1.0-built; 17-offline-checks-passed; live-SE-acceptance-pending",
       "legacyTypes": ["SEAddIn.OccuranceFinder", "SEAddIn.Occur"],
       "migrationChecks": [
         "Preserve show/hide criteria and optional subassembly traversal.",
@@ -106,7 +116,9 @@
     {
       "key": "batch-approval-export",
       "name": "Batch Approval/export",
-      "disposition": "retain",
+      "disposition": "standalone-macro",
+      "implementation": "../Batch Approval Export",
+      "status": "v1.0-built; 17-offline-checks-passed; live-translator-acceptance-pending",
       "legacyTypes": ["SEAddIn.BatchPrint"],
       "migrationChecks": [
         "Verify drawing DWG/PDF and assembly STEP/3D PDF export support and options.",
