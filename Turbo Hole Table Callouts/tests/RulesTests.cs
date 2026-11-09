@@ -110,6 +110,8 @@ internal static class RulesTests
             string format=hole.Type==1?"%DI %{%HS/LT.00025^-.00025/NU/@4} DIA %{%HD/NU/@2} DP.":counterdrillF2;
             if(RuleBook.TemplateProblem(match,hole,format)!=null)format=LinkedCallouts.For(match,hole,format);
             Check(format!=null&&RuleBook.TemplateProblem(match,hole,format)==null,"Saved dowel must have a usable linked fit: "+saved.Name);
+            string fitAmount=LinkedCallouts.DowelFitNote(match).Split(new[]{" FOR "},StringSplitOptions.None)[0];
+            Check(!fitAmount.Contains("[")&&!fitAmount.Contains("]")&&!fitAmount.Contains("mm"),"Every saved dowel fit amount must be inch-only: "+saved.Name);
         }
         var sealPresets=actual.Presets.Where(p=>p.Family=="O-ring face seal").ToList();
         Check(sealPresets.Count==3,"All three Face Seal presets must be loaded.");
@@ -162,10 +164,17 @@ internal static class RulesTests
         string threadText=LinkedCallouts.For(six,threaded,"%TS THR'D %ZT%RT%DI%{%BS/NU/@3} C'DRILL %BD DP.");
         Check(threadText.Contains("%TS")&&threadText.Contains("%{%TD/NU/@2}")&&LinkedCallouts.PortHasTwoPlaces(threadText),"Threaded-entrance rows retain native threads and two-place model depths.");
         Check(LinkedCallouts.For(six,threaded,"#4 PORT 7/16-20 %{%BD/NU/@3}")==null,"Changing precision must never approve another port's thread text.");
-        Check(LinkedCallouts.DowelFitNote(ten)=="(.013[.0005] MAX P.F. FOR 10mm DOWEL)","Use exact saved metric press-fit note.");
+        Check(LinkedCallouts.DowelFitNote(ten)=="(.0005 MAX P.F. FOR 10mm DOWEL)","Use the exact saved inch press-fit amount, retaining the pin designation.");
         Check(LinkedCallouts.DowelFitNote(rules.Match(new HoleFacts{Type=1,Diameter=.251,Depth=.31}))=="(.001 MAX S.F. FOR 1/4 DOWEL)","Use exact saved inch slip-fit note.");
         Check(LinkedCallouts.HasLine(linkedTen,LinkedCallouts.DowelFitNote(ten)),"Dowel fit note must be on its own line.");
         Check(LinkedCallouts.For(ten,tenFacts,linkedTen)==linkedTen,"Rescanning a linked dowel must not duplicate its note or tolerance options.");
+        string previousNote=LinkedCallouts.PreviousDowelNote(ten,tenFacts,counterdrillF2);
+        Check(previousNote.Contains("(.013[.0005] MAX P.F. FOR 10mm DOWEL)"),"Retain v0.7 note text for verified updates and rollback.");
+        Check(RuleBook.TemplateProblem(ten,tenFacts,previousNote)!=null,"An otherwise correct prior dual-unit note needs an inch-only update.");
+        Check(LinkedCallouts.For(ten,tenFacts,previousNote)==linkedTen,"Updating a dual-unit note must preserve linked fit limits and not duplicate notes.");
+        Check(LinkedCallouts.DowelFitNote(new Decision{Pin="8 mm",Fit="SF"})=="(.001 MAX S.F. FOR 8mm DOWEL)","Remove brackets from an inch-only saved amount.");
+        Check(LinkedCallouts.DowelFitNote(new Decision{Pin="12 mm",Fit="SF"})=="(.0015 MAX S.F. FOR 12mm DOWEL)","Use saved .0015, not a rounded conversion of .038mm.");
+        Check(LinkedCallouts.DowelFitNote(new Decision{Pin="3/8 inch",Fit="SF"})=="(.001 MAX S.F. FOR 3/8 DOWEL)","Bracketed inch-pin notes must also become plain inch amounts.");
         Check(LinkedCallouts.DowelFitNote(new Decision{Pin="1/8 inch",Fit="PF"})=="(P.F. FOR 1/8 DOWEL)","Missing saved sizes get a fit/size label without invented numeric requirements.");
         var plugFacts=new HoleFacts{Type=7,Bore=.199,BoreDepth=.22};var plug=rules.Match(plugFacts);
         string plugBase="%DI%{%HS/NU/@3} DRILL %ZH%RT%DI%{%BS/NU/@3} DIA %{%BD/NU/@3} DP.";

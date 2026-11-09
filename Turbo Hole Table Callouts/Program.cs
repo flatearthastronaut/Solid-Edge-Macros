@@ -7,14 +7,14 @@ using System.Windows.Forms;
 
 [assembly:System.Reflection.AssemblyTitle("Turbo Hole Table Callouts")]
 [assembly:System.Reflection.AssemblyProduct("Turbo Hole Table Callouts")]
-[assembly:System.Reflection.AssemblyVersion("0.7.0.0")]
+[assembly:System.Reflection.AssemblyVersion("0.8.0.0")]
 
 namespace HoleTableFormatter
 {
     internal static class Program
     {
         internal const string ProductName="Turbo Hole Table Callouts";
-        internal const string Version="v0.7";
+        internal const string Version="v0.8";
         [STAThread] static int Main(string[] args)
         {
             try

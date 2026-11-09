@@ -14,6 +14,12 @@ namespace HoleTableFormatter
         {return Build(choice,hole,sharedTemplate,false);}
         internal static string Previous(Decision choice,HoleFacts hole,string sharedTemplate)
         {return Build(choice,hole,sharedTemplate,true);}
+        internal static string PreviousDowelNote(Decision choice,HoleFacts hole,string sharedTemplate)
+        {
+            if(!choice.IsDowel)return null;
+            string text=For(choice,hole,sharedTemplate);
+            return text==null?null:WithDowelNote(text,choice,true);
+        }
         internal static bool RevisedFamily(Decision choice)
         {return choice.IsDowel||choice.Family=="Koenig plug"||choice.Port==6||choice.Port==8;}
         static string Build(Decision choice,HoleFacts hole,string sharedTemplate,bool previous)
@@ -76,6 +82,15 @@ namespace HoleTableFormatter
         {return (text??"").Split(new[]{"%RT"},StringSplitOptions.None).Any(s=>s.Trim()==line);}
         internal static string DowelFitNote(Decision choice)
         {
+            string note=SavedDowelFitNote(choice);if(note==null)return null;
+            // Saved dual-unit notes put the approved inch fit amount in brackets.
+            // Keep that exact value rather than converting its rounded metric
+            // equivalent. The nominal pin designation (e.g. 10mm) is unchanged.
+            return Regex.Replace(note,@"^(\(\s*)(?:[+\-]?(?:\d*\.)?\d+)?\[(?<inch>[+\-]?(?:\d*\.)?\d+)\]",
+                m=>m.Groups[1].Value+m.Groups["inch"].Value);
+        }
+        static string SavedDowelFitNote(Decision choice)
+        {
             if(String.IsNullOrEmpty(choice.Pin)||(choice.Fit!="PF"&&choice.Fit!="SF"))return null;
             string pin=choice.Pin.Replace(" inch","").Replace(" mm","mm"),name;
             if(choice.Pin.EndsWith(" mm",StringComparison.Ordinal))
@@ -96,9 +111,9 @@ namespace HoleTableFormatter
             // without inventing a maximum interference/clearance specification.
             return "("+(choice.Fit=="PF"?"P.F.":"S.F.")+" FOR "+pin+" DOWEL)";
         }
-        static string WithDowelNote(string text,Decision choice)
+        static string WithDowelNote(string text,Decision choice,bool savedUnits=false)
         {
-            string note=DowelFitNote(choice);if(note==null)return text;
+            string note=savedUnits?SavedDowelFitNote(choice):DowelFitNote(choice);if(note==null)return text;
             var lines=text.Split(new[]{"%RT"},StringSplitOptions.None).Where(line=>!Regex.IsMatch(line,@"^\s*\(.*\b[PS]\.F\..*DOWEL\)\s*$"));
             return String.Join("%RT",lines)+"%RT"+note;
         }

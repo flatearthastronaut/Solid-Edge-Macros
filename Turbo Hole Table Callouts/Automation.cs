@@ -267,7 +267,8 @@ namespace HoleTableFormatter
         static string RecognizePrevious(object table,RowPlan plan,string metricBefore)
         {
             string assignment=plan.Assignment;
-            var candidates=new List<string>{assignment,LinkedCallouts.Previous(plan.Decision,plan.Facts,plan.Template)};
+            var candidates=new List<string>{assignment,LinkedCallouts.PreviousDowelNote(plan.Decision,plan.Facts,plan.Template),
+                LinkedCallouts.Previous(plan.Decision,plan.Facts,plan.Template)};
             if(plan.Decision.IsDowel||plan.Decision.Family=="Koenig plug")candidates.Add("%F"+plan.Decision.Slot);
             try
             {

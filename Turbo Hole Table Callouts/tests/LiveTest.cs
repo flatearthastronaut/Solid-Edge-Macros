@@ -95,19 +95,23 @@ internal static class LiveTest
                 foreach(TableInfo info in scan.Tables)Require(before[info.Index+"/TITLE"]==info.TitleText,"Scan lost a native title.");
                 Require(scan.Rows.All(r=>!r.Overridden||!r.Eligible||!String.IsNullOrEmpty(r.OriginalAssignment)),"An unverified custom override became eligible.");
                 Same(before,Capture(copy),"Read-only scan",null);report.AppendLine("PASS: scan inspected "+scan.TableCount+" tables / "+scan.Rows.Count+" rows with native title text and no source changes.");Console.WriteLine("Scan preservation passed.");
-                // Seed v0.6 expressions in this disposable copy. This guarantees
+                // Seed v0.7 dowel notes and v0.6 port expressions in this disposable copy. This guarantees
                 // that migration and rollback are exercised even when the user's
                 // current draft has no previously applied standard overrides.
-                int seeded=0;
+                int seeded=0,seededDowelNotes=0;
                 foreach(RowPlan row in scan.Rows.Where(r=>r.Eligible&&LinkedCallouts.RevisedFamily(r.Decision)))
                 {
-                    string previous=LinkedCallouts.Previous(row.Decision,row.Facts,row.Template);
+                    string previous=row.Decision.IsDowel?LinkedCallouts.PreviousDowelNote(row.Decision,row.Facts,row.Template):
+                        LinkedCallouts.Previous(row.Decision,row.Facts,row.Template);
                     if(previous==null&&row.Decision.Family=="Koenig plug")previous="%F3";
                     if(previous==null)continue;SetExpression(copy,row,previous);seeded++;
+                    if(row.Decision.IsDowel&&previous!=row.Assignment)seededDowelNotes++;
                 }
                 before=Capture(copy);scan=Automation.Scan(copyPath,root);Same(before,Capture(copy),"Prior-version scan preservation",null);
                 Require(seeded==0||scan.Rows.Any(r=>r.Overridden&&r.Eligible),"Prior linked callouts were not offered for the requested update.");
+                Require(scan.Rows.Count(r=>r.Overridden&&r.Eligible&&r.Decision.IsDowel)>=seededDowelNotes,"A prior dual-unit dowel note was not offered for its inch-only update.");
                 report.AppendLine("Verified prior standard callouts eligible for update: "+scan.Rows.Count(r=>r.Overridden&&r.Eligible));
+                report.AppendLine("Prior dual-unit dowel notes verified for inch-only updates: "+seededDowelNotes);
                 scan.Save(Path.Combine(root,"validated-preview.xml"));
 
                 // Force verification to fail after native assignments. Recovery
