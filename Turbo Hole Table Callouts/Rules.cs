@@ -112,7 +112,8 @@ namespace HoleTableFormatter
 
         internal Decision Match(HoleFacts hole)
         {
-            if (Near(hole.BoreDepth,.052)) return Decision.Review("Possible 1/16-inch O-ring face seal; not an SAE-port rule.");
+            if ((hole.Type==2 || hole.Type==5) && Near(hole.BoreDepth,.052) && PortThread(hole.Thread)==0)
+                return Decision.Review("Possible 1/16-inch O-ring face seal; port identity is ambiguous without a confirming thread.");
             var hits = new List<Preset>();
             foreach (Preset preset in Presets)
             {
@@ -129,16 +130,17 @@ namespace HoleTableFormatter
                     else if (hole.Type == 7) match = Near(hole.Bore,seat) && Near(hole.BoreDepth,seatDepth);
                 }
                 else if (preset.Family == "Koenig plug" && !threaded && hole.Type == 7)
-                    // Passage length varies with the part. The plug seat diameter
-                    // and depth identify the installed plug, not the preset's
-                    // convenient default drilling length or passage diameter.
-                    match = Near(hole.Bore,preset.Bore) && Near(hole.BoreDepth,preset.BoreDepth);
+                    // CV is the former name for Koenig. Greg changes seat depth
+                    // for the part, so only its nominal seat diameter and native
+                    // unthreaded counterdrill type identify this family. Preserve
+                    // the actual model-linked depth in the resulting callout.
+                    match = Near(hole.Bore,preset.Bore) && Positive(hole.BoreDepth);
                 else if (preset.Family == "SAE port")
                 {
                     if (preset.Kind == "CounterBore" && (hole.Type == 2 || hole.Type == 5))
-                        match = Near(hole.Bore,preset.Bore) && Near(hole.BoreDepth,preset.BoreDepth);
+                        match = Near(hole.Bore,preset.Bore) && Positive(hole.BoreDepth);
                     else if (preset.Kind == "CounterDrill" && hole.Type == 8)
-                        match = PortThread(hole.Thread) == preset.Port && Near(hole.Bore,preset.Bore) && Near(hole.BoreDepth,preset.BoreDepth);
+                        match = PortThread(hole.Thread) == preset.Port && Near(hole.Bore,preset.Bore) && Positive(hole.BoreDepth);
                 }
                 else if (preset.Family == "SHCS counterbore" && !threaded && hole.Type == 2)
                     match = Near(hole.Diameter,preset.Diameter) && Near(hole.Bore,preset.Bore) && Near(hole.BoreDepth,preset.BoreDepth);
@@ -154,13 +156,15 @@ namespace HoleTableFormatter
                 if (preset.Port != 0 && !String.IsNullOrWhiteSpace(hole.Thread) && PortThread(hole.Thread) != preset.Port)
                     return Decision.Review("Thread and spotface identify different port sizes.");
                 return new Decision { Category = preset.Family + (preset.Port == 0 ? "" : " #" + preset.Port), Slot = preset.Slot,
-                    Port = preset.Port, HalfWidth=preset.HalfWidth, Reason = "Matches " + preset.Name };
+                    Port = preset.Port, HalfWidth=preset.HalfWidth, Reason = "Matches " + preset.Name +
+                        (preset.Family=="Koenig plug"||preset.Family=="SAE port"?" diameter/type; seat depth may vary.":"") };
             }
             if (PortThread(hole.Thread) != 0) return Decision.Review("Port-size thread: entrance/spotface does not match a verified preset. May be an older port.");
             if (hole.Type == 4 && !String.IsNullOrWhiteSpace(hole.Thread))
                 return new Decision { Category = "Threaded hole", Slot = 1, Reason = "Standard threaded-hole format." };
-            return Decision.Review("No verified diameter/depth combination. Leave unchanged.");
+            return Decision.Review("No verified standard-hole match. Leave unchanged.");
         }
+        static bool Positive(double? value){return value.HasValue&&value.Value>0;}
 
         internal static int PortThread(string thread)
         {

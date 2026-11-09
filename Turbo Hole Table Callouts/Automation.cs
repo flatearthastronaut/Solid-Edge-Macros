@@ -21,12 +21,14 @@ namespace HoleTableFormatter
     {
         internal string Document, SettingsPath;
         internal int TableCount;
+        internal readonly List<TableInfo> Tables = new List<TableInfo>();
         internal readonly List<RowPlan> Rows = new List<RowPlan>();
         internal readonly List<string> Notes = new List<string>();
         internal void Save(string path)
         {
             var xml = new XElement("HoleTableScan", new XAttribute("document",Document), new XAttribute("settings",SettingsPath),
                 new XAttribute("tables",TableCount), new XAttribute("eligible",Rows.Count(r=>r.Eligible)),
+                Tables.Select(t=>new XElement("Table",new XAttribute("index",t.Index),new XElement("Title",t.TitleText))),
                 Notes.Select(n=>new XElement("Note",n)), Rows.Select(r=>new XElement("Row",
                     new XAttribute("table",r.TableIndex),new XAttribute("index",r.RowIndex),new XAttribute("label",r.Label??""),
                     new XAttribute("status",r.Status??""),new XAttribute("category",r.Category??""),new XAttribute("slot",r.Decision==null?0:r.Decision.Slot),
@@ -36,6 +38,12 @@ namespace HoleTableFormatter
             new XDocument(xml).Save(path);
         }
         static object Field(string name,double? value) {return value.HasValue?new XAttribute(name,value.Value.ToString("R",CultureInfo.InvariantCulture)):null;}
+    }
+
+    internal sealed class TableInfo
+    {
+        internal int Index;
+        internal string TitleText;
     }
 
     internal static class Automation
@@ -73,6 +81,7 @@ namespace HoleTableFormatter
                     try
                     {
                         original=((dynamic)sourceTables).Item(ti); probeTable=((dynamic)copyTables).Item(ti);
+                        result.Tables.Add(new TableInfo{Index=ti,TitleText=ReadTitle(original)});
                         InspectTable(original,probeTable,ti,rules,result);
                     }
                     finally {Com.Release(probeTable);Com.Release(original);}
@@ -93,6 +102,32 @@ namespace HoleTableFormatter
                 // recursive cleanup or path based on document/model names.
                 if(copyPath!=null && File.Exists(copyPath))File.Delete(copyPath);
             }
+        }
+
+        // Name is Solid Edge's internal table identifier, not the Title text
+        // shown in Properties. Read every native title line, retaining order.
+        // Acquire/release each COM collection and item once, like the SDK samples.
+        internal static string ReadTitle(object table)
+        {
+            object titles=null;
+            var lines=new List<string>();
+            try
+            {
+                titles=((dynamic)table).Titles;
+                for(int i=1;i<=(int)((dynamic)titles).Count;i++)
+                {
+                    object title=null;
+                    try
+                    {
+                        title=((dynamic)titles).Item(i);
+                        string value=Convert.ToString(((dynamic)title).Value);
+                        if(!String.IsNullOrWhiteSpace(value))lines.Add(value.Trim());
+                    }
+                    finally{Com.Release(title);}
+                }
+                return String.Join(Environment.NewLine,lines);
+            }
+            finally{Com.Release(titles);}
         }
 
         static void InspectTable(object original,object probeTable,int ti,RuleBook rules,ScanResult result)
@@ -208,9 +243,11 @@ namespace HoleTableFormatter
         internal static string GetTemplate(object table,int slot,int type)
         {string value;((dynamic)table).GetHoleTableCalloutText(slot,type,out value);return value??"";}
 
-        internal static int Apply(ScanResult scan)
+        internal static int Apply(ScanResult scan,int? tableIndex=null)
         {
-            List<RowPlan> selected=scan.Rows.Where(r=>r.Eligible&&r.Selected).ToList();
+            // Each window applies only its own table. Other windows can retain
+            // checked rows without accidentally including them in this operation.
+            List<RowPlan> selected=SelectedRows(scan,tableIndex);
             if(selected.Count==0)return 0;
             object app=null,docs=null,draft=null,tables=null;
             var attempted=new List<RowPlan>();
@@ -284,6 +321,8 @@ namespace HoleTableFormatter
             }
             finally{Com.Release(tables);Com.Release(draft);Com.Release(docs);Com.Release(app);}
         }
+        internal static List<RowPlan> SelectedRows(ScanResult scan,int? tableIndex)
+        {return scan.Rows.Where(r=>r.Eligible&&r.Selected&&(!tableIndex.HasValue||r.TableIndex==tableIndex.Value)).ToList();}
         static void Validate(object tables,RowPlan plan)
         {
             object table=null,rows=null,columns=null,column=null,cell=null;

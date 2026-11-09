@@ -21,6 +21,7 @@ internal static class LiveTest
                 try
                 {
                     table=((dynamic)tables).Item(ti);rows=((dynamic)table).Rows;cols=((dynamic)table).Columns;
+                    values[ti+"/TITLE"]=Automation.ReadTitle(table);
                     for(int c=1;c<=(int)((dynamic)cols).Count;c++)
                     {
                         object column=null;try{column=((dynamic)cols).Item(c);values[ti+"/COLUMN/"+c]=(string)((dynamic)column).PropertyText;}
@@ -71,16 +72,17 @@ internal static class LiveTest
             using(var filter=new BusyFilter())
             {
                 app=System.Runtime.InteropServices.Marshal.GetActiveObject("SolidEdge.Application");docs=((dynamic)app).Documents;
-                source=((dynamic)docs).Item(@"C:\Users\greg.lentner\Documents\Codex\19947-01 tombstone.dft");
+                source=args.Length>1?((dynamic)docs).Item(args[1]):((dynamic)app).ActiveDocument;
                 var original=Capture(source);
-                string copyPath=Path.Combine(root,"tombstone-formatter-test-"+Guid.NewGuid().ToString("N")+".dft");
+                string copyPath=Path.Combine(root,"turbo-hole-table-test-"+Guid.NewGuid().ToString("N")+".dft");
                 ((dynamic)source).SaveCopyAs(copyPath);copy=((dynamic)docs).Open(copyPath);
                 var before=Capture(copy);
                 ScanResult scan=Automation.Scan(copyPath,root);
-                Require(scan.TableCount==6 && scan.Rows.Count==255,"Unexpected reference drawing inventory.");
-                Require(scan.Rows.Count(r=>r.Eligible)==12,"Expected twelve missing port formats in reference.");
+                Require(scan.TableCount>0 && scan.Tables.Count==scan.TableCount,"Native table inventory is incomplete.");
+                Require(scan.Rows.Any(r=>r.Eligible),"This test needs at least one proposed format change.");
+                foreach(TableInfo info in scan.Tables)Require(before[info.Index+"/TITLE"]==info.TitleText,"Scan lost a native title.");
                 Require(scan.Rows.All(r=>!r.Overridden||!r.Eligible),"Custom override became eligible.");
-                Same(before,Capture(copy),"Read-only scan",null);report.AppendLine("PASS: scan inspected 6 tables / 255 rows without changing source table data.");Console.WriteLine("Scan preservation passed.");
+                Same(before,Capture(copy),"Read-only scan",null);report.AppendLine("PASS: scan inspected "+scan.TableCount+" tables / "+scan.Rows.Count+" rows with native title text and no source changes.");Console.WriteLine("Scan preservation passed.");
                 scan.Save(Path.Combine(root,"validated-preview.xml"));
 
                 // Force verification to fail after native assignments. Recovery
@@ -95,12 +97,21 @@ internal static class LiveTest
                 var changed=scan.Rows.Where(r=>r.Eligible).ToList();
                 var allowed=new HashSet<string>(changed.Select(r=>r.TableIndex+"/"+r.Label+"/"+r.ColumnIndex));
                 foreach(RowPlan row in changed)allowed.Add(row.TableIndex+"/"+row.Label+"/"+row.ColumnIndex+"/override");
-                int applied=Automation.Apply(scan);Require(applied==12,"Wrong applied count.");
+                int applied=0;
+                foreach(var group in changed.GroupBy(r=>r.TableIndex))
+                {
+                    var priorTableApply=Capture(copy);
+                    var allowedInTable=new HashSet<string>(group.Select(r=>r.TableIndex+"/"+r.Label+"/"+r.ColumnIndex));
+                    foreach(RowPlan row in group)allowedInTable.Add(row.TableIndex+"/"+row.Label+"/"+row.ColumnIndex+"/override");
+                    applied+=Automation.Apply(scan,group.Key);
+                    Same(priorTableApply,Capture(copy),"Apply only table "+group.Key,allowedInTable,true);
+                }
+                Require(applied==changed.Count,"Wrong applied count.");
                 var after=Capture(copy);Same(before,after,"Apply",allowed,true);
                 foreach(RowPlan row in changed)Require(after[row.TableIndex+"/"+row.Label+"/"+row.ColumnIndex]==row.After,"Applied text did not match preview.");
                 ((dynamic)copy).Save();((dynamic)copy).Close(false);Com.Release(copy);copy=null;
                 copy=((dynamic)docs).Open(copyPath);Same(after,Capture(copy),"Save/reopen",null);
-                report.AppendLine("PASS: 12 %F4 assignments survived save/reopen; other content, labels, numeric coordinates, custom rows and templates retained (native refresh normalizes spacing in some generated cells).");
+                report.AppendLine("PASS: "+applied+" native format assignments applied one table at a time and survived save/reopen; other tables, titles, labels, numeric coordinates, custom rows and templates retained (native refresh may normalize spacing).");
                 Console.WriteLine("Apply and save/reopen passed.");
 
                 object tables=null,table=null,rows=null;
