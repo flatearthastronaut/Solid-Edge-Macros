@@ -1,11 +1,11 @@
-# Dual Dimension Toggle v1.9
+# Dual Dimension Toggle v1.10
 
 Converts existing non-angular dimensions, Feature Control Frame tolerances, and callout notes on **only the active sheet** of the active Solid Edge draft between inch-only and dual units. Dimension and callout styles match the decimal-place count and vertical naming family (`Vert` prefix or `(vert)` suffix); the leading sorting/group number on numbered styles is ignored. Angular dimensions and angle-only callouts retain their current styles in both directions.
 
 ## Run
 
 1. Open a draft in Solid Edge and activate the sheet to change.
-2. Run `Compiled Executables\Dual Dimension Toggle v1.9.exe`, either directly or through Solid Edge's Run Macro command.
+2. Run `Compiled Executables\Dual Dimension Toggle v1.10.exe`, either directly or through Solid Edge's Run Macro command.
 3. Choose **Dual dimensioned to inch only** or **Inch only to dual dimensioned**.
 4. Click **Convert active sheet**. Read the conversion results, review the draft, and save it in Solid Edge when ready.
 
@@ -13,11 +13,11 @@ Each direction has a small dimension drawing beside its radio button: `25.4 [1.0
 
 Version 1.2 renames the former Draft Dimension Styles macro to **Dual Dimension Toggle**. Update any existing shortcut or Solid Edge macro button to the new executable path in the `Dual Dimension Toggle` folder.
 
-Versioned executable filenames allow updates to be built while an older macro window is still open. Use **v1.9** for the complete callout conversion, including `/DU` field formatting and recovery from empty saved records. Existing shortcuts should point to the v1.9 executable; older executables remain earlier releases.
+Versioned executable filenames allow updates to be built while an older macro window is still open. Use **v1.10** for the complete callout conversion, including `/DU` field formatting and recovery from empty saved records. Existing shortcuts should point to the v1.10 executable; older executables remain earlier releases.
 
 ## Icon
 
-The v1.3 icon shows a white single dimension (1.00 inches), a cyan dual dimension (25.4 [1.00]), and amber switch arrows on a navy background. The executable includes the icon for Explorer, the taskbar, and its window title bar. Separate files are included in `Compiled Executables`:
+The v1.10 icon shows a large white `1.00`, one bold white double-headed arrow, and a cyan dual value `25.4` over `[1.00]` on a dark navy background. The simplified design removes dimension lines, extension lines, and extra symbols while keeping the single and dual values readable. The executable includes the icon for Explorer, the taskbar, and its window title bar. Separate files are included in `Compiled Executables`:
 
 - `Dual Dimension Toggle.ico`: Windows icon with 16, 24, 32, 48, 64, 128, and 256-pixel sizes.
 - `Dual Dimension Toggle.png`: 256-pixel image for macro buttons or shortcuts that accept PNG.
@@ -117,6 +117,8 @@ Requires Windows with 64-bit Solid Edge and .NET Framework 4.x. The executable i
 - `UiTest.ps1`: opens its own transparent off-screen popup, checks mutual exclusion, clickable illustrations, accessible descriptions, and layout at normal/minimum sizes and 150% control scaling. Writes `tests/PopupPreview.png` and `tests/PopupPreviewScaled.png` for visual inspection. Does not connect to Solid Edge. Both renderings were visually checked.
 
 Validated October 2, 2026: v1.9 release compiled; all 643 regression assertions and 88 live Solid Edge assertions passed, including the exact hyphenated style names read from the active draft. The popup layout is unchanged from v1.8, which passed 60 interaction/layout assertions. Live checks verify raw linked-field syntax and style assignment on scratch annotations; they do not validate evaluated hole values against a particular production model. Solid Edge ignored suffix assignments on the scratch callout type, so live precision/tolerance checks use the main text; all four fields are covered by regression tests.
+
+Validated November 9, 2026: v1.10 replaces the application icon and retains the existing conversion behavior. The release rebuilt successfully; all 643 regression assertions and 60 popup assertions passed. The seven ICO frames were decoded and their dimensions verified; small-size previews at 16, 24, 32, 48, and 64 pixels were visually inspected. Live drafting tests were not repeated for this artwork-only change.
 
 ## API and lifetime references
 
