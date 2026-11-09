@@ -46,11 +46,12 @@ namespace HoleTableFormatter
 
     internal sealed class Decision
     {
-        internal string Category, Reason;
+        internal string Category, Reason, Family, Fit;
         internal int Slot;
         internal int Port;
         internal double HalfWidth;
         internal double Minimum, Maximum;
+        internal bool IsDowel {get{return Family=="Dowel"||Category=="Dowel";}}
         internal static Decision Review(string reason) { return new Decision { Category = "Review", Reason = reason }; }
     }
 
@@ -81,6 +82,7 @@ namespace HoleTableFormatter
                 { family = "SAE port"; port = Int32.Parse(Regex.Match(name, @"#(\d+)").Groups[1].Value); slot = port == 2 ? 2 : 4; }
                 else if (name.StartsWith("C' Bore-", StringComparison.OrdinalIgnoreCase)) { family = "SHCS counterbore"; slot = 1; }
                 else if (Regex.IsMatch(name,@"^Pin, Dowel-\s+\S+\s+(PF|SF)$",RegexOptions.IgnoreCase)) {family="Dowel";slot=2;}
+                else if (name.StartsWith("Face Seal-",StringComparison.OrdinalIgnoreCase)) {family="O-ring face seal";slot=3;}
                 else continue;
                 string unit = (string)node.Element("Unit");
                 double scale = unit == "StandardMeasurementUnit" ? 1 : unit == "MetricMeasurementUnit" ? 1 / 25.4 : Double.NaN;
@@ -88,7 +90,10 @@ namespace HoleTableFormatter
                 book.Presets.Add(new Preset { Name = name, Kind = (string)node.Element("Type"), Family = family, Slot = slot, Port = port,
                     Diameter = Value(node,"Diameter") * scale, Depth = Value(node,"Depth") * scale,
                     Bore = Value(node,"Counterbore_Diameter") * scale, BoreDepth = Value(node,"Counterbore_Depth") * scale,
-                    Angle = Value(node,"Counterbore_Bottom_Angle"), Thread = (string)node.Element("Thread_Designation") ?? "" });
+                    Angle = Value(node,"Counterbore_Bottom_Angle"), Thread = (string)node.Element("Thread_Designation") ?? "",
+                    // The saved O-RING FACE SEAL callout specifies .054/.050
+                    // for this .052 nominal recess, independently of passage length.
+                    Minimum=family=="O-ring face seal"?.050:0,Maximum=family=="O-ring face seal"?.054:0 });
             }
             using(var stream=typeof(RuleBook).Assembly.GetManifestResourceStream("HoleTableFormatter.DowelSeats.xml"))
             {
@@ -143,8 +148,7 @@ namespace HoleTableFormatter
 
         internal Decision Match(HoleFacts hole)
         {
-            if ((hole.Type==2 || hole.Type==5) && Near(hole.BoreDepth,.052) && PortThread(hole.Thread)==0)
-                return Decision.Review("Possible 1/16-inch O-ring face seal; port identity is ambiguous without a confirming thread.");
+            bool possibleFaceSeal=(hole.Type==2 || hole.Type==5) && Near(hole.BoreDepth,.052) && PortThread(hole.Thread)==0;
             var hits = new List<Preset>();
             foreach (Preset preset in Presets)
             {
@@ -166,7 +170,12 @@ namespace HoleTableFormatter
                     // unthreaded counterdrill type identify this family. Preserve
                     // the actual model-linked depth in the resulting callout.
                     match = Near(hole.Bore,preset.Bore) && Positive(hole.BoreDepth);
-                else if (preset.Family == "SAE port")
+                else if (preset.Family == "O-ring face seal" && !threaded && hole.Type==2 && preset.Kind=="CounterBore")
+                    // .052 alone is not sufficient: require one of the explicit
+                    // face-seal recess diameters as well. Inlet drilling can be
+                    // blind or through and does not identify the seal seat.
+                    match=Near(hole.Bore,preset.Bore)&&Near(hole.BoreDepth,preset.BoreDepth)&&Near(preset.BoreDepth,.052);
+                else if (preset.Family == "SAE port" && !possibleFaceSeal)
                 {
                     if (preset.Kind == "CounterBore" && (hole.Type == 2 || hole.Type == 5))
                         match = Near(hole.Bore,preset.Bore) && Positive(hole.BoreDepth);
@@ -186,10 +195,12 @@ namespace HoleTableFormatter
                 Preset preset = hits[0];
                 if (preset.Port != 0 && !String.IsNullOrWhiteSpace(hole.Thread) && PortThread(hole.Thread) != preset.Port)
                     return Decision.Review("Thread and spotface identify different port sizes.");
-                return new Decision { Category = preset.Family + (preset.Port == 0 ? "" : " #" + preset.Port), Slot = preset.Slot,
+                return new Decision { Family=preset.Family,Fit=preset.Fit,
+                    Category = preset.Family=="Dowel"?"Dowel pin ("+(preset.Fit=="SF"?"slip fit":"press fit")+")":preset.Family + (preset.Port == 0 ? "" : " #" + preset.Port), Slot = preset.Slot,
                     Port = preset.Port, HalfWidth=preset.HalfWidth,Minimum=preset.Minimum,Maximum=preset.Maximum, Reason = "Matches " + preset.Name +
                         (preset.Family=="Koenig plug"||preset.Family=="SAE port"?" diameter/type; seat depth may vary.":"") };
             }
+            if(possibleFaceSeal)return Decision.Review("Shallow recess does not match a saved face-seal diameter; leave unchanged.");
             if (PortThread(hole.Thread) != 0) return Decision.Review("Port-size thread: entrance/spotface does not match a verified preset. May be an older port.");
             if (hole.Type == 4 && !String.IsNullOrWhiteSpace(hole.Thread))
                 return new Decision { Category = "Threaded hole", Slot = 1, Reason = "Standard threaded-hole format." };
@@ -219,20 +230,26 @@ namespace HoleTableFormatter
                 string thread = choice.Port == 2 ? "5/16-24" : choice.Port == 4 ? "7/16-20" : "9/16-18";
                 if (!number || !template.Contains(thread)) return "Target format does not explicitly describe the matching " + expected + " SAE port.";
             }
-            if (choice.Category == "Dowel")
+            if (choice.IsDowel)
             {
                 string field=hole.Type==1?"HS":"BS";
-                Match expression=Regex.Match(template,@"%\{%"+field+@"(?<options>[^{}]*)\}");
-                Match limits=Regex.Match(expression.Groups["options"].Value,@"/LT(?<upper>[+\-]?(?:\d*\.)?\d+)\^(?<lower>[+\-]?(?:\d*\.)?\d+)(?=/|$)");
-                double upper,lower;
-                if(!limits.Success || !Double.TryParse(limits.Groups["upper"].Value,NumberStyles.Float,CultureInfo.InvariantCulture,out upper) ||
-                    !Double.TryParse(limits.Groups["lower"].Value,NumberStyles.Float,CultureInfo.InvariantCulture,out lower) ||
-                    !Near((hole.Type==1?hole.Diameter:hole.Bore)+upper,choice.Maximum) ||
-                    !Near((hole.Type==1?hole.Diameter:hole.Bore)+lower,choice.Minimum) || !Regex.IsMatch(expression.Groups["options"].Value,@"/@4(?=/|$)"))
+                if(!LinkedLimitsMatch(template,field,hole.Type==1?hole.Diameter:hole.Bore,choice.Minimum,choice.Maximum,4))
                     return "Dowel F2 precision/fit limits do not match the pin-size chart. Preserve for review.";
             }
+            if(choice.Family=="O-ring face seal"&&(!template.Contains("%HS")||!template.Contains("%BS")||
+                !LinkedLimitsMatch(template,"BD",hole.BoreDepth,choice.Minimum,choice.Maximum,3)))
+                return "Face-seal F3 must retain linked diameters and the .054/.050 depth limits at three-place inch precision.";
             if (choice.Category == "Koenig plug" && (!template.Contains("%BS") || !template.Contains("%BD"))) return "Plug format is missing linked seat dimensions.";
             return null;
+        }
+        static bool LinkedLimitsMatch(string template,string field,double? nominal,double minimum,double maximum,int precision)
+        {
+            Match expression=Regex.Match(template,@"%\{%"+field+@"(?<options>[^{}]*)\}");
+            Match limits=Regex.Match(expression.Groups["options"].Value,@"/LT(?<upper>[+\-]?(?:\d*\.)?\d+)\^(?<lower>[+\-]?(?:\d*\.)?\d+)(?=/|$)");
+            double upper,lower;
+            return limits.Success&&Double.TryParse(limits.Groups["upper"].Value,NumberStyles.Float,CultureInfo.InvariantCulture,out upper)&&
+                Double.TryParse(limits.Groups["lower"].Value,NumberStyles.Float,CultureInfo.InvariantCulture,out lower)&&
+                Near(nominal+upper,maximum)&&Near(nominal+lower,minimum)&&Regex.IsMatch(expression.Groups["options"].Value,@"/@"+precision+@"(?=/|$)");
         }
     }
 }

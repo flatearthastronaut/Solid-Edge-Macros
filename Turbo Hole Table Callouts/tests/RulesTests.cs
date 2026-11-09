@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Xml.Linq;
 using HoleTableFormatter;
 
@@ -93,6 +94,40 @@ internal static class RulesTests
         Check(!sixLinked.Contains("[00]")&&!sixLinked.Contains("CW]]"),"Saved-callout metadata must not enter manufacturing text.");
         Check(LinkedCallouts.For(six,new HoleFacts{Type=2},"#4 7/16-20").Contains("THRU"),"Through ports must not receive an empty depth expression.");
         Check(LinkedCallouts.For(new Decision{Port=4},new HoleFacts{Type=2},"#4 7/16-20")==null,"Separate #6 fallback must not change #4 definitions.");
+        // Exercise every real saved dowel preset, not just hand-picked examples.
+        // The local XML is Greg's supplied snapshot; production still reads SE's
+        // configured file so subsequent approved preset edits are picked up.
+        string fixture=Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,@"..\..\Custom.xml"));
+        var actual=RuleBook.Load(fixture);
+        var allSaved=actual.Presets.Where(p=>p.Family=="Dowel"&&p.Name.StartsWith("Pin, Dowel-",StringComparison.Ordinal)).ToList();
+        Check(allSaved.Count==25&&allSaved.Count(p=>p.Fit=="SF")==12,"All 25 saved dowels, including all 12 slip-fit presets, must be loaded.");
+        foreach(Preset saved in allSaved)
+        {
+            var hole=new HoleFacts{Type=saved.Kind=="Simple"?1:7,Diameter=saved.Diameter,Depth=saved.Depth,Bore=saved.Bore,BoreDepth=saved.BoreDepth};
+            var match=actual.Match(hole);
+            Check(match.IsDowel&&match.Slot==2&&match.Fit==saved.Fit,"Saved dowel was not identified: "+saved.Name);
+            Check(match.Category=="Dowel pin ("+(saved.Fit=="SF"?"slip fit":"press fit")+")","Fit must be explicit in the displayed category: "+saved.Name);
+            string format=hole.Type==1?"%DI %{%HS/LT.00025^-.00025/NU/@4} DIA %{%HD/NU/@2} DP.":counterdrillF2;
+            if(RuleBook.TemplateProblem(match,hole,format)!=null)format=LinkedCallouts.For(match,hole,format);
+            Check(format!=null&&RuleBook.TemplateProblem(match,hole,format)==null,"Saved dowel must have a usable linked fit: "+saved.Name);
+        }
+        var sealPresets=actual.Presets.Where(p=>p.Family=="O-ring face seal").ToList();
+        Check(sealPresets.Count==3,"All three Face Seal presets must be loaded.");
+        string sealF3="%DI%{%HS/NU/@2} DRILL %ZH%RT%DI%{%BS/NU/@2} DIA %{%BD/@3/LT.002^-.002/NU} DP.";
+        foreach(Preset saved in sealPresets)
+        {
+            var hole=new HoleFacts{Type=2,Diameter=saved.Diameter,Depth=8,Bore=saved.Bore,BoreDepth=saved.BoreDepth};
+            var match=actual.Match(hole);
+            Check(match.Family=="O-ring face seal"&&match.Slot==3,"Saved face seal must select F3: "+saved.Name);
+            Check(RuleBook.TemplateProblem(match,hole,sealF3)==null,"Existing F3 must preserve saved .054/.050 face-seal limits.");
+            Check(RuleBook.TemplateProblem(match,hole,sealF3.Replace("/@3/","/@2/"))!=null,"Two-place rounding cannot conceal face-seal depth limits.");
+            Check(RuleBook.TemplateProblem(match,hole,sealF3.Replace(".002^-.002",".003^-.003"))!=null,"Do not accept wrong face-seal depth tolerances.");
+        }
+        Check(actual.Match(new HoleFacts{Type=2,Diameter=.188,Bore=.375,BoreDepth=.052}).Category=="O-ring face seal","Sample D.4-D.6 must be identified with through inlet drilling.");
+        Check(actual.Match(new HoleFacts{Type=2,Bore=.838,BoreDepth=.052}).Slot==0,"Unknown .052 recess must not become an SAE port.");
+        Check(actual.Match(new HoleFacts{Type=2,Bore=.4375,BoreDepth=.052}).Slot==0,"Do not round the saved .440 face-seal bore to a nominal fraction.");
+        Check(actual.Match(new HoleFacts{Type=2,Bore=.375,BoreDepth=.06}).Slot==0,"A nonstandard face-seal depth remains unmatched.");
+        Check(actual.Match(new HoleFacts{Type=5,Bore=.375,BoreDepth=.052,Thread="M8"}).Slot==0,"Threaded counterbore must not be mistaken for a face seal.");
         var facts=HoleFacts.Parse("Counterbore",".25000000||.83800000|.13000000|||");
         Check(facts.Type==2&&facts.Depth==null&&facts.Bore==.838,"Parse exact values and preserve inapplicable fields.");
         bool bad=false;try{HoleFacts.Parse("Counterbore",".25in||||||");}catch(InvalidDataException){bad=true;}Check(bad,"Reject ambiguous numeric fields.");

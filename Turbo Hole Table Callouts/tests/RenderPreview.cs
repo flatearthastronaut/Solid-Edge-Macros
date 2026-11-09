@@ -20,7 +20,8 @@ internal static class RenderPreview
                 Status=(string)row.Attribute("status"),Category=(string)row.Attribute("category"),Before=(string)row.Element("Before"),After=(string)row.Element("After"),
                 Assignment=(string)row.Element("Assignment"),SeparateLinked=(bool?)row.Attribute("separateLinked")??false,
                 Reason=(string)row.Element("Reason"),Eligible=(string)row.Attribute("status")=="Ready",Selected=(string)row.Attribute("status")=="Ready",
-                Overridden=(string)row.Attribute("status")=="Custom row preserved",Decision=new Decision{Slot=(int)row.Attribute("slot")}});
+                Overridden=(string)row.Attribute("status")=="Custom row preserved",Decision=new Decision{Slot=(int)row.Attribute("slot"),
+                    Family=(string)row.Attribute("family"),Fit=(string)row.Attribute("fit"),Category=(string)row.Attribute("category")}});
         foreach(TableInfo table in scan.Tables)
         using(var form=new TableForm(scan,table,index=>0))
         {

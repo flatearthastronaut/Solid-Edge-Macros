@@ -7,14 +7,14 @@ using System.Windows.Forms;
 
 [assembly:System.Reflection.AssemblyTitle("Turbo Hole Table Callouts")]
 [assembly:System.Reflection.AssemblyProduct("Turbo Hole Table Callouts")]
-[assembly:System.Reflection.AssemblyVersion("0.3.0.0")]
+[assembly:System.Reflection.AssemblyVersion("0.4.0.0")]
 
 namespace HoleTableFormatter
 {
     internal static class Program
     {
         internal const string ProductName="Turbo Hole Table Callouts";
-        internal const string Version="v0.3";
+        internal const string Version="v0.4";
         [STAThread] static int Main(string[] args)
         {
             try
@@ -163,7 +163,7 @@ namespace HoleTableFormatter
             Grid.Rows.Clear();
             foreach(RowPlan plan in Presentation.OrderRows(scan.Rows.Where(r=>r.TableIndex==table.Index)))
             {
-                int i=Grid.Rows.Add(plan.Selected,plan.Label,plan.Category,plan.SeparateLinked?(plan.Category=="Dowel"?"Linked F2 fit":"Linked #6"):plan.Decision==null||plan.Decision.Slot==0?"":"%F"+plan.Decision.Slot,
+                int i=Grid.Rows.Add(plan.Selected,plan.Label,plan.Category,Presentation.FormatLabel(plan),
                     plan.Status=="Already set"?"Already Set":plan.Status,Presentation.Display(plan.Before),Presentation.Display(plan.Eligible||plan.Status=="Applied"?plan.After:""),plan.Reason);
                 DataGridViewRow row=Grid.Rows[i];row.Tag=plan;row.Cells[0].ReadOnly=!plan.Eligible;
                 Color color=Presentation.RowColor(plan);

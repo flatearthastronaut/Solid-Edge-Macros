@@ -20,7 +20,7 @@ namespace HoleTableFormatter
                 text=Regex.Replace(text,@"%(HS|BD)\b",m=>"%{%"+m.Groups[1].Value+"/NU/@3}");
                 return ResolveSmartDepth(text,hole);
             }
-            if(choice.Category=="Dowel")
+            if(choice.IsDowel)
             {
                 string field=hole.Type==1?"HS":"BS";
                 double? nominal=hole.Type==1?hole.Diameter:hole.Bore;

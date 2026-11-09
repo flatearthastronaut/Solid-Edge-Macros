@@ -32,6 +32,8 @@ internal static class UiTests
         Check(Presentation.Caption(new TableInfo{Index=3,TitleText=" "})=="Untitled hole table (Table 3)","Blank titles need a distinct fallback.");
         Check(Presentation.Caption(new TableInfo{Index=2,TitleText=top.TitleText})!=Presentation.Caption(top),"Duplicate titles need distinct table numbers.");
         Check(Presentation.Display("%DI.25%RT%PM.001")=="\u00D8.25"+Environment.NewLine+"\u00B1.001","Native display symbols are preserved for preview.");
+        Check(Presentation.FormatLabel(new RowPlan{SeparateLinked=true,Decision=new Decision{Family="Dowel",Category="Dowel pin (slip fit)",Slot=2}})=="Linked F2 fit","Explicit slip-fit label must retain F2 fit routing.");
+        Check(Presentation.FormatLabel(new RowPlan{Decision=new Decision{Family="O-ring face seal",Slot=3}})=="%F3","Face seal must display its native format selection.");
         using(var first=new TableForm(scan,top,index=>0))using(var second=new TableForm(scan,side,index=>0))
         {
             Check(first.Text.Contains(top.TitleText)&&second.Text.Contains(side.TitleText),"Each window must carry its own title.");
@@ -59,7 +61,7 @@ internal static class UiTests
         }
         using(var main=new MainForm())
         {
-            main.LoadScan(scan,false);Check(main.Text=="Turbo Hole Table Callouts v0.3","Renamed macro title must include current version.");
+            main.LoadScan(scan,false);Check(main.Text=="Turbo Hole Table Callouts v0.4","Renamed macro title must include current version.");
             Check(main.Controls.OfType<ListBox>().Single().Items.Count==2,"Controller must list each native table.");
         }
         Console.WriteLine("PASS: "+checks+" table-window, title, sorting, selection and color checks.");return 0;

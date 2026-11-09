@@ -34,6 +34,7 @@ namespace HoleTableFormatter
                 Notes.Select(n=>new XElement("Note",n)), Rows.Select(r=>new XElement("Row",
                     new XAttribute("table",r.TableIndex),new XAttribute("index",r.RowIndex),new XAttribute("label",r.Label??""),
                     new XAttribute("status",r.Status??""),new XAttribute("category",r.Category??""),new XAttribute("slot",r.Decision==null?0:r.Decision.Slot),
+                    new XAttribute("family",r.Decision==null?"":r.Decision.Family??""),new XAttribute("fit",r.Decision==null?"":r.Decision.Fit??""),
                     new XAttribute("separateLinked",r.SeparateLinked),new XElement("Assignment",r.Assignment??""),
                     new XElement("Reason",r.Reason??""),new XElement("Before",r.Before??""),new XElement("After",r.After??""),
                     r.Facts==null?null:new XElement("Facts",new XAttribute("type",r.Facts.Type),new XAttribute("thread",r.Facts.Thread),

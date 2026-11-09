@@ -28,6 +28,11 @@ namespace HoleTableFormatter
         }
         internal static Color RowColor(RowPlan plan)
         {return plan.Decision!=null&&plan.Decision.Slot==0?ReviewColor:RowColor(plan.Status);}
+        internal static string FormatLabel(RowPlan plan)
+        {
+            if(plan.SeparateLinked)return plan.Decision!=null&&plan.Decision.IsDowel?"Linked F2 fit":"Linked #6";
+            return plan.Decision==null||plan.Decision.Slot==0?"":"%F"+plan.Decision.Slot;
+        }
         internal static IEnumerable<RowPlan> OrderRows(IEnumerable<RowPlan> rows){return rows.OrderBy(r=>r.Label,HoleLabelComparer.Instance).ThenBy(r=>r.RowIndex);}
     }
 
