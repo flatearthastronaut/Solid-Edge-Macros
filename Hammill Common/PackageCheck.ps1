@@ -24,8 +24,8 @@ $xml=New-Object Xml.XmlDocument;$xml.LoadXml('<settings><local /></settings>');$
 $settings=Join-Path $work 'settings.xml';$xml.Save($settings)
 $addinFolder=[string](Join-Path $root 'Add-ins\Hammill-Macro-Launcher\Compiled Executables')
 $builds=$manager.GetType('CoopManager.BuildCatalog').GetMethod('Scan').Invoke($null,[object[]]@($addinFolder))
-if($builds.Count -ne 1 -or $builds[0].Path -notlike '*v0.2.zip' -or $detect.Invoke($null,[object[]]@($builds[0])) -ne 'Solid Edge Add-ins'){throw 'Latest combined add-in is not one unambiguous add-in package.'}
-$checker=Join-Path $addinFolder 'Hammill-Macro-Launcher-v0.2\Hammill Macro Catalog Check.exe'
+if($builds.Count -ne 1 -or $builds[0].Path -notlike '*v0.3.zip' -or $detect.Invoke($null,[object[]]@($builds[0])) -ne 'Solid Edge Add-ins'){throw 'Latest combined add-in is not one unambiguous add-in package.'}
+$checker=Join-Path $addinFolder 'Hammill-Macro-Launcher-v0.3\Hammill Macro Catalog Check.exe'
 $output=& $checker --settings $settings --documents $work
 if($LASTEXITCODE -ne 0 -or @($output|Where-Object{$_ -match ' \| part,assembly,draft,sheetmetal \| '}).Count -ne 4){throw ('Launcher discovery failed: '+($output -join "`n"))}
 Write-Output 'PASS one combined add-in package, four macro installs, stable EXEs/icons, external table, and four launcher commands'

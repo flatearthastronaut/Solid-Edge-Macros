@@ -23,11 +23,11 @@
   "architecture": "x64",
   "approach": "One Hammill add-in combines the macro ribbon launcher and automatic Component Display. O-Ring Finder, Add Sketch, Occurrence Viewer, and Batch Approval/export are independently distributed standalone macros.",
   "macroLauncher": {
-    "status": "v0.2-built; 46-offline-checks-passed; combined-add-in-live-SE-validation-pending",
+    "status": "v0.3-built; 54-offline-checks-passed; transparent-icon-resource-previews-verified; live-SE-validation-pending",
     "implementation": "Hammill-Macro-Launcher",
     "initialPackaging": "Keep the existing Hammill launcher COM identity and package family for upgrades; display as Hammill Add-ins and include Component Display. Unregister BWH separately during cutover; preserve its original files as a recovery reference.",
     "ribbonTab": "Hammill Macros",
-    "macroButtonStyle": "Large icon with caption below; refresh existing cached small-button layout once on upgrade.",
+    "macroButtonStyle": "Large icon with caption below; native alpha PNG resources at 32/40px for normal/higher DPI avoid magenta fringes. Refresh existing GUI and resource caches once on upgrade.",
     "folderSource": "User Macro Manager settings.xml local element; use its Documents/Add-ins default only when no local preference is saved.",
     "discovery": "Read local .se-manager package manifests with stableCopies=1; select one stable main EXE per package, with explicit overrides for ambiguous packages.",
     "refresh": "Each Solid Edge startup/add-in connection; advance the managed GUI version only when the catalog or presentation changes.",

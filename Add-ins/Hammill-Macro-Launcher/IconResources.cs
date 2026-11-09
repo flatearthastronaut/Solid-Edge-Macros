@@ -17,7 +17,7 @@ namespace Hammill.MacroLauncher
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         private static extern IntPtr BeginUpdateResource(string name, bool deleteExisting);
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-        private static extern bool UpdateResource(IntPtr update, IntPtr type, IntPtr name, ushort language, byte[] data, uint size);
+        private static extern bool UpdateResource(IntPtr update, string type, IntPtr name, ushort language, byte[] data, uint size);
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         private static extern bool EndUpdateResource(IntPtr update, bool discard);
 
@@ -46,8 +46,11 @@ namespace Hammill.MacroLauncher
                 {
                     using (var image = Load(entry, catalog.Notices))
                     {
-                        WriteBitmap(handle, result.ResourceIds[entry.CommandId], image, 16);
-                        WriteBitmap(handle, result.ResourceIds[entry.CommandId] + 1, image, 32);
+                        // These slots select display DPI, not small versus large buttons.
+                        // SDK Addins/VC/SEAddin.cpp supplies 32/40px for large buttons;
+                        // AsmLoc.rc declares their native resource type as "PNG".
+                        WritePng(handle, result.ResourceIds[entry.CommandId], image, 32);
+                        WritePng(handle, result.ResourceIds[entry.CommandId] + 1, image, 40);
                     }
                 }
                 bool committed = EndUpdateResource(handle, false); handle = IntPtr.Zero;
@@ -78,14 +81,20 @@ namespace Hammill.MacroLauncher
             return SystemIcons.Application.ToBitmap();
         }
 
-        private static void WriteBitmap(IntPtr handle, int id, Image original, int size)
+        private static void WritePng(IntPtr handle, int id, Image original, int size)
         {
-            using (var bitmap = new Bitmap(size, size, PixelFormat.Format24bppRgb))
+            using (var bitmap = new Bitmap(size, size, PixelFormat.Format32bppArgb))
             {
                 using (var graphics = Graphics.FromImage(bitmap))
                 {
-                    graphics.Clear(Color.Magenta);
-                    graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                    // Preserve coverage in the alpha channel throughout resampling.
+                    // A color-keyed bitmap blends partial-alpha edges with the key
+                    // color; Solid Edge removes only the exact key, leaving a halo.
+                    graphics.Clear(Color.Transparent);
+                    graphics.CompositingMode = CompositingMode.SourceCopy;
+                    // Bilinear filtering avoids cubic overshoot at alpha boundaries,
+                    // which can brighten a few edge pixels when coverage is clamped.
+                    graphics.InterpolationMode = InterpolationMode.HighQualityBilinear;
                     graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
                     double scale = Math.Min((double)size / original.Width, (double)size / original.Height);
                     int width = Math.Max(1, (int)Math.Round(original.Width * scale)), height = Math.Max(1, (int)Math.Round(original.Height * scale));
@@ -93,11 +102,11 @@ namespace Hammill.MacroLauncher
                 }
                 using (var stream = new MemoryStream())
                 {
-                    bitmap.Save(stream, ImageFormat.Bmp);
-                    byte[] file = stream.ToArray(), dib = new byte[file.Length - 14];
-                    // RT_BITMAP stores the DIB, without the 14-byte bitmap file header.
-                    Buffer.BlockCopy(file, 14, dib, 0, dib.Length);
-                    if (!UpdateResource(handle, new IntPtr(2), new IntPtr(id), 0, dib, (uint)dib.Length)) throw new Win32Exception(Marshal.GetLastWin32Error());
+                    bitmap.Save(stream, ImageFormat.Png);
+                    byte[] png = stream.ToArray();
+                    // Store the complete PNG in a named native resource, as in the
+                    // SDK sample. SE composites its alpha onto the active ribbon.
+                    if (!UpdateResource(handle, "PNG", new IntPtr(id), 0, png, (uint)png.Length)) throw new Win32Exception(Marshal.GetLastWin32Error());
                 }
             }
         }

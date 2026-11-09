@@ -1,7 +1,7 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-set "HAMMILL_OUTPUT=Compiled Executables\Hammill-Macro-Launcher-v0.2"
+set "HAMMILL_OUTPUT=Compiled Executables\Hammill-Macro-Launcher-v0.3"
 if not exist "%HAMMILL_OUTPUT%" mkdir "%HAMMILL_OUTPUT%"
 if errorlevel 1 exit /b 1
 set "HAMMILL_CSC=%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
@@ -22,4 +22,4 @@ copy /y README.md "%HAMMILL_OUTPUT%\README.md" >nul
 if errorlevel 1 exit /b 1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File Package.ps1
 if errorlevel 1 exit /b 1
-echo Built Hammill Macro Launcher v0.2.
+echo Built Hammill Macro Launcher v0.3.

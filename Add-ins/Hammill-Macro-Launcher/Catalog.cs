@@ -168,7 +168,10 @@ namespace Hammill.MacroLauncher
             // EXE contents/version are intentionally absent: a normal macro update keeps its button.
             // Changing the default button layout must invalidate SE's saved GUI
             // even when the installed macro list and icon files are unchanged.
-            var lines = new List<string> { "hammill-launcher-ribbon-v2-large-buttons", Folder.ToLowerInvariant() };
+            // Resource format and DPI sizes are part of the cached presentation.
+            // An upgrade must rebuild both SE's GUI and our resource DLL even
+            // when the installed macros and their original artwork are unchanged.
+            var lines = new List<string> { "hammill-launcher-ribbon-v3-alpha-png-32-40", Folder.ToLowerInvariant() };
             foreach (var entry in Entries.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
             {
                 string icon = "default";

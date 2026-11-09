@@ -2,7 +2,6 @@ using System;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
@@ -23,12 +22,6 @@ internal static class Tests
     static MacroCatalog Scan() { return MacroCatalog.Scan(settings, documents); }
     static void Override(params object[] attributes)
     { new XDocument(new XElement("macros", new XElement("macro", attributes))).Save(Path.Combine(local, "HammillMacros.xml")); }
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] static extern IntPtr LoadLibraryEx(string name, IntPtr file, uint flags);
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] static extern IntPtr FindResource(IntPtr module, IntPtr name, IntPtr type);
-    [DllImport("kernel32.dll")] static extern uint SizeofResource(IntPtr module, IntPtr resource);
-    [DllImport("kernel32.dll")] static extern IntPtr LoadResource(IntPtr module, IntPtr resource);
-    [DllImport("kernel32.dll")] static extern IntPtr LockResource(IntPtr resource);
-    [DllImport("kernel32.dll")] static extern bool FreeLibrary(IntPtr module);
 
     static int Main()
     {
@@ -43,7 +36,16 @@ internal static class Tests
             new XDocument(new XElement("settings", new XElement("source", "Z:\\NeverScanThePublishShare"), new XElement("local", local))).Save(settings);
             Check(MacroCatalog.ManagerFolder(settings, documents) == local, "manager local preference wins over source and default");
             FileAt("Tool.exe"); FileAt("Tool-v1.2.exe"); FileAt("Helper.exe");
-            using (var icon = new Bitmap(32, 32)) { using (var g = Graphics.FromImage(icon)) g.Clear(Color.FromArgb(114, 148, 3)); icon.Save(Path.Combine(local, "Tool.png")); }
+            // Non-square transparent artwork with semi-transparent green edges:
+            // flattening this onto the old magenta key must fail the halo check.
+            using (var icon = new Bitmap(64, 48))
+            {
+                using (var g = Graphics.FromImage(icon))
+                using (var edge = new SolidBrush(Color.FromArgb(96, 114, 148, 3)))
+                using (var fill = new SolidBrush(Color.FromArgb(114, 148, 3)))
+                { g.Clear(Color.Transparent); g.FillRectangle(edge, 12, 8, 40, 32); g.FillRectangle(fill, 16, 12, 32, 24); }
+                icon.Save(Path.Combine(local, "Tool.png"));
+            }
             Package("tool", true, "Tool.exe", "Tool-v1.2.exe", "Helper.exe", "Tool.png");
             FileAt("WindowsProgram.exe"); Package("windowsprogram", false, "WindowsProgram.exe");
             FileAt("Unmanaged.exe");
@@ -80,6 +82,18 @@ internal static class Tests
             Check(upgraded.Version == 8 && catalog.Entries.Single(x => x.Key == "tool").CommandId == 150 && catalog.Entries.Single(x => x.Key == "other").CommandId == 151,
                 "upgrading small-button cache refreshes GUI once without changing existing macro IDs");
             Check(RibbonState.Update(migrationPath, Scan()).Version == 8, "subsequent large-button startup reuses the refreshed GUI");
+
+            // v0.2 already had large buttons, but its resource cache contains
+            // magenta-matted BMPs. Upgrade it without requiring artwork edits.
+            oldLines[0] = "hammill-launcher-ribbon-v2-large-buttons";
+            string oldSignature = MacroCatalog.Hash(Encoding.UTF8.GetBytes(String.Join("\n", oldLines)));
+            var oldState = XDocument.Load(migrationPath);
+            oldState.Root.SetAttributeValue("signature", oldSignature);
+            oldState.Save(migrationPath);
+            var alphaUpgrade = RibbonState.Update(migrationPath, catalog);
+            Check(alphaUpgrade.Version == 9 && alphaUpgrade.Signature != oldSignature && catalog.Entries.Single(x => x.Key == "tool").CommandId == 150,
+                "v0.2 bitmap cache upgrades to alpha PNGs without changing macro IDs");
+            Check(RibbonState.Update(migrationPath, Scan()).Version == 9, "alpha PNG upgrade refreshes GUI only once");
 
             string statePath = Path.Combine(run, "State", "ribbon.xml");
             var state1 = RibbonState.Update(statePath, catalog); int toolId = catalog.Entries.Single(x => x.Key == "tool").CommandId;
@@ -128,21 +142,18 @@ internal static class Tests
             File.Delete(Path.Combine(local, "HammillMacros.xml")); Package("tool", true, "Tool.exe", "Tool.png");
 
             var resourcesCatalog = Scan(); var resourcesState = RibbonState.Update(statePath, resourcesCatalog);
-            string template = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "Compiled Executables", "Hammill-Macro-Launcher-v0.2", "Hammill.MacroLauncher.Resources.dll"));
+            string template = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "Compiled Executables", "Hammill-Macro-Launcher-v0.3", "Hammill.MacroLauncher.Resources.dll"));
+            string stale = Path.Combine(run, "IconCache", "ribbon-" + oldSignature + ".dll");
+            Directory.CreateDirectory(Path.GetDirectoryName(stale));
+            File.WriteAllText(stale, "old bitmap cache fixture");
             var resources = IconResources.Create(resourcesCatalog, template, Path.Combine(run, "IconCache"), resourcesState.Signature);
-            IntPtr module = LoadLibraryEx(resources.FileName, IntPtr.Zero, 2);
-            Check(module != IntPtr.Zero, "generated ribbon resource DLL loads as data");
-            try
-            {
-                int id = resources.ResourceIds[resourcesCatalog.Entries.Single(x => x.Key == "tool").CommandId];
-                IntPtr small = FindResource(module, new IntPtr(id), new IntPtr(2)), large = FindResource(module, new IntPtr(id + 1), new IntPtr(2));
-                Check(small != IntPtr.Zero && large != IntPtr.Zero && SizeofResource(module, large) > SizeofResource(module, small), "small and large bitmap resources are present");
-                IntPtr largeDib = LockResource(LoadResource(module, large));
-                Check(largeDib != IntPtr.Zero && Marshal.ReadInt32(largeDib, 4) == 32 && Marshal.ReadInt32(largeDib, 8) == 32,
-                    "the large-button bitmap supplied to Solid Edge is 32 by 32 pixels");
-            }
-            finally { if (module != IntPtr.Zero) FreeLibrary(module); }
+            IconResourceTests.Run(resources, resourcesCatalog, Check);
+            // A stale DLL remains untouched, while the upgraded signature selects
+            // a distinct PNG DLL. No manual deletion of user caches is needed.
+            Check(resources.FileName != stale && File.ReadAllText(stale) == "old bitmap cache fixture",
+                "alpha upgrade uses a new resource path and preserves the old cache");
             Check(IconResources.Create(resourcesCatalog, template, Path.Combine(run, "IconCache"), resourcesState.Signature).FileName == resources.FileName, "unchanged icon resources are reused");
+            IconResourceTests.Preview(template, run);
             using (var changedIcon = new Bitmap(32, 32)) { using (var g = Graphics.FromImage(changedIcon)) g.Clear(Color.Gray); changedIcon.Save(Path.Combine(local, "Tool.png")); }
             var newIcons = RibbonState.Update(statePath, Scan());
             Check(newIcons.Version == resourcesState.Version + 1, "changed companion artwork refreshes the managed ribbon");

@@ -14,8 +14,8 @@ using Environment = System.Environment;
 [assembly: AssemblyTitle("Hammill Add-ins")]
 [assembly: AssemblyCompany("Hammill")]
 [assembly: AssemblyProduct("Hammill Add-ins")]
-[assembly: AssemblyVersion("0.2.0.0")]
-[assembly: AssemblyFileVersion("0.2.0.0")]
+[assembly: AssemblyVersion("0.3.0.0")]
+[assembly: AssemblyFileVersion("0.3.0.0")]
 [assembly: ComVisible(false)]
 
 namespace Hammill.MacroLauncher
@@ -100,8 +100,9 @@ namespace Hammill.MacroLauncher
             Array names = new string[] { "Hammill.MacroLauncher." + key + "\n" + label + "\n" + tooltip + "\n" + label };
             Array ids = new int[] { id };
             // SDK Addins/VC/SEAddin.cpp uses IconAndCaptionBelow to request a
-            // large ribbon button. Providing a large bitmap alone does not select
+            // large ribbon button. Providing a large image alone does not select
             // that layout; keep caption-only controls usable if artwork is absent.
+            // The image/image+1 slots contain 32/40px PNGs for normal/higher DPI.
             Array styles = new int[] { image < 0 ? (int)SeButtonStyle.seButtonCaption : (int)SeButtonStyle.seButtonIconAndCaptionBelow };
             target.SetAddInInfoEx2(icons == null ? typeof(Addin).Assembly.Location : icons.FileName, environment,
                 "Hammill Macros\n" + group, image, image < 0 ? -1 : image + 1, -1, -1, 1, ref names, ref ids, ref styles);
