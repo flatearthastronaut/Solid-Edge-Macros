@@ -17,8 +17,12 @@ internal static class RulesTests
     static XDocument Data()
     {
         return new XDocument(new XElement("Settings",
-            Preset("Pin, Dowel- 8mm PF","CounterDrill",.25,5,.31475,.47,""),
+            Preset("Pin, Dowel- 8mm PF","CounterDrill",.25,5,.3145,.47,""),
             Preset("Pin, Dowel- 5/16 SF","Simple",.31325,.31,0,0,""),
+            Preset("Pin, Dowel- 10mm PF","CounterDrill",.3125,2,.3932,.6,""),
+            Preset("Pin, Dowel- .250 PF","CounterDrill",.188,.38,.249,.38,""),
+            Preset("Pin, Dowel- .250 SF","Simple",.251,.31,.25,.38,""),
+            Preset("Pin, Dowel- 08mm SF","Simple",.316,.44,.25,.38,""),
             Preset("CV Hole- 05mm Plug","CounterDrill",.125,2,.199,.22,""),
             Preset("CV Hole- 08mm Plug","CounterDrill",.25,3,.317,.33,""),
             Preset("SAE Port- #2 (spotface)","CounterBore",.25,4,.682,.13,""),
@@ -62,11 +66,33 @@ internal static class RulesTests
         Check(RuleBook.TemplateProblem(six,new HoleFacts{Type=8,Thread="9/16-18 UNF"},"%TS THR'D %ZT MIN")==null,"Separate thread row may use native smart thread text.");
         Check(RuleBook.TemplateProblem(new Decision{Category="Dowel",Slot=2},new HoleFacts{Type=1},"")!=null,"Empty slot cannot be applied.");
         var smallPin=rules.Match(new HoleFacts{Type=1,Diameter=.31475,Depth=.47});
-        Check(RuleBook.TemplateProblem(smallPin,new HoleFacts{Type=1},"%DI %{%HS/LT.00025^-.00025/NU/@4} DIA %ZH")==null,"Small dowel F2 fits must reproduce the chart.");
+        Check(RuleBook.TemplateProblem(smallPin,new HoleFacts{Type=1,Diameter=.31475},"%DI %{%HS/LT.00025^-.00025/NU/@4} DIA %ZH")==null,"Small dowel F2 fits must reproduce the chart.");
         var largePin=rules.Match(new HoleFacts{Type=1,Diameter=.4995,Depth=.68});
-        Check(RuleBook.TemplateProblem(largePin,new HoleFacts{Type=1},"%DI %{%HS/LT.00025^-.00025/NU/@4} DIA %ZH")!=null,"A half-inch pin requires its larger fit interval, not the generic small-pin interval.");
-        Check(RuleBook.TemplateProblem(largePin,new HoleFacts{Type=1},"%DI %{%HS/LT.0005^-.0005/NU/@4} DIA %ZH")==null,"Matching large-pin limits are usable.");
-        Check(rules.Match(new HoleFacts{Type=1,Diameter=.3145,Depth=.47}).Slot==0,"Do not silently treat a fit endpoint as the nominal midpoint.");
+        Check(RuleBook.TemplateProblem(largePin,new HoleFacts{Type=1,Diameter=.4995},"%DI %{%HS/LT.00025^-.00025/NU/@4} DIA %ZH")!=null,"A half-inch pin requires its larger fit interval, not the generic small-pin interval.");
+        Check(RuleBook.TemplateProblem(largePin,new HoleFacts{Type=1,Diameter=.4995},"%DI %{%HS/LT.0005^-.0005/NU/@4} DIA %ZH")==null,"Matching large-pin limits are usable.");
+        Check(rules.Match(new HoleFacts{Type=1,Diameter=.3145,Depth=.47}).Slot==2,"Recognize exact saved-preset endpoints without treating them as chart midpoints.");
+        string counterdrillF2="%DI%{%HS/@2/NU} DRILL %ZH%RT%DI %{%BS/LT.00025^-.00025/@4/NU} DIA %{%BD/@2/NU} DP.";
+        var tenFacts=new HoleFacts{Type=7,Diameter=.3125,Bore=.3932,BoreDepth=.6};
+        var ten=rules.Match(tenFacts);
+        Check(ten.Slot==2&&RuleBook.Near(ten.Minimum,.3932)&&RuleBook.Near(ten.Maximum,.3937),"Sample B.2/B.3/B.4 must match the 10mm preset and retain chart limits.");
+        Check(RuleBook.TemplateProblem(ten,tenFacts,counterdrillF2)!=null,"Centered F2 limits on a lower endpoint must be rejected.");
+        string linkedTen=LinkedCallouts.For(ten,tenFacts,counterdrillF2);
+        Check(linkedTen.Contains("%{%BS/LT0.0005^0")&&linkedTen.Contains("THRU"),"Endpoint callout must retain its native size and correct asymmetric limits.");
+        Check(RuleBook.TemplateProblem(ten,tenFacts,linkedTen)==null,"Adapted fit callout must satisfy the same validation as an F2 definition.");
+        var quarterFacts=new HoleFacts{Type=7,Diameter=.188,Bore=.249,BoreDepth=.38};
+        var quarter=rules.Match(quarterFacts);
+        Check(quarter.Slot==2&&RuleBook.Near(quarter.Minimum,.2495)&&RuleBook.Near(quarter.Maximum,.25),"Sample D.1/D.2/D.3 modeled drill stock must retain the finished chart limits.");
+        Check(LinkedCallouts.For(quarter,quarterFacts,counterdrillF2).Contains("/LT0.001^0.0005"),"Drill-stock nominal must not shift the finished fit interval.");
+        Check(rules.Match(new HoleFacts{Type=1,Diameter=.251,Depth=.31}).Slot==2,"Sample I.1/I.2/I.3 must match the exact quarter-inch SF preset.");
+        Check(rules.Match(new HoleFacts{Type=1,Diameter=.316,Depth=.44}).Slot==2,"Sample J.1/J.2/J.3 must match the exact 8mm SF preset including its saved depth.");
+        Check(rules.Match(new HoleFacts{Type=1,Diameter=.3161,Depth=.44}).Slot==0,"Nearby oddball diameters must not be rounded into a dowel preset.");
+        Check(rules.Match(new HoleFacts{Type=1,Diameter=.316,Depth=.50}).Slot==0,"Unknown dowel diameter/depth combination remains for review.");
+        string sixLinked=LinkedCallouts.For(six,new HoleFacts{Type=2,Depth=12},"#4 7/16-20");
+        Check(sixLinked.Contains("#6")&&sixLinked.Contains("9/16-18")&&!sixLinked.Contains("7/16-20"),"Separate #6 text must come from the correct saved callout.");
+        Check(sixLinked.Contains("%{%HD/NU/@3}")&&sixLinked.Contains("%{%BD/NU/@3}")&&!sixLinked.Contains("%ZH"),"Blind depth and spotface depth must stay linked and evaluable in row overrides.");
+        Check(!sixLinked.Contains("[00]")&&!sixLinked.Contains("CW]]"),"Saved-callout metadata must not enter manufacturing text.");
+        Check(LinkedCallouts.For(six,new HoleFacts{Type=2},"#4 7/16-20").Contains("THRU"),"Through ports must not receive an empty depth expression.");
+        Check(LinkedCallouts.For(new Decision{Port=4},new HoleFacts{Type=2},"#4 7/16-20")==null,"Separate #6 fallback must not change #4 definitions.");
         var facts=HoleFacts.Parse("Counterbore",".25000000||.83800000|.13000000|||");
         Check(facts.Type==2&&facts.Depth==null&&facts.Bore==.838,"Parse exact values and preserve inapplicable fields.");
         bool bad=false;try{HoleFacts.Parse("Counterbore",".25in||||||");}catch(InvalidDataException){bad=true;}Check(bad,"Reject ambiguous numeric fields.");

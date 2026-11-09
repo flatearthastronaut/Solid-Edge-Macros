@@ -7,14 +7,14 @@ using System.Windows.Forms;
 
 [assembly:System.Reflection.AssemblyTitle("Turbo Hole Table Callouts")]
 [assembly:System.Reflection.AssemblyProduct("Turbo Hole Table Callouts")]
-[assembly:System.Reflection.AssemblyVersion("0.2.0.0")]
+[assembly:System.Reflection.AssemblyVersion("0.3.0.0")]
 
 namespace HoleTableFormatter
 {
     internal static class Program
     {
         internal const string ProductName="Turbo Hole Table Callouts";
-        internal const string Version="v0.2";
+        internal const string Version="v0.3";
         [STAThread] static int Main(string[] args)
         {
             try
@@ -134,12 +134,13 @@ namespace HoleTableFormatter
             var bar=new FlowLayoutPanel{Dock=DockStyle.Top,Height=46,Padding=new Padding(8)};bar.Controls.Add(applyButton);
             bar.Controls.Add(new Label{Text="Already Set",AutoSize=true,BackColor=Presentation.SetColor,Padding=new Padding(8),Margin=new Padding(16,0,0,0)});
             bar.Controls.Add(new Label{Text="Ready",AutoSize=true,BackColor=Presentation.ReadyColor,Padding=new Padding(8),Margin=new Padding(8,0,0,0)});
+            bar.Controls.Add(new Label{Text="Review / no match",AutoSize=true,BackColor=Presentation.ReviewColor,Padding=new Padding(8),Margin=new Padding(8,0,0,0)});
             var heading=new Label{Dock=DockStyle.Top,AutoSize=true,MaximumSize=new Size(1150,0),Padding=new Padding(10,8,10,4),
                 Font=new Font(Font,FontStyle.Bold),UseMnemonic=false,Text=Presentation.Title(table)};
             var header=new Panel{Dock=DockStyle.Top,Height=48,Padding=new Padding(10,0,10,0)};header.Controls.Add(summary);
             var footer=new Label{Dock=DockStyle.Bottom,Height=40,Padding=new Padding(10),Text="Only this table is updated. Custom rows and oddballs stay unchanged. Review and save the draft in Solid Edge."};
             Grid.AutoGenerateColumns=false;Grid.Columns.Add(new DataGridViewCheckBoxColumn{Name="Apply",Width=48});
-            AddText("Hole",68);AddText("Category",140);AddText("Format",55);AddText("Status",140);AddText("Current callout",220);AddText("Proposed callout",220);AddText("Reason",280);
+            AddText("Hole",68);AddText("Category",140);AddText("Format",95);AddText("Status",140);AddText("Current callout",220);AddText("Proposed callout",220);AddText("Reason",280);
             Grid.DefaultCellStyle.WrapMode=DataGridViewTriState.True;
             Controls.Add(Grid);Controls.Add(header);Controls.Add(heading);Controls.Add(bar);Controls.Add(footer);
             Grid.CurrentCellDirtyStateChanged+=delegate{if(Grid.IsCurrentCellDirty)Grid.CommitEdit(DataGridViewDataErrorContexts.Commit);};
@@ -162,10 +163,10 @@ namespace HoleTableFormatter
             Grid.Rows.Clear();
             foreach(RowPlan plan in Presentation.OrderRows(scan.Rows.Where(r=>r.TableIndex==table.Index)))
             {
-                int i=Grid.Rows.Add(plan.Selected,plan.Label,plan.Category,plan.Decision==null||plan.Decision.Slot==0?"":"%F"+plan.Decision.Slot,
+                int i=Grid.Rows.Add(plan.Selected,plan.Label,plan.Category,plan.SeparateLinked?(plan.Category=="Dowel"?"Linked F2 fit":"Linked #6"):plan.Decision==null||plan.Decision.Slot==0?"":"%F"+plan.Decision.Slot,
                     plan.Status=="Already set"?"Already Set":plan.Status,Presentation.Display(plan.Before),Presentation.Display(plan.Eligible||plan.Status=="Applied"?plan.After:""),plan.Reason);
                 DataGridViewRow row=Grid.Rows[i];row.Tag=plan;row.Cells[0].ReadOnly=!plan.Eligible;
-                Color color=Presentation.RowColor(plan.Status);
+                Color color=Presentation.RowColor(plan);
                 // Selected and disabled cells retain their status color, rather
                 // than letting keyboard focus obscure a Ready/Already Set row.
                 row.DefaultCellStyle.BackColor=color;row.DefaultCellStyle.SelectionBackColor=color;

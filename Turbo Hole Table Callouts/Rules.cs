@@ -38,9 +38,9 @@ namespace HoleTableFormatter
 
     internal sealed class Preset
     {
-        internal string Name, Kind, Family;
+        internal string Name, Kind, Family, Pin, Fit;
         internal int Slot, Port;
-        internal double Diameter, Depth, Bore, BoreDepth, Angle, HalfWidth;
+        internal double Diameter, Depth, Bore, BoreDepth, Angle, HalfWidth, Minimum, Maximum;
         internal string Thread;
     }
 
@@ -50,6 +50,7 @@ namespace HoleTableFormatter
         internal int Slot;
         internal int Port;
         internal double HalfWidth;
+        internal double Minimum, Maximum;
         internal static Decision Review(string reason) { return new Decision { Category = "Review", Reason = reason }; }
     }
 
@@ -79,6 +80,7 @@ namespace HoleTableFormatter
                 else if (Regex.IsMatch(name, @"^SAE Port- #(?:2|4|6)\b", RegexOptions.IgnoreCase))
                 { family = "SAE port"; port = Int32.Parse(Regex.Match(name, @"#(\d+)").Groups[1].Value); slot = port == 2 ? 2 : 4; }
                 else if (name.StartsWith("C' Bore-", StringComparison.OrdinalIgnoreCase)) { family = "SHCS counterbore"; slot = 1; }
+                else if (Regex.IsMatch(name,@"^Pin, Dowel-\s+\S+\s+(PF|SF)$",RegexOptions.IgnoreCase)) {family="Dowel";slot=2;}
                 else continue;
                 string unit = (string)node.Element("Unit");
                 double scale = unit == "StandardMeasurementUnit" ? 1 : unit == "MetricMeasurementUnit" ? 1 / 25.4 : Double.NaN;
@@ -94,13 +96,42 @@ namespace HoleTableFormatter
                 var settings=new XmlReaderSettings{DtdProcessing=DtdProcessing.Prohibit,XmlResolver=null};
                 using(var reader=XmlReader.Create(stream,settings))foreach(XElement node in XDocument.Load(reader).Root.Elements("Seat"))
                 {
+                    double diameter=(double)node.Attribute("diameter"),halfWidth=(double)node.Attribute("halfWidth");
                     book.Presets.Add(new Preset{Name="Pin Sizes.doc: "+(string)node.Attribute("pin")+" "+(string)node.Attribute("fit"),
-                        Family="Dowel",Kind="Simple",Slot=2,Diameter=(double)node.Attribute("diameter"),Depth=(double)node.Attribute("depth"),HalfWidth=(double)node.Attribute("halfWidth")});
+                        Pin=(string)node.Attribute("pin"),Fit=(string)node.Attribute("fit"),
+                        Family="Dowel",Kind="Simple",Slot=2,Diameter=diameter,Depth=(double)node.Attribute("depth"),HalfWidth=halfWidth,
+                        Minimum=diameter-halfWidth,Maximum=diameter+halfWidth});
                 }
+            }
+            // Saved modeling sizes can be fit endpoints (or drill stock), not
+            // the chart midpoint. Recognize the exact named preset geometry,
+            // but carry the chart's finished limits separately from that nominal.
+            foreach(Preset preset in book.Presets.Where(p=>p.Family=="Dowel"&&p.Pin==null).ToList())
+            {
+                Match name=Regex.Match(preset.Name,@"^Pin, Dowel-\s+(?<size>\S+)\s+(?<fit>PF|SF)$",RegexOptions.IgnoreCase);
+                string token=name.Groups["size"].Value,fit=name.Groups["fit"].Value.ToUpperInvariant();
+                var charts=book.Presets.Where(p=>p.Name.StartsWith("Pin Sizes.doc: ",StringComparison.Ordinal)&&p.Pin!=null&&p.Fit==fit&&PinAlias(p.Pin,token)).ToList();
+                if(charts.Count!=1){book.Presets.Remove(preset);continue;}
+                Preset chart=charts[0];preset.Pin=chart.Pin;preset.Fit=chart.Fit;
+                preset.HalfWidth=chart.HalfWidth;preset.Minimum=chart.Minimum;preset.Maximum=chart.Maximum;
             }
             if (!book.Presets.Any(p => p.Family == "Koenig plug") || !book.Presets.Any(p => p.Family == "SAE port"))
                 throw new InvalidDataException("The configured custom settings do not contain the expected CV plug and SAE port families.");
             return book;
+        }
+        static bool PinAlias(string chart,string token)
+        {
+            if(chart.EndsWith(" mm",StringComparison.Ordinal))
+            {
+                int size,actual;return token.EndsWith("mm",StringComparison.OrdinalIgnoreCase)&&
+                    Int32.TryParse(chart.Split(' ')[0],out size)&&Int32.TryParse(token.Substring(0,token.Length-2),out actual)&&size==actual;
+            }
+            double actualSize;if(!Double.TryParse(token,NumberStyles.AllowDecimalPoint,CultureInfo.InvariantCulture,out actualSize))return false;
+            string[] fraction=chart.Split(' ')[0].Split('/');
+            double nominal=Double.Parse(fraction[0],CultureInfo.InvariantCulture)/(fraction.Length==2?Double.Parse(fraction[1],CultureInfo.InvariantCulture):1);
+            // This rounding resolves preset NAME aliases (.188 = 3/16), never
+            // a measured hole diameter or a manufactured fit tolerance.
+            return Near(actualSize,nominal)||Near(actualSize,Math.Round(nominal,3,MidpointRounding.AwayFromZero));
         }
         static double Value(XElement node, string name)
         {
@@ -148,7 +179,7 @@ namespace HoleTableFormatter
             }
             // Conflicts are reviewed even if both happen to select the same F slot:
             // a shared format number does not make different hole identities equal.
-            var distinct = hits.GroupBy(p => p.Family + ":" + p.Port).ToList();
+            var distinct = hits.GroupBy(p => p.Family + ":" + p.Port+(p.Family=="Dowel"?":"+p.Pin+":"+p.Fit:"")).ToList();
             if (distinct.Count > 1) return Decision.Review("Conflicting saved preset matches.");
             if (hits.Count > 0)
             {
@@ -156,7 +187,7 @@ namespace HoleTableFormatter
                 if (preset.Port != 0 && !String.IsNullOrWhiteSpace(hole.Thread) && PortThread(hole.Thread) != preset.Port)
                     return Decision.Review("Thread and spotface identify different port sizes.");
                 return new Decision { Category = preset.Family + (preset.Port == 0 ? "" : " #" + preset.Port), Slot = preset.Slot,
-                    Port = preset.Port, HalfWidth=preset.HalfWidth, Reason = "Matches " + preset.Name +
+                    Port = preset.Port, HalfWidth=preset.HalfWidth,Minimum=preset.Minimum,Maximum=preset.Maximum, Reason = "Matches " + preset.Name +
                         (preset.Family=="Koenig plug"||preset.Family=="SAE port"?" diameter/type; seat depth may vary.":"") };
             }
             if (PortThread(hole.Thread) != 0) return Decision.Review("Port-size thread: entrance/spotface does not match a verified preset. May be an older port.");
@@ -196,7 +227,8 @@ namespace HoleTableFormatter
                 double upper,lower;
                 if(!limits.Success || !Double.TryParse(limits.Groups["upper"].Value,NumberStyles.Float,CultureInfo.InvariantCulture,out upper) ||
                     !Double.TryParse(limits.Groups["lower"].Value,NumberStyles.Float,CultureInfo.InvariantCulture,out lower) ||
-                    !Near(upper,choice.HalfWidth) || !Near(lower,-choice.HalfWidth) || !Regex.IsMatch(expression.Groups["options"].Value,@"/@4(?=/|$)"))
+                    !Near((hole.Type==1?hole.Diameter:hole.Bore)+upper,choice.Maximum) ||
+                    !Near((hole.Type==1?hole.Diameter:hole.Bore)+lower,choice.Minimum) || !Regex.IsMatch(expression.Groups["options"].Value,@"/@4(?=/|$)"))
                     return "Dowel F2 precision/fit limits do not match the pin-size chart. Preserve for review.";
             }
             if (choice.Category == "Koenig plug" && (!template.Contains("%BS") || !template.Contains("%BD"))) return "Plug format is missing linked seat dimensions.";

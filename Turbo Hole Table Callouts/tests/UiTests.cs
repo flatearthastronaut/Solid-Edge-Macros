@@ -42,7 +42,11 @@ internal static class UiTests
             Check(set.Cells[0].ReadOnly&&set.Cells[0].InheritedStyle.BackColor==Presentation.SetColor,"Read-only checkbox must remain green.");
             Check(ready.DefaultCellStyle.BackColor==Presentation.ReadyColor,"Ready row must be yellow.");
             Check(ready.DefaultCellStyle.SelectionBackColor==Presentation.ReadyColor,"Selection must retain yellow status.");
-            Check(first.Grid.Rows[0].DefaultCellStyle.BackColor==Color.White,"Review row must not look ready.");
+            Check(first.Grid.Rows[0].DefaultCellStyle.BackColor==Presentation.ReviewColor,"Unmatched/review row must be red.");
+            Check(first.Grid.Rows[0].DefaultCellStyle.SelectionBackColor==Presentation.ReviewColor,"Selected review row must stay red.");
+            Check(Presentation.RowColor(new RowPlan{Status="Custom row preserved",Decision=new Decision{Slot=0}})==Presentation.ReviewColor,"Unmatched custom row must be red while remaining preserved.");
+            Check(Presentation.RowColor("Review format")==Presentation.ReviewColor,"Format mismatch must be visibly flagged red.");
+            Check(Presentation.Display("%{.3937^.3932/LT0.0005^0/NU/@4}")==".3937/.3932","Evaluated fit limits must be legible in the preview.");
             Check(first.Grid.Rows[2].Cells[0].ReadOnly,"Custom override cannot be selected for replacement.");
             ready.Cells[0].Value=false;first.CaptureSelections();
             Check(!scan.Rows[0].Selected&&scan.Rows[4].Selected,"Changing one window must retain another window's selection.");
@@ -55,7 +59,7 @@ internal static class UiTests
         }
         using(var main=new MainForm())
         {
-            main.LoadScan(scan,false);Check(main.Text=="Turbo Hole Table Callouts v0.2","Renamed macro title must include current version.");
+            main.LoadScan(scan,false);Check(main.Text=="Turbo Hole Table Callouts v0.3","Renamed macro title must include current version.");
             Check(main.Controls.OfType<ListBox>().Single().Items.Count==2,"Controller must list each native table.");
         }
         Console.WriteLine("PASS: "+checks+" table-window, title, sorting, selection and color checks.");return 0;

@@ -117,7 +117,10 @@ internal static class LiveTest
                 object tables=null,table=null,rows=null;
                 try
                 {
-                    RowPlan row=changed[0];tables=((dynamic)copy).HoleTables2;table=((dynamic)tables).Item(row.TableIndex);rows=((dynamic)table).Rows;
+                    RowPlan row=changed.FirstOrDefault(r=>!r.SeparateLinked);
+                    if(row!=null)
+                    {
+                    tables=((dynamic)copy).HoleTables2;table=((dynamic)tables).Item(row.TableIndex);rows=((dynamic)table).Rows;
                     int index=0;for(int i=1;i<=(int)((dynamic)rows).Count;i++)if(Automation.CellText(table,i,row.LabelColumn)==row.Label)index=i;
                     Require(index>0,"Cannot find saved test row.");
                     string template=Automation.GetTemplate(table,row.Decision.Slot,row.Facts.Type);
@@ -127,11 +130,38 @@ internal static class LiveTest
                         Require(Automation.CellText(table,index,row.ColumnIndex).StartsWith("ASSOCIATION_CHECK"),"The saved row contains literal text instead of a native %F reference.");
                     }
                     finally{((dynamic)table).SetHoleTableCalloutText(row.Decision.Slot,row.Facts.Type,template);((dynamic)table).Update();}
+                    }
                 }
                 finally{Com.Release(rows);Com.Release(table);Com.Release(tables);}
                 Same(after,Capture(copy),"Native linkage restoration",null);((dynamic)copy).Save();
+                // A saved separate expression must still evaluate model fields,
+                // rather than retaining the scan's rendered numbers. Changing
+                // only this test copy's display units proves reevaluation without
+                // touching the linked part/model or the user's active document.
+                foreach(var group in changed.Where(r=>r.SeparateLinked).GroupBy(r=>r.TableIndex))
+                {
+                    object linkedTables=null,linkedTable=null,linkedRows=null;
+                    try
+                    {
+                        linkedTables=((dynamic)copy).HoleTables2;linkedTable=((dynamic)linkedTables).Item(group.Key);linkedRows=((dynamic)linkedTable).Rows;
+                        int units=(int)((dynamic)linkedTable).PrimaryLinearUnits;
+                        try
+                        {
+                            ((dynamic)linkedTable).PrimaryLinearUnits=0;((dynamic)linkedTable).Update();
+                            foreach(RowPlan linked in group)
+                            {
+                                int index=0;for(int i=1;i<=(int)((dynamic)linkedRows).Count;i++)if(Automation.CellText(linkedTable,i,linked.LabelColumn)==linked.Label)index=i;
+                                Require(index>0,"Saved linked row disappeared.");
+                                Require(Automation.CellText(linkedTable,index,linked.ColumnIndex)!=linked.After,"Separate row lost its native hole-field links: "+linked.Label);
+                            }
+                        }
+                        finally{((dynamic)linkedTable).PrimaryLinearUnits=units;((dynamic)linkedTable).Update();}
+                    }
+                    finally{Com.Release(linkedRows);Com.Release(linkedTable);Com.Release(linkedTables);}
+                }
+                Same(after,Capture(copy),"Linked field unit restoration",null);((dynamic)copy).Save();
                 Same(original,Capture(source),"Original drawing",null);
-                report.AppendLine("PASS: saved row reacts to its native format definition; original drawing remained unchanged.");
+                report.AppendLine("PASS: saved F selections react to native definitions; "+changed.Count(r=>r.SeparateLinked)+" separate callouts reevaluate model fields after reopening; original drawing remained unchanged.");
                 report.AppendLine("Test copy: "+copyPath);
                 File.WriteAllText(Path.Combine(root,"live-validation.txt"),report.ToString());Console.WriteLine(report);return 0;
             }

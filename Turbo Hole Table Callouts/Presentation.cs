@@ -10,14 +10,24 @@ namespace HoleTableFormatter
     {
         internal static readonly Color SetColor=Color.FromArgb(202,239,206);
         internal static readonly Color ReadyColor=Color.FromArgb(255,239,156);
-        internal static string Display(string text){return (text??"").Replace("%RT",Environment.NewLine).Replace("%DI","\u00D8").Replace("%PM","\u00B1").Replace("%DG","\u00B0");}
+        internal static readonly Color ReviewColor=Color.FromArgb(255,199,206);
+        internal static string Display(string text)
+        {
+            // SE returns rendered stacked limits inside formatting markup.
+            // Show the two evaluated values without exposing that markup in UI.
+            text=Regex.Replace(text??"",@"%\{(?<upper>[+\-]?(?:\d*\.)?\d+)\^(?<lower>[+\-]?(?:\d*\.)?\d+)/LT[^{}]*\}","${upper}/${lower}");
+            return text.Replace("%RT",Environment.NewLine).Replace("%DI","\u00D8").Replace("%PM","\u00B1").Replace("%DG","\u00B0");
+        }
         internal static string Title(TableInfo table){return String.IsNullOrWhiteSpace(table.TitleText)?"Untitled hole table":Display(table.TitleText);}
         internal static string Caption(TableInfo table){return Regex.Replace(Title(table),@"\s+"," ").Trim()+" (Table "+table.Index+")";}
         internal static Color RowColor(string status)
         {
             if(String.Equals(status,"Already set",StringComparison.OrdinalIgnoreCase)||status=="Applied")return SetColor;
-            return status=="Ready"?ReadyColor:Color.White;
+            if(status=="Ready")return ReadyColor;
+            return status!=null&&status.StartsWith("Review",StringComparison.Ordinal)?ReviewColor:Color.White;
         }
+        internal static Color RowColor(RowPlan plan)
+        {return plan.Decision!=null&&plan.Decision.Slot==0?ReviewColor:RowColor(plan.Status);}
         internal static IEnumerable<RowPlan> OrderRows(IEnumerable<RowPlan> rows){return rows.OrderBy(r=>r.Label,HoleLabelComparer.Instance).ThenBy(r=>r.RowIndex);}
     }
 

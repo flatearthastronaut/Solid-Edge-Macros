@@ -16,6 +16,8 @@ namespace HoleTableFormatter
         internal HoleFacts Facts;
         internal Decision Decision;
         internal string Template;
+        internal string Assignment;
+        internal bool SeparateLinked;
     }
     internal sealed class ScanResult
     {
@@ -32,6 +34,7 @@ namespace HoleTableFormatter
                 Notes.Select(n=>new XElement("Note",n)), Rows.Select(r=>new XElement("Row",
                     new XAttribute("table",r.TableIndex),new XAttribute("index",r.RowIndex),new XAttribute("label",r.Label??""),
                     new XAttribute("status",r.Status??""),new XAttribute("category",r.Category??""),new XAttribute("slot",r.Decision==null?0:r.Decision.Slot),
+                    new XAttribute("separateLinked",r.SeparateLinked),new XElement("Assignment",r.Assignment??""),
                     new XElement("Reason",r.Reason??""),new XElement("Before",r.Before??""),new XElement("After",r.After??""),
                     r.Facts==null?null:new XElement("Facts",new XAttribute("type",r.Facts.Type),new XAttribute("thread",r.Facts.Thread),
                         Field("Diameter",r.Facts.Diameter),Field("Depth",r.Facts.Depth),Field("Bore",r.Facts.Bore),Field("BoreDepth",r.Facts.BoreDepth)))));
@@ -194,16 +197,19 @@ namespace HoleTableFormatter
                 for(int type=1;type<=8;type++)((dynamic)probeTable).SetHoleTableCalloutText(4,type,Probe);
                 ((dynamic)probeTable).Update();
                 probeIndices=LabelIndices(probeTable,label,count);
+                // Capture facts before previewing any per-row expression: an
+                // update can reorder scratch rows, but hole labels remain stable.
+                var facts=plans.ToDictionary(p=>p.Label,p=>new[]{CellText(probeTable,probeIndices[p.Label],typeColumn),CellText(probeTable,probeIndices[p.Label],slotColumns[4])});
                 foreach(RowPlan plan in plans)
                 {
                     try
                     {
-                        int probeIndex=probeIndices[plan.Label];
-                        plan.Facts=HoleFacts.Parse(CellText(probeTable,probeIndex,typeColumn),CellText(probeTable,probeIndex,slotColumns[4]));
+                        plan.Facts=HoleFacts.Parse(facts[plan.Label][0],facts[plan.Label][1]);
                         plan.Decision=rules.Match(plan.Facts);plan.Category=plan.Decision.Category;plan.Reason=plan.Decision.Reason;
                         if(plan.Decision.Slot>0)
                         {
                             plan.Template=GetTemplate(original,plan.Decision.Slot,plan.Facts.Type);
+                            plan.Assignment="%F"+plan.Decision.Slot;
                             plan.After=text[plan.RowIndex][plan.Decision.Slot];
                         }
                         if(plan.Overridden){plan.Status="Custom row preserved";plan.Reason+=" Existing override/notes retained.";}
@@ -211,8 +217,18 @@ namespace HoleTableFormatter
                         else
                         {
                             string issue=RuleBook.TemplateProblem(plan.Decision,plan.Facts,plan.Template);
+                            if(issue!=null)
+                            {
+                                string linked=LinkedCallouts.For(plan.Decision,plan.Facts,plan.Template);
+                                if(linked!=null)
+                                {
+                                    plan.Assignment=linked;plan.SeparateLinked=true;
+                                    plan.After=EvaluateLinked(probeTable,plan);
+                                    issue=null;plan.Reason+=" Separate model-linked callout; shared format stays unchanged.";
+                                }
+                            }
                             if(issue!=null || String.IsNullOrWhiteSpace(plan.After)){plan.Status="Review format";plan.Reason=issue??"Target evaluates to empty text.";plan.After="";}
-                            else if(plan.Decision.Slot==plan.DefaultSlot)plan.Status="Already set";
+                            else if(!plan.SeparateLinked&&plan.Decision.Slot==plan.DefaultSlot)plan.Status="Already set";
                             else{plan.Status="Ready";plan.Eligible=true;plan.Selected=true;}
                         }
                     }
@@ -221,6 +237,21 @@ namespace HoleTableFormatter
                 }
             }
             finally {Com.Release(rows);Com.Release(columns);}
+        }
+
+        static string EvaluateLinked(object table,RowPlan plan)
+        {
+            object cell=null;
+            try
+            {
+                cell=((dynamic)table).Cell(FindLabel(table,plan),plan.ColumnIndex);
+                ((dynamic)cell).AllowCellOverrides=true;((dynamic)cell).Value=plan.Assignment;
+                ((dynamic)table).Update();
+                string text=CellText(table,FindLabel(table,plan),plan.ColumnIndex);
+                if(Regex.IsMatch(text,@"%(HS|HD|BS|BD|ZH)\b"))throw new InvalidOperationException("Linked callout fields could not be evaluated.");
+                return text;
+            }
+            finally{Com.Release(cell);}
         }
 
         static int AddColumn(object table,string header,string expression)
@@ -271,7 +302,7 @@ namespace HoleTableFormatter
                             try
                             {
                                 cell=((dynamic)table).Cell(plan.RowIndex,plan.ColumnIndex);attempted.Add(plan);
-                                ((dynamic)cell).AllowCellOverrides=true;((dynamic)cell).Value="%F"+plan.Decision.Slot;
+                                ((dynamic)cell).AllowCellOverrides=true;((dynamic)cell).Value=plan.Assignment;
                             }
                             finally{Com.Release(cell);}
                         }

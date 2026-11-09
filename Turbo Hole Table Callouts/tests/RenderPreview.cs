@@ -18,6 +18,7 @@ internal static class RenderPreview
         foreach(XElement row in xml.Elements("Row"))
             scan.Rows.Add(new RowPlan{TableIndex=(int)row.Attribute("table"),RowIndex=(int)row.Attribute("index"),Label=(string)row.Attribute("label"),
                 Status=(string)row.Attribute("status"),Category=(string)row.Attribute("category"),Before=(string)row.Element("Before"),After=(string)row.Element("After"),
+                Assignment=(string)row.Element("Assignment"),SeparateLinked=(bool?)row.Attribute("separateLinked")??false,
                 Reason=(string)row.Element("Reason"),Eligible=(string)row.Attribute("status")=="Ready",Selected=(string)row.Attribute("status")=="Ready",
                 Overridden=(string)row.Attribute("status")=="Custom row preserved",Decision=new Decision{Slot=(int)row.Attribute("slot")}});
         foreach(TableInfo table in scan.Tables)
