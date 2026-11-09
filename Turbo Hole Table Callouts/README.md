@@ -1,14 +1,15 @@
-# Turbo Hole Table Callouts v0.5
+# Turbo Hole Table Callouts v0.6
 
 Preview and apply native `%F1`–`%F4` selections to recognized hole-table rows in a Solid Edge 2026 draft. Separate native linked expressions handle #6/#8 ports, 3/8-inch spring-pin fits, and dowel fits when shared definitions cannot represent their standards. Unmatched holes, conflicting matches, and existing row overrides remain unchanged.
 
 ## Use
 
 1. Open and activate a saved draft in Solid Edge.
-2. Run `Compiled Executables/Turbo Hole Table Callouts v0.5.exe` (the selected table-and-lightning icon A).
+2. Run `Compiled Executables/Turbo Hole Table Callouts v0.6.exe` (the selected table-and-lightning icon A).
 3. Click **Scan active draft**. Each native table opens in its own window, labeled with its **Title text**. The main window lists those titles so you can return to any table. Table numbers disambiguate duplicate or blank titles.
-4. Review rows in natural hole order (A.2 before A.10). **Already Set** rows are green; **Ready** rows are yellow; unmatched/review rows are red, including selected cells. Uncheck any proposed changes you do not want, then click **Apply selected formats** in that table's window. Only that table is changed. Successfully applied rows turn green. The Format column identifies separate expressions as **Linked F2 fit**, **Linked spring pin**, **Linked #6**, or **Linked #8**.
-5. Review table layout in Solid Edge and save the drawing normally. The macro does not save the original automatically.
+4. Review rows in natural hole order (A.2 before A.10). **Already Set** rows are green; **Hole type found** rows are yellow; unmatched/review rows are red, including selected cells. Uncheck any proposed changes you do not want, then click **Apply selected formats** in that table's window. Only that table is changed. Successfully applied rows turn green. The Format column identifies separate expressions as **Linked F2 fit**, **Linked spring pin**, **Linked #6**, or **Linked #8**.
+5. After splitting mixed hole-letter groups or editing the draft in Solid Edge, click **Refresh** in any table window or the main window. It scans the same open draft, including unsaved changes, and updates all open previews in place. Hole letters, titles, statuses, red outlines, and warnings are recalculated. Review the fresh checkbox selections before applying; old selections are not transferred to renamed rows. Use **Scan active draft** to switch to a different drawing.
+6. Review table layout in Solid Edge and save the drawing normally. The macro does not save the original automatically.
 
 The scan evaluates native hole fields in a temporary copy. It does not add diagnostic columns or change shared callout definitions in the original. Applying a change writes the native `%F` reference or a separate expression containing native hole fields, never flattened callout text.
 
@@ -56,12 +57,14 @@ Run `Build.cmd` to compile the standalone x64 .NET Framework executable into `Co
 
 Run `Test.cmd` for the recognition, finished fits, saved-callout parsing, title, sorting, status-color, and table-selection tests. `LiveTest.cmd` uses the active saved draft (which must have at least one eligible change) to create an isolated project copy and checks native titles, scan preservation, rollback, application one table at a time, save/reopen, retained `%F` associations, and reevaluation of separate linked expressions. It never applies changes to the original drawing. Temporary reports and test copies are under the ignored `Inspection` directory.
 
+v0.6 validation: 168 recognition/template checks and 68 UI behavior checks passed. Refresh regressions cover splitting and rejoining groups, the same source document, updated titles and rows, retained window positions, all open table previews, fresh selections, removed/new tables, and recovery from a failed scan. Refresh is available even when a table has no proposed changes. Scans and writes disable the other actions until complete. Failed scans retain the previous previews; new tables appear in the main title list and removed tables close their old windows.
+
 v0.5 validation: 168 recognition/template checks and 38 UI behavior checks passed. The two-table, 38-row sample has 27 proposed changes and five unmatched rows in red. Top A.1/A.2 are spring pins; front B.1/B.2 are #8 SAE ports with the original .030 spotface depth. Top groups B, D, and E are outlined with the exact warning; the front table has no mixed groups. All 27 changes passed isolated-table, rollback, and save/reopen checks on a disposable copy; all 17 separate expressions retained their model-field links. The original sample stayed unchanged.
 
 For a read-only machine-readable scan:
 
 ```text
-"Turbo Hole Table Callouts v0.5.exe" --scan "absolute path to an open draft.dft" "absolute report path.xml"
+"Turbo Hole Table Callouts v0.6.exe" --scan "absolute path to an open draft.dft" "absolute report path.xml"
 ```
 
 COM work stays on the STA thread, releases acquired references, uses the SDK's bounded busy-message filter pattern, and preflights all selected cells before writing. A changed source row or format definition requires another scan. Failed writes attempt to restore the original native column expressions.

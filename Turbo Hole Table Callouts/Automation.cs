@@ -231,7 +231,7 @@ namespace HoleTableFormatter
                             }
                             if(issue!=null || String.IsNullOrWhiteSpace(plan.After)){plan.Status="Review format";plan.Reason=issue??"Target evaluates to empty text.";plan.After="";}
                             else if(!plan.SeparateLinked&&plan.Decision.Slot==plan.DefaultSlot)plan.Status="Already set";
-                            else{plan.Status="Ready";plan.Eligible=true;plan.Selected=true;}
+                            else{plan.Status="Hole type found";plan.Eligible=true;plan.Selected=true;}
                         }
                     }
                     catch(Exception ex){plan.Status="Review";plan.Category="Unreadable";plan.Reason=ex.Message;}

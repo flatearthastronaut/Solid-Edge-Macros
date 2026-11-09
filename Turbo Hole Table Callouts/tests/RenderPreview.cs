@@ -20,11 +20,11 @@ internal static class RenderPreview
                 Status=(string)row.Attribute("status"),Category=(string)row.Attribute("category"),Before=(string)row.Element("Before"),After=(string)row.Element("After"),
                 Assignment=(string)row.Element("Assignment"),SeparateLinked=(bool?)row.Attribute("separateLinked")??false,
                 Facts=row.Element("Facts")==null?null:new HoleFacts{Type=(int)row.Element("Facts").Attribute("type"),Thread=(string)row.Element("Facts").Attribute("thread")},
-                Reason=(string)row.Element("Reason"),Eligible=(string)row.Attribute("status")=="Ready",Selected=(string)row.Attribute("status")=="Ready",
+                Reason=(string)row.Element("Reason"),Eligible=(string)row.Attribute("status")=="Hole type found",Selected=(string)row.Attribute("status")=="Hole type found",
                 Overridden=(string)row.Attribute("status")=="Custom row preserved",Decision=new Decision{Slot=(int)row.Attribute("slot"),
                     Family=(string)row.Attribute("family"),Fit=(string)row.Attribute("fit"),Category=(string)row.Attribute("category"),Port=(int?)row.Attribute("port")??0}});
         foreach(TableInfo table in scan.Tables)
-        using(var form=new TableForm(scan,table,index=>0))
+        using(var form=new TableForm(scan,table,index=>0,()=>{}))
         {
             // Render this test process offscreen; do not drive an external app.
             form.ShowInTaskbar=false;form.StartPosition=FormStartPosition.Manual;form.Location=new Point(-32000,-32000);

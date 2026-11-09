@@ -9,7 +9,7 @@ namespace HoleTableFormatter
     internal static class Presentation
     {
         internal static readonly Color SetColor=Color.FromArgb(202,239,206);
-        internal static readonly Color ReadyColor=Color.FromArgb(255,239,156);
+        internal static readonly Color FoundColor=Color.FromArgb(255,239,156);
         internal static readonly Color ReviewColor=Color.FromArgb(255,199,206);
         internal const string MixedTypeWarning="Multiple hole types found with the same selected hole size";
         internal static string Display(string text)
@@ -24,7 +24,7 @@ namespace HoleTableFormatter
         internal static Color RowColor(string status)
         {
             if(String.Equals(status,"Already set",StringComparison.OrdinalIgnoreCase)||status=="Applied")return SetColor;
-            if(status=="Ready")return ReadyColor;
+            if(status=="Hole type found")return FoundColor;
             return status!=null&&status.StartsWith("Review",StringComparison.Ordinal)?ReviewColor:Color.White;
         }
         internal static Color RowColor(RowPlan plan)
