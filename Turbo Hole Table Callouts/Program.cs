@@ -7,14 +7,14 @@ using System.Windows.Forms;
 
 [assembly:System.Reflection.AssemblyTitle("Turbo Hole Table Callouts")]
 [assembly:System.Reflection.AssemblyProduct("Turbo Hole Table Callouts")]
-[assembly:System.Reflection.AssemblyVersion("0.4.0.0")]
+[assembly:System.Reflection.AssemblyVersion("0.5.0.0")]
 
 namespace HoleTableFormatter
 {
     internal static class Program
     {
         internal const string ProductName="Turbo Hole Table Callouts";
-        internal const string Version="v0.4";
+        internal const string Version="v0.5";
         [STAThread] static int Main(string[] args)
         {
             try
@@ -125,12 +125,17 @@ namespace HoleTableFormatter
         readonly Func<int,int> apply;
         readonly Button applyButton=new Button{Text="Apply selected formats",AutoSize=true};
         readonly Label summary=new Label{Dock=DockStyle.Fill,AutoEllipsis=true,TextAlign=ContentAlignment.MiddleLeft};
+        readonly Dictionary<string,int[]> mixedGroups=new Dictionary<string,int[]>();
+        internal int MixedGroupCount {get{return mixedGroups.Count;}}
+        internal readonly Label MixedWarning=new Label{Dock=DockStyle.Top,AutoSize=true,Padding=new Padding(10,4,10,6),
+            ForeColor=Color.Red,UseMnemonic=false,Text=Presentation.MixedTypeWarning,Visible=false};
         internal readonly DataGridView Grid=new DataGridView{Dock=DockStyle.Fill,AllowUserToAddRows=false,AllowUserToDeleteRows=false,
             RowHeadersVisible=false,AutoSizeRowsMode=DataGridViewAutoSizeRowsMode.AllCells,SelectionMode=DataGridViewSelectionMode.FullRowSelect};
         internal TableForm(ScanResult scan,TableInfo table,Func<int,int> apply)
         {
             this.scan=scan;this.table=table;this.apply=apply;Text=Presentation.Caption(table)+" — "+Program.ProductName;Program.SetIcon(this);
             Size=new Size(1240,740);MinimumSize=new Size(850,480);Font=new Font("Segoe UI",9);
+            MixedWarning.Font=new Font(Font,FontStyle.Bold);
             var bar=new FlowLayoutPanel{Dock=DockStyle.Top,Height=46,Padding=new Padding(8)};bar.Controls.Add(applyButton);
             bar.Controls.Add(new Label{Text="Already Set",AutoSize=true,BackColor=Presentation.SetColor,Padding=new Padding(8),Margin=new Padding(16,0,0,0)});
             bar.Controls.Add(new Label{Text="Ready",AutoSize=true,BackColor=Presentation.ReadyColor,Padding=new Padding(8),Margin=new Padding(8,0,0,0)});
@@ -142,7 +147,8 @@ namespace HoleTableFormatter
             Grid.AutoGenerateColumns=false;Grid.Columns.Add(new DataGridViewCheckBoxColumn{Name="Apply",Width=48});
             AddText("Hole",68);AddText("Category",140);AddText("Format",95);AddText("Status",140);AddText("Current callout",220);AddText("Proposed callout",220);AddText("Reason",280);
             Grid.DefaultCellStyle.WrapMode=DataGridViewTriState.True;
-            Controls.Add(Grid);Controls.Add(header);Controls.Add(heading);Controls.Add(bar);Controls.Add(footer);
+            Controls.Add(Grid);Controls.Add(header);Controls.Add(MixedWarning);Controls.Add(heading);Controls.Add(bar);Controls.Add(footer);
+            Grid.RowPostPaint+=DrawGroupBorder;
             Grid.CurrentCellDirtyStateChanged+=delegate{if(Grid.IsCurrentCellDirty)Grid.CommitEdit(DataGridViewDataErrorContexts.Commit);};
             applyButton.Click+=delegate
             {
@@ -160,7 +166,7 @@ namespace HoleTableFormatter
         }
         internal void Fill()
         {
-            Grid.Rows.Clear();
+            mixedGroups.Clear();Grid.Rows.Clear();
             foreach(RowPlan plan in Presentation.OrderRows(scan.Rows.Where(r=>r.TableIndex==table.Index)))
             {
                 int i=Grid.Rows.Add(plan.Selected,plan.Label,plan.Category,Presentation.FormatLabel(plan),
@@ -173,10 +179,34 @@ namespace HoleTableFormatter
                 row.DefaultCellStyle.ForeColor=Color.Black;row.DefaultCellStyle.SelectionForeColor=Color.Black;
             }
             Grid.ClearSelection();var rows=scan.Rows.Where(r=>r.TableIndex==table.Index).ToList();
+            var mixed=Presentation.MixedHoleGroups(rows);
+            for(int i=0;i<Grid.Rows.Count;i++)
+            {
+                string letter=Presentation.HoleLetter(((RowPlan)Grid.Rows[i].Tag).Label);
+                if(!mixed.Contains(letter))continue;
+                int[] ends;if(!mixedGroups.TryGetValue(letter,out ends)){ends=new[]{i,i};mixedGroups.Add(letter,ends);}else ends[1]=i;
+            }
+            MixedWarning.Visible=mixedGroups.Count>0;Grid.Invalidate();
             summary.Text=Path.GetFileName(scan.Document)+" — "+rows.Count+" rows; "+rows.Count(r=>r.Eligible)+" ready; "+
                 rows.Count(r=>r.Status=="Already set"||r.Status=="Applied")+" already set; sorted by hole.";
             if(rows.Count==0)summary.Text="No editable rows in this table. "+String.Join(" ",scan.Notes.Where(n=>n.StartsWith("Table "+table.Index+" ")));
             applyButton.Enabled=rows.Any(r=>r.Eligible);
+        }
+        void DrawGroupBorder(object sender,DataGridViewRowPostPaintEventArgs e)
+        {
+            var plan=Grid.Rows[e.RowIndex].Tag as RowPlan;if(plan==null)return;
+            int[] ends;if(!mixedGroups.TryGetValue(Presentation.HoleLetter(plan.Label),out ends))return;
+            // Draw a continuous four-pixel outline around the whole group, not
+            // boxes around individual rows. RowPostPaint keeps it visible above
+            // the existing green/yellow/red fills while scrolling or selecting.
+            float left=e.RowBounds.Left+2,right=Math.Min(e.RowBounds.Right,Grid.ClientRectangle.Right)-3;
+            float top=e.RowBounds.Top,bottom=e.RowBounds.Bottom;
+            using(var pen=new Pen(Color.Red,4))
+            {
+                e.Graphics.DrawLine(pen,left,top,left,bottom);e.Graphics.DrawLine(pen,right,top,right,bottom);
+                if(e.RowIndex==ends[0])e.Graphics.DrawLine(pen,left,top+2,right,top+2);
+                if(e.RowIndex==ends[1])e.Graphics.DrawLine(pen,left,bottom-2,right,bottom-2);
+            }
         }
     }
 }

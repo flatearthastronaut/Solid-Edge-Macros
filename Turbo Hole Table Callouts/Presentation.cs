@@ -11,6 +11,7 @@ namespace HoleTableFormatter
         internal static readonly Color SetColor=Color.FromArgb(202,239,206);
         internal static readonly Color ReadyColor=Color.FromArgb(255,239,156);
         internal static readonly Color ReviewColor=Color.FromArgb(255,199,206);
+        internal const string MixedTypeWarning="Multiple hole types found with the same selected hole size";
         internal static string Display(string text)
         {
             // SE returns rendered stacked limits inside formatting markup.
@@ -30,8 +31,30 @@ namespace HoleTableFormatter
         {return plan.Decision!=null&&plan.Decision.Slot==0?ReviewColor:RowColor(plan.Status);}
         internal static string FormatLabel(RowPlan plan)
         {
-            if(plan.SeparateLinked)return plan.Decision!=null&&plan.Decision.IsDowel?"Linked F2 fit":"Linked #6";
+            if(plan.SeparateLinked)
+            {
+                if(plan.Decision!=null&&plan.Decision.IsDowel)return "Linked F2 fit";
+                if(plan.Decision!=null&&plan.Decision.Family=="Spring pin")return "Linked spring pin";
+                return plan.Decision!=null&&plan.Decision.Port>0?"Linked #"+plan.Decision.Port:"Linked callout";
+            }
             return plan.Decision==null||plan.Decision.Slot==0?"":"%F"+plan.Decision.Slot;
+        }
+        internal static string HoleLetter(string label)
+        {return Regex.Match((label??"").Trim(),@"^[A-Za-z]+").Value.ToUpperInvariant();}
+        internal static HashSet<string> MixedHoleGroups(IEnumerable<RowPlan> rows)
+        {
+            // Group within one table only. Status and selection are deliberately
+            // excluded: applying or unchecking a row does not change hole type.
+            return new HashSet<string>(rows.GroupBy(r=>HoleLetter(r.Label)).Where(g=>g.Key.Length>0&&
+                g.Select(HoleTypeKey).Distinct(StringComparer.Ordinal).Skip(1).Any()).Select(g=>g.Key),StringComparer.Ordinal);
+        }
+        static string HoleTypeKey(RowPlan row)
+        {
+            string native=row.Facts==null?"unknown":row.Facts.Type.ToString();
+            Decision choice=row.Decision;
+            if(choice!=null&&choice.Slot>0)
+                return (choice.IsDowel?"Dowel":choice.Family??row.Category??"Unknown")+":"+choice.Port+":"+choice.Fit+":"+native;
+            return "Unmatched:"+native+":"+(row.Facts==null?"":Regex.Replace(row.Facts.Thread??"",@"\s+","").ToUpperInvariant());
         }
         internal static IEnumerable<RowPlan> OrderRows(IEnumerable<RowPlan> rows){return rows.OrderBy(r=>r.Label,HoleLabelComparer.Instance).ThenBy(r=>r.RowIndex);}
     }

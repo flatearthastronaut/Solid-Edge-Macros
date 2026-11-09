@@ -34,6 +34,9 @@ internal static class UiTests
         Check(Presentation.Display("%DI.25%RT%PM.001")=="\u00D8.25"+Environment.NewLine+"\u00B1.001","Native display symbols are preserved for preview.");
         Check(Presentation.FormatLabel(new RowPlan{SeparateLinked=true,Decision=new Decision{Family="Dowel",Category="Dowel pin (slip fit)",Slot=2}})=="Linked F2 fit","Explicit slip-fit label must retain F2 fit routing.");
         Check(Presentation.FormatLabel(new RowPlan{Decision=new Decision{Family="O-ring face seal",Slot=3}})=="%F3","Face seal must display its native format selection.");
+        Check(Presentation.FormatLabel(new RowPlan{SeparateLinked=true,Decision=new Decision{Port=8}})=="Linked #8","#8 must have the correct linked-format label.");
+        Check(Presentation.FormatLabel(new RowPlan{SeparateLinked=true,Decision=new Decision{Family="Spring pin"}})=="Linked spring pin","Spring-pin format must not be labeled #6.");
+        Check(Presentation.HoleLetter(" AA.12 ")=="AA"&&Presentation.HoleLetter("b.3")=="B"&&Presentation.HoleLetter("12")=="","Extract letter groups without conflating numeric labels.");
         using(var first=new TableForm(scan,top,index=>0))using(var second=new TableForm(scan,side,index=>0))
         {
             Check(first.Text.Contains(top.TitleText)&&second.Text.Contains(side.TitleText),"Each window must carry its own title.");
@@ -58,10 +61,29 @@ internal static class UiTests
             scan.Rows[0].Status="Applied";scan.Rows[0].Eligible=false;scan.Rows[0].Selected=false;first.Fill();
             Check(first.Grid.Rows[3].DefaultCellStyle.BackColor==Presentation.SetColor,"Applied row becomes green.");
             Check((string)first.Grid.Rows[3].Cells["Proposed callout"].Value=="LINKED FORMAT","Applied preview remains available.");
+            Check(first.MixedGroupCount==0,"Status changes alone must not produce a multiple-type warning.");
         }
+        var mixedScan=new ScanResult{Document="mixed.dft",TableCount=2};mixedScan.Tables.Add(top);mixedScan.Tables.Add(side);
+        var pin=Row(1,"B.1","Ready");pin.Decision.Family="Dowel";pin.Decision.Fit="PF";pin.Facts=new HoleFacts{Type=7};
+        var port=Row(1,"B.2","Ready");port.Decision.Family="SAE port";port.Decision.Port=4;port.Facts=new HoleFacts{Type=2};
+        var plain=Row(1,"C.1","Review");plain.Decision.Slot=0;plain.Facts=new HoleFacts{Type=1};
+        var bored=Row(1,"C.2","Review");bored.Decision.Slot=0;bored.Facts=new HoleFacts{Type=2};
+        var otherTable=Row(2,"B.1","Ready");otherTable.Decision.Family="Dowel";otherTable.Decision.Fit="SF";otherTable.Facts=new HoleFacts{Type=1};
+        mixedScan.Rows.AddRange(new[]{pin,port,plain,bored,otherTable});
+        Check(Presentation.MixedHoleGroups(mixedScan.Rows.Where(r=>r.TableIndex==1)).SetEquals(new[]{"B","C"}),"Detect semantic types and differing native types inside one letter group.");
+        using(var first=new TableForm(mixedScan,top,index=>0))using(var second=new TableForm(mixedScan,side,index=>0))
+        {
+            Check(first.MixedGroupCount==2&&second.MixedGroupCount==0,"Group outlines must be isolated to their own table window.");
+            Check(first.MixedWarning.Text=="Multiple hole types found with the same selected hole size","Use Greg's exact warning text.");
+            pin.Status="Applied";pin.Eligible=false;pin.Selected=false;first.Fill();
+            Check(first.MixedGroupCount==2,"Applying a row must not remove a genuine type warning.");
+        }
+        var press=Row(1,"A.1","Ready");press.Decision.Family="Dowel";press.Decision.Fit="PF";press.Facts=new HoleFacts{Type=1};
+        var slip=Row(1,"A.2","Ready");slip.Decision.Family="Dowel";slip.Decision.Fit="SF";slip.Facts=new HoleFacts{Type=1};
+        Check(Presentation.MixedHoleGroups(new[]{press,slip}).Contains("A"),"Different fits count as different hole types even with the same native shape.");
         using(var main=new MainForm())
         {
-            main.LoadScan(scan,false);Check(main.Text=="Turbo Hole Table Callouts v0.4","Renamed macro title must include current version.");
+            main.LoadScan(scan,false);Check(main.Text=="Turbo Hole Table Callouts v0.5","Renamed macro title must include current version.");
             Check(main.Controls.OfType<ListBox>().Single().Items.Count==2,"Controller must list each native table.");
         }
         Console.WriteLine("PASS: "+checks+" table-window, title, sorting, selection and color checks.");return 0;

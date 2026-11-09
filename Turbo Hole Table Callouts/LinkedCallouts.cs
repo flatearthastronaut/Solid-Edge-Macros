@@ -20,6 +20,22 @@ namespace HoleTableFormatter
                 text=Regex.Replace(text,@"%(HS|BD)\b",m=>"%{%"+m.Groups[1].Value+"/NU/@3}");
                 return ResolveSmartDepth(text,hole);
             }
+            if(choice.Port==8&&(hole.Type==2||hole.Type==5)&&choice.ThreadDepth>0)
+            {
+                string text="%DI%{%HS/NU/@3} DRILL %ZH%RT#8 STRAIGHT THR'D O-RING PORT%RT"+
+                    "%DI%{%BS/NU/@3} SPOTFACE %{%BD/NU/@3} DP.%RT3/4-16 THR'D "+
+                    choice.ThreadDepth.Value.ToString("0.000",CultureInfo.InvariantCulture)+" DP.";
+                return ResolveSmartDepth(text,hole);
+            }
+            if(choice.Family=="Spring pin"&&hole.Type==1&&hole.Diameter.HasValue)
+            {
+                string saved=ReadSaved("SP 375 PF");
+                string limits="%DI%{%HS/LT"+Number(choice.Maximum-hole.Diameter.Value)+"^"+
+                    Number(choice.Minimum-hole.Diameter.Value)+"/NU/@3}";
+                string text=Regex.Replace(saved,@"%DI\s*(?:\d*\.)?\d+/(?:\d*\.)?\d+",limits,RegexOptions.None);
+                text=Regex.Replace(text,@"%HD\b","%{%HD/NU/@2}");
+                return RuleBook.TemplateProblem(choice,hole,text)==null?ResolveSmartDepth(text,hole):null;
+            }
             if(choice.IsDowel)
             {
                 string field=hole.Type==1?"HS":"BS";
@@ -36,6 +52,13 @@ namespace HoleTableFormatter
             return null;
         }
         static string Number(double value){return Math.Round(value,8).ToString("0.########",CultureInfo.InvariantCulture);}
+        internal static bool SavedDiameterLimits(string name,out double minimum,out double maximum)
+        {
+            minimum=maximum=0;
+            Match limits=Regex.Match(ReadSaved(name),@"%DI\s*(?<upper>(?:\d*\.)?\d+)/(?<lower>(?:\d*\.)?\d+)");
+            return limits.Success&&Double.TryParse(limits.Groups["upper"].Value,NumberStyles.AllowDecimalPoint,CultureInfo.InvariantCulture,out maximum)&&
+                Double.TryParse(limits.Groups["lower"].Value,NumberStyles.AllowDecimalPoint,CultureInfo.InvariantCulture,out minimum)&&maximum>minimum;
+        }
         static string ResolveSmartDepth(string text,HoleFacts hole)
         {
             // Hole-table overrides evaluate %HD, %BD, %HS and %BS directly.
