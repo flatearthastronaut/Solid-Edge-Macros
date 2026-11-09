@@ -64,13 +64,13 @@ internal static class RulesTests
         var six=new Decision{Category="SAE port #6",Slot=4,Port=6};
         Check(RuleBook.TemplateProblem(six,new HoleFacts{Type=2},"#4 PORT 7/16-20")!=null,"F4 with #4 text cannot label a #6 port.");
         Check(RuleBook.TemplateProblem(six,new HoleFacts{Type=2},"#6 PORT 9/16-18")==null,"Matching port template is usable.");
-        Check(RuleBook.TemplateProblem(six,new HoleFacts{Type=8,Thread="9/16-18 UNF"},"%TS THR'D %ZT MIN")==null,"Separate thread row may use native smart thread text.");
+        Check(RuleBook.TemplateProblem(six,new HoleFacts{Type=8,Thread="9/16-18 UNF"},"%TS THR'D %ZT MIN")!=null,"Thread-only port rows must explicitly use two-place depth precision too.");
         Check(RuleBook.TemplateProblem(new Decision{Category="Dowel",Slot=2},new HoleFacts{Type=1},"")!=null,"Empty slot cannot be applied.");
         var smallPin=rules.Match(new HoleFacts{Type=1,Diameter=.31475,Depth=.47});
-        Check(RuleBook.TemplateProblem(smallPin,new HoleFacts{Type=1,Diameter=.31475},"%DI %{%HS/LT.00025^-.00025/NU/@4} DIA %ZH")==null,"Small dowel F2 fits must reproduce the chart.");
+        Check(RuleBook.TemplateProblem(smallPin,new HoleFacts{Type=1,Diameter=.31475},"%DI %{%HS/LT.00025^-.00025/NU/@4} DIA %ZH%RT"+LinkedCallouts.DowelFitNote(smallPin))==null,"Small dowel F2 fits must reproduce the chart and saved note.");
         var largePin=rules.Match(new HoleFacts{Type=1,Diameter=.4995,Depth=.68});
         Check(RuleBook.TemplateProblem(largePin,new HoleFacts{Type=1,Diameter=.4995},"%DI %{%HS/LT.00025^-.00025/NU/@4} DIA %ZH")!=null,"A half-inch pin requires its larger fit interval, not the generic small-pin interval.");
-        Check(RuleBook.TemplateProblem(largePin,new HoleFacts{Type=1,Diameter=.4995},"%DI %{%HS/LT.0005^-.0005/NU/@4} DIA %ZH")==null,"Matching large-pin limits are usable.");
+        Check(RuleBook.TemplateProblem(largePin,new HoleFacts{Type=1,Diameter=.4995},"%DI %{%HS/LT.0005^-.0005/NU/@4} DIA %ZH%RT"+LinkedCallouts.DowelFitNote(largePin))==null,"Matching large-pin limits and note are usable.");
         Check(rules.Match(new HoleFacts{Type=1,Diameter=.3145,Depth=.47}).Slot==2,"Recognize exact saved-preset endpoints without treating them as chart midpoints.");
         string counterdrillF2="%DI%{%HS/@2/NU} DRILL %ZH%RT%DI %{%BS/LT.00025^-.00025/@4/NU} DIA %{%BD/@2/NU} DP.";
         var tenFacts=new HoleFacts{Type=7,Diameter=.3125,Bore=.3932,BoreDepth=.6};
@@ -90,7 +90,7 @@ internal static class RulesTests
         Check(rules.Match(new HoleFacts{Type=1,Diameter=.316,Depth=.50}).Slot==0,"Unknown dowel diameter/depth combination remains for review.");
         string sixLinked=LinkedCallouts.For(six,new HoleFacts{Type=2,Depth=12},"#4 7/16-20");
         Check(sixLinked.Contains("#6")&&sixLinked.Contains("9/16-18")&&!sixLinked.Contains("7/16-20"),"Separate #6 text must come from the correct saved callout.");
-        Check(sixLinked.Contains("%{%HD/NU/@3}")&&sixLinked.Contains("%{%BD/NU/@3}")&&!sixLinked.Contains("%ZH"),"Blind depth and spotface depth must stay linked and evaluable in row overrides.");
+        Check(sixLinked.Contains("%{%HD/NU/@2}")&&sixLinked.Contains("%{%BD/NU/@2}")&&!sixLinked.Contains("%ZH"),"Blind depth and spotface depth must stay linked at two places.");
         Check(!sixLinked.Contains("[00]")&&!sixLinked.Contains("CW]]"),"Saved-callout metadata must not enter manufacturing text.");
         Check(LinkedCallouts.For(six,new HoleFacts{Type=2},"#4 7/16-20").Contains("THRU"),"Through ports must not receive an empty depth expression.");
         Check(LinkedCallouts.For(new Decision{Port=4},new HoleFacts{Type=2},"#4 7/16-20")==null,"Separate #6 fallback must not change #4 definitions.");
@@ -151,10 +151,34 @@ internal static class RulesTests
         Check(actual.Match(new HoleFacts{Type=8,Bore=.7616,BoreDepth=.16,Thread="3/4-16 UNF"}).Port==8,"Accurate #8 threaded entrance supports varied depth.");
         Check(actual.Match(new HoleFacts{Type=4,Thread="3/4-16 UNF"}).Slot==0,"#8 thread alone does not prove a port.");
         string eightText=LinkedCallouts.For(eight,eightFacts,"");
-        Check(eightText.Contains("#8")&&eightText.Contains("3/4-16 THR'D 0.563 DP.")&&!eightText.Contains("#4"),"Separate #8 callout must use its own standard thread and depth.");
-        Check(eightText.Contains("%{%BS/NU/@3}")&&eightText.Contains("%{%BD/NU/@3}")&&eightText.Contains("%{%HD/NU/@3}"),"#8 diameters and actual spotface/passage depths must stay linked.");
+        Check(eightText.Contains("#8")&&eightText.Contains("3/4-16 THR'D 0.56 DP.")&&!eightText.Contains("#4"),"Separate #8 callout must use its own standard thread and two-place depth.");
+        Check(eightText.Contains("%{%BS/NU/@2}")&&eightText.Contains("%{%BD/NU/@2}")&&eightText.Contains("%{%HD/NU/@2}"),"#8 diameters and actual spotface/passage depths must stay linked at two places.");
         Check(LinkedCallouts.For(new Decision{Port=8},eightFacts,"")==null,"Missing #8 thread depth cannot be guessed.");
         Check(RuleBook.TemplateProblem(eight,eightFacts,"#6 9/16-18")!=null&&RuleBook.TemplateProblem(eight,eightFacts,eightText)==null,"Do not apply #6 shared text to #8.");
+        Check(LinkedCallouts.PortHasTwoPlaces(sixLinked)&&LinkedCallouts.PortHasTwoPlaces(eightText),"Every #6/#8 linked dimensional field must use two places.");
+        Check(!LinkedCallouts.PortHasTwoPlaces("#6 9/16-18 %{%BD/NU/@3}"),"An old matching #6 template must still be revised for precision.");
+        Check(LinkedCallouts.Previous(eight,eightFacts,"").Contains("0.563 DP."),"Retain exact prior #8 expression for verified upgrades and rollback.");
+        var threaded=new HoleFacts{Type=8,Thread="9/16-18 UNF",ThreadDepth=.53,Depth=.7};
+        string threadText=LinkedCallouts.For(six,threaded,"%TS THR'D %ZT%RT%DI%{%BS/NU/@3} C'DRILL %BD DP.");
+        Check(threadText.Contains("%TS")&&threadText.Contains("%{%TD/NU/@2}")&&LinkedCallouts.PortHasTwoPlaces(threadText),"Threaded-entrance rows retain native threads and two-place model depths.");
+        Check(LinkedCallouts.For(six,threaded,"#4 PORT 7/16-20 %{%BD/NU/@3}")==null,"Changing precision must never approve another port's thread text.");
+        Check(LinkedCallouts.DowelFitNote(ten)=="(.013[.0005] MAX P.F. FOR 10mm DOWEL)","Use exact saved metric press-fit note.");
+        Check(LinkedCallouts.DowelFitNote(rules.Match(new HoleFacts{Type=1,Diameter=.251,Depth=.31}))=="(.001 MAX S.F. FOR 1/4 DOWEL)","Use exact saved inch slip-fit note.");
+        Check(LinkedCallouts.HasLine(linkedTen,LinkedCallouts.DowelFitNote(ten)),"Dowel fit note must be on its own line.");
+        Check(LinkedCallouts.For(ten,tenFacts,linkedTen)==linkedTen,"Rescanning a linked dowel must not duplicate its note or tolerance options.");
+        Check(LinkedCallouts.DowelFitNote(new Decision{Pin="1/8 inch",Fit="PF"})=="(P.F. FOR 1/8 DOWEL)","Missing saved sizes get a fit/size label without invented numeric requirements.");
+        var plugFacts=new HoleFacts{Type=7,Bore=.199,BoreDepth=.22};var plug=rules.Match(plugFacts);
+        string plugBase="%DI%{%HS/NU/@3} DRILL %ZH%RT%DI%{%BS/NU/@3} DIA %{%BD/NU/@3} DP.";
+        Check(RuleBook.TemplateProblem(plug,plugFacts,plugBase)!=null,"Every Koenig plug must require the no-chamfer instruction.");
+        string plugText=LinkedCallouts.For(plug,plugFacts,plugBase);
+        Check(LinkedCallouts.HasLine(plugText,"(DO NOT CHAMFER HOLE)")&&RuleBook.TemplateProblem(plug,plugFacts,plugText)==null,"Append the exact Koenig instruction while retaining native dimensions.");
+        Check(LinkedCallouts.For(plug,plugFacts,plugText)==plugText,"Do not duplicate an existing Koenig note.");
+        foreach(Preset savedPlug in actual.Presets.Where(p=>p.Family=="Koenig plug"))
+        {
+            var hole=new HoleFacts{Type=7,Bore=savedPlug.Bore,BoreDepth=.5,Diameter=.125,Depth=4};
+            string callout=LinkedCallouts.For(actual.Match(hole),hole,plugBase);
+            Check(LinkedCallouts.HasLine(callout,LinkedCallouts.KoenigNote),"All saved Koenig sizes need the full instruction: "+savedPlug.Name);
+        }
         var facts=HoleFacts.Parse("Counterbore",".25000000||.83800000|.13000000|||");
         Check(facts.Type==2&&facts.Depth==null&&facts.Bore==.838,"Parse exact values and preserve inapplicable fields.");
         bool bad=false;try{HoleFacts.Parse("Counterbore",".25in||||||");}catch(InvalidDataException){bad=true;}Check(bad,"Reject ambiguous numeric fields.");

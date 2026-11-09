@@ -12,16 +12,16 @@ namespace HoleTableFormatter
     internal sealed class HoleFacts
     {
         internal int Type;
-        internal double? Diameter, Depth, Bore, BoreDepth, Sink, Angle;
+        internal double? Diameter, Depth, Bore, BoreDepth, Sink, Angle, ThreadDepth;
         internal string Thread = "";
         internal static HoleFacts Parse(string type, string fields)
         {
             string[] types = { "Other", "Simple", "Counterbore", "Countersink", "Simple Threaded", "Counterbore Threaded", "Countersink Threaded", "Counterdrill", "Counterdrill Threaded" };
             int code = Array.FindIndex(types, t => String.Equals(t, type.Trim(), StringComparison.OrdinalIgnoreCase));
             string[] values = fields.Split('|');
-            if (code < 0 || values.Length != 7) throw new InvalidDataException("Unsupported hole type or unreadable native hole fields.");
+            if (code < 0 || (values.Length != 7&&values.Length!=8)) throw new InvalidDataException("Unsupported hole type or unreadable native hole fields.");
             return new HoleFacts { Type = code, Diameter = Number(values[0]), Depth = Number(values[1]), Bore = Number(values[2]),
-                BoreDepth = Number(values[3]), Sink = Number(values[4]), Angle = Number(values[5]), Thread = values[6].Trim() };
+                BoreDepth = Number(values[3]), Sink = Number(values[4]), Angle = Number(values[5]), Thread = values[6].Trim(),ThreadDepth=values.Length==8?Number(values[7]):null };
         }
         static double? Number(string text)
         {
@@ -47,7 +47,7 @@ namespace HoleTableFormatter
 
     internal sealed class Decision
     {
-        internal string Category, Reason, Family, Fit;
+        internal string Category, Reason, Family, Fit, Pin;
         internal int Slot;
         internal int Port;
         internal double HalfWidth;
@@ -214,7 +214,7 @@ namespace HoleTableFormatter
                 // or the spotface preset's unrelated default thread settings.
                 var threadDepths=preset.Port==8?Presets.Where(p=>p.Port==8&&p.Kind=="CounterDrill"&&PortThread(p.Thread)==8&&p.ThreadDepth>0)
                     .Select(p=>p.ThreadDepth.Value).Distinct().ToList():new List<double>();
-                return new Decision { Family=preset.Family,Fit=preset.Fit,
+                return new Decision { Family=preset.Family,Fit=preset.Fit,Pin=preset.Pin,
                     Category = preset.Family=="Dowel"?"Dowel pin ("+(preset.Fit=="SF"?"slip fit":"press fit")+")":preset.Family=="Spring pin"?"Spring pin (3/8 inch)":preset.Family + (preset.Port == 0 ? "" : " #" + preset.Port), Slot = preset.Slot,
                     ThreadDepth=threadDepths.Count==1?(double?)threadDepths[0]:null,
                     Port = preset.Port, HalfWidth=preset.HalfWidth,Minimum=preset.Minimum,Maximum=preset.Maximum, Reason = "Matches " + preset.Name +
@@ -245,6 +245,8 @@ namespace HoleTableFormatter
             if (String.IsNullOrWhiteSpace(template)) return "Target format is empty for this native hole type.";
             if (choice.Port != 0)
             {
+                if((choice.Port==6||choice.Port==8)&&!LinkedCallouts.PortHasTwoPlaces(template))
+                    return "SAE #6 and #8 callout dimensions must use two decimal places.";
                 // A separate native threaded entrance can use the shared smart
                 // thread callout. The spotface row needs the explicit port text.
                 if (hole.Type == 8 && template.Contains("%TS") && PortThread(hole.Thread) == choice.Port) return null;
@@ -258,6 +260,8 @@ namespace HoleTableFormatter
                 string field=hole.Type==1?"HS":"BS";
                 if(!LinkedLimitsMatch(template,field,hole.Type==1?hole.Diameter:hole.Bore,choice.Minimum,choice.Maximum,4))
                     return "Dowel F2 precision/fit limits do not match the pin-size chart. Preserve for review.";
+                string note=LinkedCallouts.DowelFitNote(choice);
+                if(note==null||!LinkedCallouts.HasLine(template,note))return "Dowel callout needs its saved P.F./S.F. note on a separate line.";
             }
             if(choice.Family=="O-ring face seal"&&(!template.Contains("%HS")||!template.Contains("%BS")||
                 !LinkedLimitsMatch(template,"BD",hole.BoreDepth,choice.Minimum,choice.Maximum,3)))
@@ -266,6 +270,7 @@ namespace HoleTableFormatter
                 !template.Contains("3/8 SPRING PIN")))
                 return "Spring-pin callout must retain the saved diameter limits and 3/8 spring-pin note.";
             if (choice.Category == "Koenig plug" && (!template.Contains("%BS") || !template.Contains("%BD"))) return "Plug format is missing linked seat dimensions.";
+            if(choice.Family=="Koenig plug"&&!LinkedCallouts.HasLine(template,LinkedCallouts.KoenigNote))return "Koenig callout needs (DO NOT CHAMFER HOLE) on a separate line.";
             return null;
         }
         static bool LinkedLimitsMatch(string template,string field,double? nominal,double minimum,double maximum,int precision)

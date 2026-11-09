@@ -1,17 +1,19 @@
-# Turbo Hole Table Callouts v0.6
+# Turbo Hole Table Callouts v0.7
 
-Preview and apply native `%F1`–`%F4` selections to recognized hole-table rows in a Solid Edge 2026 draft. Separate native linked expressions handle #6/#8 ports, 3/8-inch spring-pin fits, and dowel fits when shared definitions cannot represent their standards. Unmatched holes, conflicting matches, and existing row overrides remain unchanged.
+Preview and apply native `%F1`–`%F4` selections to recognized hole-table rows in a Solid Edge 2026 draft. Separate native linked expressions handle port precision, pin fits, and required notes when shared definitions cannot represent their standards. Unmatched holes, conflicting matches, and custom notes remain unchanged.
 
 ## Use
 
 1. Open and activate a saved draft in Solid Edge.
-2. Run `Compiled Executables/Turbo Hole Table Callouts v0.6.exe` (the selected table-and-lightning icon A).
+2. Run `Compiled Executables/Turbo Hole Table Callouts v0.7.exe` (the selected table-and-lightning icon A).
 3. Click **Scan active draft**. Each native table opens in its own window, labeled with its **Title text**. The main window lists those titles so you can return to any table. Table numbers disambiguate duplicate or blank titles.
 4. Review rows in natural hole order (A.2 before A.10). **Already Set** rows are green; **Hole type found** rows are yellow; unmatched/review rows are red, including selected cells. Uncheck any proposed changes you do not want, then click **Apply selected formats** in that table's window. Only that table is changed. Successfully applied rows turn green. The Format column identifies separate expressions as **Linked F2 fit**, **Linked spring pin**, **Linked #6**, or **Linked #8**.
 5. After splitting mixed hole-letter groups or editing the draft in Solid Edge, click **Refresh** in any table window or the main window. It scans the same open draft, including unsaved changes, and updates all open previews in place. Hole letters, titles, statuses, red outlines, and warnings are recalculated. Review the fresh checkbox selections before applying; old selections are not transferred to renamed rows. Use **Scan active draft** to switch to a different drawing.
 6. Review table layout in Solid Edge and save the drawing normally. The macro does not save the original automatically.
 
 The scan evaluates native hole fields in a temporary copy. It does not add diagnostic columns or change shared callout definitions in the original. Applying a change writes the native `%F` reference or a separate expression containing native hole fields, never flattened callout text.
+
+The default window and columns match Greg's compact example: narrower Hole, Status, Current callout, and Proposed callout columns, with wrapped text. Column widths remain adjustable.
 
 When a hole-letter group contains multiple types, the entire group receives a continuous four-pixel red outline. That table window displays **Multiple hole types found with the same selected hole size** at the top. The check considers native hole shape, recognized family, fit, and port size within each table. Differences in status or checkbox selection alone do not trigger it. Existing row colors remain visible inside the outline.
 
@@ -23,7 +25,7 @@ When a hole-letter group contains multiple types, the entire group receives a co
 | Dowel pin (slip fit / press fit) | `%F2` or linked F2 fit | Exact saved dowel diameter/depth or chart midpoint/depth; finished chart fit limits and four-place inch precision |
 | 3/8-inch spring pin, press fit | Linked spring pin | Exact `.378` diameter / `.62` depth preset; `.382/.375` limits and pin note from `SP 375 PF` |
 | #2 SAE port | `%F2` | Saved spotface diameter and native type, or threaded entrance diameter plus matching thread |
-| Koenig (formerly CV) plug seat | `%F3` | Saved `CV Hole- …mm Plug` seat diameter with unthreaded counterdrill type |
+| Koenig (formerly CV) plug seat | `%F3` or linked callout | Saved `CV Hole- …mm Plug` seat diameter with unthreaded counterdrill type; separate `(DO NOT CHAMFER HOLE)` line required |
 | O-ring face seal | `%F3` | Saved `Face Seal-` counterbore diameter and .052 depth; linked F3 depth limits must evaluate to .054/.050 at three decimal places |
 | #4 or #6 SAE port | `%F4` or linked #6 | Saved spotface diameter and native type, or threaded entrance diameter plus matching thread |
 | #8 SAE port | `%F4` or linked #8 | Saved `1.181` spotface diameter or `.7616` threaded entrance with `3/4-16`; spotface depth may vary |
@@ -38,24 +40,28 @@ The supplied `Custom.xml` is retained as a regression fixture. Its 110 saved hol
 
 Greg supplied `DraftCallout.txt`, the UTF-16 Solid Edge saved-callout library containing 79 entries. It is embedded unchanged. The approved separate #6 fallback reads its `SAE Port #6` entry and uses native hole/pocket depth fields with inch precision. Saved display metadata is excluded. The other shared `%F1`–`%F4` definitions remain unchanged. Rebuild after updating the packaged reference file.
 
-The spring-pin expression preserves the `SP 375 PF` note and replaces its fixed diameter limits with an equivalent model-linked tolerance field. There is no #8 saved-callout entry: its separate expression uses the #8 thread-only preset's `3/4-16` designation and `.563` finite thread extent. It does not substitute the `.689` drilling depth or the spotface preset's unrelated default thread settings. The actual spotface and passage dimensions remain linked, including the sample's changed `.030` spotface depth. Missing or conflicting thread-depth standards remain for review.
+The spring-pin expression preserves the `SP 375 PF` note and replaces its fixed diameter limits with an equivalent model-linked tolerance field. There is no #8 saved-callout entry: its separate expression uses the #8 thread-only preset's `3/4-16` designation and `.563` finite thread extent, displayed as `0.56`. It does not substitute the `.689` drilling depth or the spotface preset's unrelated default thread settings. All #6/#8 callout dimensions use two inch decimal places; thread designations stay unchanged. Actual spotface and passage dimensions remain linked, including a `.030` spotface displayed as `.03`. A modeled threaded entrance uses its native thread-depth field. Missing or conflicting thread-depth standards remain for review.
+
+Dowel callouts keep their four-place diameter limits and add the saved size-specific P.F. or S.F. note on a separate line, including the saved metric/inch wording. Chart sizes without a saved note receive a fit-and-pin-size label without inventing a maximum interference or clearance. Every recognized Koenig plug receives the exact separate line `(DO NOT CHAMFER HOLE)`, including saved sizes whose older callout omitted it. Existing copies of these lines are not duplicated.
 
 `DowelSeats.xml` is a checked transcription of the Dowel Pins table in `C:\Users\greg.lentner\Documents\Codex\checking samples\standards\Pin Sizes.doc` (SHA-256 `7131C32EE4B59439E6C0B6641C0DDF212155A43B5C5271E0D83F86E7C13827C8`). It is embedded in the executable. Update the transcription, source fingerprint, and tests together when the chart changes. Exact saved modeling sizes are recognized separately from the chart midpoint. For example, the 10mm PF preset models .3932, while the finished fit is .3937/.3932. A separate linked expression uses the required asymmetric tolerance offsets, preserving the model size, finished limits, and the table's shared F2 definition. The same approach handles presets modeled as drill stock.
 
 ## Review cases
 
-- Existing overrides are preserved, including manually entered `%F` selections: the API exposes evaluated cell text, so the macro cannot safely distinguish a manually selected format from custom notes and tolerances.
+- Existing standard dowel, Koenig, #6, and #8 callouts can receive these requested revisions. In the temporary copy, the complete current text must match a known previous/current linked expression or the applicable shared F2/F3 expression, both in inch and metric evaluation. Only these verified equivalents are offered for replacement. Extra custom notes, changed tolerances, literal lookalikes, and all other overrides stay preserved. Already-current verified standards show **Already Set**. Failed applies restore the verified original expression with its model links.
 - A shared slot must contain suitable text for that native hole type. A counterbore `%F4` definition that explicitly says **#4 / 7/16-20** cannot label a #6 counterbore; **Linked #6** handles this case without changing #4 rows. Other unsupported template conflicts remain red for review.
 - Dowel limits must match the chart. A generic ±.00025 around a fit endpoint or drill-stock diameter produces the wrong finished limits. **Linked F2 fit** adjusts native tolerance offsets and retains four decimal places.
 - This version supports inch-primary `HoleTables2` tables with one `%F` callout column and unique hole labels. Metric-primary, legacy `HoleTables`, ambiguous labels, and multiple callout columns are left unchanged.
 - Solid Edge can reorder rows and normalize old cached whitespace during a table refresh. The macro checks hole identities and evaluated results. It does not reposition tables; review spacing and pagination before saving.
-- Separate row expressions link numeric dimensions to their holes. If a hole later changes between blind and through, review/update its separate row text: the THRU wording is selected during the scan. Newly applied rows are preserved as existing overrides on later scans, like manually assigned formats; a rescan does not replace them automatically.
+- Separate row expressions link numeric dimensions to their holes. If a hole later changes between blind and through, review/update its separate row text: the THRU wording is selected during the scan. A rescan offers only verified standard revisions; changes are written only after **Apply selected formats**.
 
 ## Build and verification
 
 Run `Build.cmd` to compile the standalone x64 .NET Framework executable into `Compiled Executables`. No installed interop DLL needs to be distributed with it.
 
 Run `Test.cmd` for the recognition, finished fits, saved-callout parsing, title, sorting, status-color, and table-selection tests. `LiveTest.cmd` uses the active saved draft (which must have at least one eligible change) to create an isolated project copy and checks native titles, scan preservation, rollback, application one table at a time, save/reopen, retained `%F` associations, and reevaluation of separate linked expressions. It never applies changes to the original drawing. Temporary reports and test copies are under the ignored `Inspection` directory.
+
+v0.7 validation: 187 recognition/template checks and 68 UI checks passed. The live regression verified 15 prior-version standard callout upgrades and 22 total assignments on a disposable copy, including rollback, apply by table, save/reopen, and retained model-field links. Fresh scans recognized the updated standards; custom notes and flattened lookalikes remained preserved. The original drawing stayed unchanged.
 
 v0.6 validation: 168 recognition/template checks and 68 UI behavior checks passed. Refresh regressions cover splitting and rejoining groups, the same source document, updated titles and rows, retained window positions, all open table previews, fresh selections, removed/new tables, and recovery from a failed scan. Refresh is available even when a table has no proposed changes. Scans and writes disable the other actions until complete. Failed scans retain the previous previews; new tables appear in the main title list and removed tables close their old windows.
 
@@ -64,7 +70,7 @@ v0.5 validation: 168 recognition/template checks and 38 UI behavior checks passe
 For a read-only machine-readable scan:
 
 ```text
-"Turbo Hole Table Callouts v0.6.exe" --scan "absolute path to an open draft.dft" "absolute report path.xml"
+"Turbo Hole Table Callouts v0.7.exe" --scan "absolute path to an open draft.dft" "absolute report path.xml"
 ```
 
 COM work stays on the STA thread, releases acquired references, uses the SDK's bounded busy-message filter pattern, and preflights all selected cells before writing. A changed source row or format definition requires another scan. Failed writes attempt to restore the original native column expressions.

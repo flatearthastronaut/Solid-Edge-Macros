@@ -17,6 +17,7 @@ namespace HoleTableFormatter
         internal Decision Decision;
         internal string Template;
         internal string Assignment;
+        internal string OriginalAssignment;
         internal bool SeparateLinked;
     }
     internal sealed class ScanResult
@@ -57,7 +58,7 @@ namespace HoleTableFormatter
         // Its native callout evaluator does expose the same associated values.
         // Evaluate them in a SaveCopyAs document, never by adding diagnostic
         // columns or overwriting callout definitions in the user's drawing.
-        const string Probe = "%{%HS/NU/@8}|%{%HD/NU/@8}|%{%BS/NU/@8}|%{%BD/NU/@8}|%{%SS/NU/@8}|%{%SA/NU/@8}|%TS";
+        const string Probe = "%{%HS/NU/@8}|%{%HD/NU/@8}|%{%BS/NU/@8}|%{%BD/NU/@8}|%{%SS/NU/@8}|%{%SA/NU/@8}|%TS|%{%TD/NU/@8}";
         internal static ScanResult Scan(string documentPath, string scratchFolder)
         {
             object app=null,docs=null,source=null,copy=null,sourceTables=null,copyTables=null;
@@ -202,6 +203,17 @@ namespace HoleTableFormatter
                 // Capture facts before previewing any per-row expression: an
                 // update can reorder scratch rows, but hole labels remain stable.
                 var facts=plans.ToDictionary(p=>p.Label,p=>new[]{CellText(probeTable,probeIndices[p.Label],typeColumn),CellText(probeTable,probeIndices[p.Label],slotColumns[4])});
+                // TableCell.Value is evaluated text, and PropertyText is empty for
+                // these native hole overrides. To recognize a previous formatter
+                // expression safely, compare its complete output in BOTH units.
+                // A literal lookalike or a row with extra custom notes won't pass.
+                var metricBefore=new Dictionary<string,string>();
+                if(plans.Any(p=>p.Overridden))
+                {
+                    ((dynamic)probeTable).PrimaryLinearUnits=0;((dynamic)probeTable).Update();
+                    foreach(RowPlan plan in plans.Where(p=>p.Overridden))metricBefore[plan.Label]=CellText(probeTable,FindLabel(probeTable,plan),callout);
+                    ((dynamic)probeTable).PrimaryLinearUnits=1;((dynamic)probeTable).Update();
+                }
                 foreach(RowPlan plan in plans)
                 {
                     try
@@ -214,20 +226,29 @@ namespace HoleTableFormatter
                             plan.Assignment="%F"+plan.Decision.Slot;
                             plan.After=text[plan.RowIndex][plan.Decision.Slot];
                         }
-                        if(plan.Overridden){plan.Status="Custom row preserved";plan.Reason+=" Existing override/notes retained.";}
-                        else if(plan.Decision.Slot==0)plan.Status="Review";
+                        if(plan.Decision.Slot==0)plan.Status=plan.Overridden?"Custom row preserved":"Review";
                         else
                         {
                             string issue=RuleBook.TemplateProblem(plan.Decision,plan.Facts,plan.Template);
                             if(issue!=null)
                             {
                                 string linked=LinkedCallouts.For(plan.Decision,plan.Facts,plan.Template);
-                                if(linked!=null)
+                                if(linked!=null&&RuleBook.TemplateProblem(plan.Decision,plan.Facts,linked)==null)
                                 {
                                     plan.Assignment=linked;plan.SeparateLinked=true;
                                     plan.After=EvaluateLinked(probeTable,plan);
                                     issue=null;plan.Reason+=" Separate model-linked callout; shared format stays unchanged.";
                                 }
+                            }
+                            if(plan.Overridden)
+                            {
+                                if(issue==null&&LinkedCallouts.RevisedFamily(plan.Decision))
+                                    plan.OriginalAssignment=RecognizePrevious(probeTable,plan,metricBefore[plan.Label]);
+                                if(plan.OriginalAssignment==null)
+                                {plan.Status="Custom row preserved";plan.Reason+=" Existing override/notes retained.";continue;}
+                                if(SameText(plan.Before,plan.After))
+                                {plan.Status="Already set";continue;}
+                                plan.Reason+=" Updates a verified existing standard callout.";
                             }
                             if(issue!=null || String.IsNullOrWhiteSpace(plan.After)){plan.Status="Review format";plan.Reason=issue??"Target evaluates to empty text.";plan.After="";}
                             else if(!plan.SeparateLinked&&plan.Decision.Slot==plan.DefaultSlot)plan.Status="Already set";
@@ -235,10 +256,35 @@ namespace HoleTableFormatter
                         }
                     }
                     catch(Exception ex){plan.Status="Review";plan.Category="Unreadable";plan.Reason=ex.Message;}
-                    result.Rows.Add(plan);
+                    finally{result.Rows.Add(plan);}
                 }
             }
             finally {Com.Release(rows);Com.Release(columns);}
+        }
+
+        static bool SameText(string a,string b)
+        {return Regex.Replace((a??"").Trim(),@"\s+"," ")==Regex.Replace((b??"").Trim(),@"\s+"," ");}
+        static string RecognizePrevious(object table,RowPlan plan,string metricBefore)
+        {
+            string assignment=plan.Assignment;
+            var candidates=new List<string>{assignment,LinkedCallouts.Previous(plan.Decision,plan.Facts,plan.Template)};
+            if(plan.Decision.IsDowel||plan.Decision.Family=="Koenig plug")candidates.Add("%F"+plan.Decision.Slot);
+            try
+            {
+                foreach(string candidate in candidates.Where(s=>!String.IsNullOrEmpty(s)).Distinct())
+                {
+                    plan.Assignment=candidate;
+                    if(!SameText(EvaluateLinked(table,plan),plan.Before))continue;
+                    try
+                    {
+                        ((dynamic)table).PrimaryLinearUnits=0;((dynamic)table).Update();
+                        if(SameText(CellText(table,FindLabel(table,plan),plan.ColumnIndex),metricBefore))return candidate;
+                    }
+                    finally{((dynamic)table).PrimaryLinearUnits=1;((dynamic)table).Update();}
+                }
+                return null;
+            }
+            finally{plan.Assignment=assignment;}
         }
 
         static string EvaluateLinked(object table,RowPlan plan)
@@ -250,7 +296,7 @@ namespace HoleTableFormatter
                 ((dynamic)cell).AllowCellOverrides=true;((dynamic)cell).Value=plan.Assignment;
                 ((dynamic)table).Update();
                 string text=CellText(table,FindLabel(table,plan),plan.ColumnIndex);
-                if(Regex.IsMatch(text,@"%(HS|HD|BS|BD|ZH)\b"))throw new InvalidOperationException("Linked callout fields could not be evaluated.");
+                if(Regex.IsMatch(text,@"%(HS|HD|BS|BD|TD|ZH|ZT)\b"))throw new InvalidOperationException("Linked callout fields could not be evaluated.");
                 return text;
             }
             finally{Com.Release(cell);}
@@ -335,11 +381,11 @@ namespace HoleTableFormatter
                             {
                                 int restoredIndex=FindLabel(table,plan);
                                 cell=((dynamic)table).Cell(restoredIndex,plan.ColumnIndex);
-                                // All eligible cells were unoverridden. Reset to
-                                // their column expression; never restore evaluated
-                                // literal text and thereby lose the model link.
-                                ((dynamic)cell).AllowCellOverrides=false;
-                                if(plan.AllowOverrides)((dynamic)cell).AllowCellOverrides=true;
+                                // Restore a recognized prior native expression,
+                                // never its evaluated literal text. Other cells
+                                // return to their original column/default state.
+                                if(plan.Overridden){((dynamic)cell).AllowCellOverrides=true;((dynamic)cell).Value=plan.OriginalAssignment;}
+                                else{((dynamic)cell).AllowCellOverrides=false;if(plan.AllowOverrides)((dynamic)cell).AllowCellOverrides=true;}
                             }
                             finally{Com.Release(cell);}
                         }
@@ -364,7 +410,8 @@ namespace HoleTableFormatter
                 table=((dynamic)tables).Item(plan.TableIndex);rows=((dynamic)table).Rows;columns=((dynamic)table).Columns;
                 column=((dynamic)columns).Item(plan.ColumnIndex);cell=((dynamic)table).Cell(plan.RowIndex,plan.ColumnIndex);
                 if((string)((dynamic)table).Name!=plan.TableName || (int)((dynamic)rows).Count!=plan.RowCount ||
-                    (string)((dynamic)column).PropertyText!=plan.ColumnExpression || (bool)((dynamic)cell).IsOverridden ||
+                    (string)((dynamic)column).PropertyText!=plan.ColumnExpression || (bool)((dynamic)cell).IsOverridden!=plan.Overridden ||
+                    (plan.Overridden&&String.IsNullOrEmpty(plan.OriginalAssignment)) ||
                     (string)((dynamic)cell).Value!=plan.Before || CellText(table,plan.RowIndex,plan.LabelColumn)!=plan.Label ||
                     GetTemplate(table,plan.Decision.Slot,plan.Facts.Type)!=plan.Template)
                     throw new InvalidOperationException("Table "+plan.TableIndex+", "+plan.Label+" changed since scanning. Scan again.");

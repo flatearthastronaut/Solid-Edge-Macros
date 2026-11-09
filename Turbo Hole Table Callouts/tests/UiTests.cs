@@ -143,7 +143,7 @@ internal static class UiTests
         Check(Presentation.MixedHoleGroups(new[]{press,slip}).Contains("A"),"Different fits count as different hole types even with the same native shape.");
         using(var main=new MainForm())
         {
-            main.LoadScan(scan,false);Check(main.Text=="Turbo Hole Table Callouts v0.6","Renamed macro title must include current version.");
+            main.LoadScan(scan,false);Check(main.Text=="Turbo Hole Table Callouts v0.7","Renamed macro title must include current version.");
             Check(main.Controls.OfType<ListBox>().Single().Items.Count==2,"Controller must list each native table.");
         }
         RefreshChecks();

@@ -9,6 +9,18 @@ using HoleTableFormatter;
 internal static class LiveTest
 {
     static void Require(bool condition,string message){if(!condition)throw new Exception(message);}
+    static void SetExpression(object draft,RowPlan plan,string expression)
+    {
+        object tables=null,table=null,rows=null,cell=null;
+        try
+        {
+            tables=((dynamic)draft).HoleTables2;table=((dynamic)tables).Item(plan.TableIndex);rows=((dynamic)table).Rows;
+            int index=0;for(int i=1;i<=(int)((dynamic)rows).Count;i++)if(Automation.CellText(table,i,plan.LabelColumn)==plan.Label)index=i;
+            Require(index>0,"Missing row in override regression.");cell=((dynamic)table).Cell(index,plan.ColumnIndex);
+            ((dynamic)cell).AllowCellOverrides=true;((dynamic)cell).Value=expression;((dynamic)table).Update();
+        }
+        finally{Com.Release(cell);Com.Release(rows);Com.Release(table);Com.Release(tables);}
+    }
     static Dictionary<string,string> Capture(object draft)
     {
         var values=new Dictionary<string,string>();object tables=null;
@@ -81,8 +93,21 @@ internal static class LiveTest
                 Require(scan.TableCount>0 && scan.Tables.Count==scan.TableCount,"Native table inventory is incomplete.");
                 Require(scan.Rows.Any(r=>r.Eligible),"This test needs at least one proposed format change.");
                 foreach(TableInfo info in scan.Tables)Require(before[info.Index+"/TITLE"]==info.TitleText,"Scan lost a native title.");
-                Require(scan.Rows.All(r=>!r.Overridden||!r.Eligible),"Custom override became eligible.");
+                Require(scan.Rows.All(r=>!r.Overridden||!r.Eligible||!String.IsNullOrEmpty(r.OriginalAssignment)),"An unverified custom override became eligible.");
                 Same(before,Capture(copy),"Read-only scan",null);report.AppendLine("PASS: scan inspected "+scan.TableCount+" tables / "+scan.Rows.Count+" rows with native title text and no source changes.");Console.WriteLine("Scan preservation passed.");
+                // Seed v0.6 expressions in this disposable copy. This guarantees
+                // that migration and rollback are exercised even when the user's
+                // current draft has no previously applied standard overrides.
+                int seeded=0;
+                foreach(RowPlan row in scan.Rows.Where(r=>r.Eligible&&LinkedCallouts.RevisedFamily(r.Decision)))
+                {
+                    string previous=LinkedCallouts.Previous(row.Decision,row.Facts,row.Template);
+                    if(previous==null&&row.Decision.Family=="Koenig plug")previous="%F3";
+                    if(previous==null)continue;SetExpression(copy,row,previous);seeded++;
+                }
+                before=Capture(copy);scan=Automation.Scan(copyPath,root);Same(before,Capture(copy),"Prior-version scan preservation",null);
+                Require(seeded==0||scan.Rows.Any(r=>r.Overridden&&r.Eligible),"Prior linked callouts were not offered for the requested update.");
+                report.AppendLine("Verified prior standard callouts eligible for update: "+scan.Rows.Count(r=>r.Overridden&&r.Eligible));
                 scan.Save(Path.Combine(root,"validated-preview.xml"));
 
                 // Force verification to fail after native assignments. Recovery
@@ -160,6 +185,27 @@ internal static class LiveTest
                     finally{Com.Release(linkedRows);Com.Release(linkedTable);Com.Release(linkedTables);}
                 }
                 Same(after,Capture(copy),"Linked field unit restoration",null);((dynamic)copy).Save();
+                var refreshed=Automation.Scan(copyPath,root);
+                foreach(RowPlan row in changed.Where(r=>LinkedCallouts.RevisedFamily(r.Decision)))
+                    Require(refreshed.Rows.Single(r=>r.TableIndex==row.TableIndex&&r.Label==row.Label).Status=="Already set","Updated standard callout was not retained as Already Set after refresh: "+row.Label);
+                var protectedRows=changed.Where(r=>r.SeparateLinked&&LinkedCallouts.RevisedFamily(r.Decision)).Take(2).ToList();
+                if(protectedRows.Count==2)
+                {
+                    try
+                    {
+                        SetExpression(copy,protectedRows[0],protectedRows[0].Assignment+"%RTCUSTOM NOTE TO PRESERVE");
+                        SetExpression(copy,protectedRows[1],protectedRows[1].After);
+                        var protectedScan=Automation.Scan(copyPath,root);
+                        foreach(RowPlan row in protectedRows)
+                        {
+                            var plan=protectedScan.Rows.Single(r=>r.TableIndex==row.TableIndex&&r.Label==row.Label);
+                            Require(!plan.Eligible&&plan.Status=="Custom row preserved","Custom note or literal lookalike was offered for replacement: "+row.Label);
+                        }
+                    }
+                    finally{foreach(RowPlan row in protectedRows)SetExpression(copy,row,row.Assignment);}
+                    Same(after,Capture(copy),"Custom-row test restoration",null);
+                    report.AppendLine("PASS: refresh recognizes updated linked standards; custom notes and literal lookalikes stay preserved.");
+                }
                 Same(original,Capture(source),"Original drawing",null);
                 report.AppendLine("PASS: saved F selections react to native definitions; "+changed.Count(r=>r.SeparateLinked)+" separate callouts reevaluate model fields after reopening; original drawing remained unchanged.");
                 report.AppendLine("Test copy: "+copyPath);

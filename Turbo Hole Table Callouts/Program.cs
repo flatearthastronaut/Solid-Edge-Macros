@@ -7,14 +7,14 @@ using System.Windows.Forms;
 
 [assembly:System.Reflection.AssemblyTitle("Turbo Hole Table Callouts")]
 [assembly:System.Reflection.AssemblyProduct("Turbo Hole Table Callouts")]
-[assembly:System.Reflection.AssemblyVersion("0.6.0.0")]
+[assembly:System.Reflection.AssemblyVersion("0.7.0.0")]
 
 namespace HoleTableFormatter
 {
     internal static class Program
     {
         internal const string ProductName="Turbo Hole Table Callouts";
-        internal const string Version="v0.6";
+        internal const string Version="v0.7";
         [STAThread] static int Main(string[] args)
         {
             try
@@ -122,7 +122,7 @@ namespace HoleTableFormatter
         {
             summary.Text=Path.GetFileName(result.Document)+" — "+result.TableCount+" tables, "+result.Rows.Count+" rows. "+
                 result.Rows.Count(r=>r.Eligible)+" hole types found; "+result.Rows.Count(r=>r.Status.StartsWith("Review"))+" need review; "+
-                result.Rows.Count(r=>r.Overridden)+" custom rows preserved."+(result.Notes.Count==0?"":" "+String.Join(" ",result.Notes));
+                result.Rows.Count(r=>r.Status=="Custom row preserved")+" custom rows preserved."+(result.Notes.Count==0?"":" "+String.Join(" ",result.Notes));
         }
         void ShowSelected(){var item=tableList.SelectedItem as TableListItem;if(item!=null)ShowTable(item.Table);}
         void ShowTable(TableInfo table)
@@ -178,7 +178,7 @@ namespace HoleTableFormatter
         internal TableForm(ScanResult scan,TableInfo table,Func<int,int> apply,Action refresh)
         {
             this.apply=apply;Program.SetIcon(this);
-            Size=new Size(1240,740);MinimumSize=new Size(850,480);Font=new Font("Segoe UI",9);
+            Size=new Size(1120,740);MinimumSize=new Size(850,480);Font=new Font("Segoe UI",9);
             MixedWarning.Font=new Font(Font,FontStyle.Bold);
             var bar=new FlowLayoutPanel{Dock=DockStyle.Top,Height=46,Padding=new Padding(8)};bar.Controls.Add(applyButton);bar.Controls.Add(RefreshButton);
             bar.Controls.Add(new Label{Text="Already Set",AutoSize=true,BackColor=Presentation.SetColor,Padding=new Padding(8),Margin=new Padding(16,0,0,0)});
@@ -188,7 +188,7 @@ namespace HoleTableFormatter
             var header=new Panel{Dock=DockStyle.Top,Height=48,Padding=new Padding(10,0,10,0)};header.Controls.Add(summary);
             var footer=new Label{Dock=DockStyle.Bottom,Height=40,Padding=new Padding(10),Text="Only this table is updated. Custom rows and oddballs stay unchanged. Review and save the draft in Solid Edge."};
             Grid.AutoGenerateColumns=false;Grid.Columns.Add(new DataGridViewCheckBoxColumn{Name="Apply",Width=48});
-            AddText("Hole",68);AddText("Category",140);AddText("Format",95);AddText("Status",140);AddText("Current callout",220);AddText("Proposed callout",220);AddText("Reason",280);
+            AddText("Hole",44);AddText("Category",140);AddText("Format",108);AddText("Status",98);AddText("Current callout",184);AddText("Proposed callout",196);AddText("Reason",280);
             Grid.DefaultCellStyle.WrapMode=DataGridViewTriState.True;
             Controls.Add(Grid);Controls.Add(header);Controls.Add(MixedWarning);Controls.Add(heading);Controls.Add(bar);Controls.Add(footer);
             Grid.RowPostPaint+=DrawGroupBorder;
