@@ -37,7 +37,8 @@ internal static class SampleTest
         {
             string[] key=item.Key.Split('/');object sheet=Keep(((dynamic)sheets).Item(Int32.Parse(key[0])));
             object notes=Keep(((dynamic)sheet).Balloons),note=Keep(((dynamic)notes).Item(Int32.Parse(key[1])));
-            item.Value.Position.Verify(note);
+            int? alignment = !unchanged && !TurboCallout.Automation.IsBlank(note) && NoteAlignment.IsExistingMacroNote(note) ? NoteAlignment.Target(note) : null;
+            item.Value.Position.Verify(note,alignment);
             string[] names={"BalloonText","BalloonTextLower","BalloonTextPrefix","BalloonTextSuffix"};
             for(int i=0;i<4;i++)if(unchanged||i>0||!String.IsNullOrWhiteSpace(item.Value.Text[i]))
                 if(Convert.ToString(Property.Get(note,names[i]))!=(item.Value.Text[i]??""))throw new Exception("Preserved text changed: "+item.Key+"/"+names[i]+" before=["+item.Value.Text[i]+"] after=["+Property.Get(note,names[i])+"]");
@@ -58,10 +59,11 @@ internal static class SampleTest
                 string path=Path.Combine(root,dual?"Sample-dual.dft":"Sample-inch.dft");
                 ((dynamic)source).SaveCopyAs(path);copy=Keep(((dynamic)docs).Open(path));var before=Capture(copy);
                 RunReport report=TurboCallout.Automation.FillDocument(copy,rules,dual,Console.WriteLine);Console.WriteLine(report);
-                if(report.Filled==0||report.Errors!=0)throw new Exception("No successful callouts or apply errors in sample copy.");
+                if(report.Filled+report.AlignedExisting==0||report.Errors!=0)throw new Exception("No successful fills/alignment changes or apply errors in sample copy.");
                 Verify(copy,before,false);((dynamic)copy).Save();((dynamic)copy).Close(false);copy=null;
                 copy=Keep(((dynamic)docs).Open(path));Verify(copy,before,false);
-                if(TurboCallout.Automation.FillDocument(copy,rules,dual,null).Filled!=0)throw new Exception("Repeat run changed filled callouts.");
+                RunReport repeat=TurboCallout.Automation.FillDocument(copy,rules,dual,null);
+                if(repeat.Filled!=0||repeat.AlignedExisting!=0)throw new Exception("Repeat run changed filled callouts.");
                 ((dynamic)copy).Close(false);copy=null;Console.WriteLine("PASS "+path);
             }
             Verify(source,original,true);Console.WriteLine("PASS Original sample text and all callout placements unchanged.");return 0;

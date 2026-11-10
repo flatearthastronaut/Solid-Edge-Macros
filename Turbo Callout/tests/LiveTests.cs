@@ -72,9 +72,19 @@ internal static class LiveTests
             foreach(object note in new[]{first,second})
             {
                 ((dynamic)note).Callout=1;((dynamic)note).Leader=true;((dynamic)note).BreakLine=true;
-                ((dynamic)note).SetTerminator(targetRef,cx,cy,0.0,false);((dynamic)note).BalloonText="";
+                ((dynamic)note).PromoteToCurrentVersion();
+                // A zero-length newly created API callout ignores direction
+                // setters. A whitespace placeholder is still blank to the
+                // macro and lets the fixture retain deliberate left/right legs.
+                ((dynamic)note).SetTerminator(targetRef,cx,cy,0.0,false);((dynamic)note).BalloonText=" ";
             }
-            ((dynamic)second).CalloutHorizontalAlignment=2;
+            Property.Set(first,"CalloutBalloonBreaklineDirection",0); // West
+            Property.Set(second,"CalloutBalloonBreaklineDirection",2); // East
+            Property.Set(first,"CalloutHorizontalAlignment",0); // intentionally wrong
+            Property.Set(second,"CalloutHorizontalAlignment",2);
+            Property.Set(second,"BreakLineDirection",true); // initialize the legacy Add() leader too
+            Console.WriteLine("Before fill: first direction="+((dynamic)first).CalloutBalloonBreaklineDirection+" align="+((dynamic)first).CalloutHorizontalAlignment+
+                "; second direction="+((dynamic)second).CalloutBalloonBreaklineDirection+" align="+((dynamic)second).CalloutHorizontalAlignment);
             object otherStyle=Keep(((dynamic)second).Style);int untouchedUnits=(int)((dynamic)otherStyle).PrimaryUnits;
             RuleBook rules=RuleBook.Load(Path.GetFullPath("..\\Turbo Hole Table Callouts\\Custom.xml"));
             var firstPlace=new Placement(first); var secondPlace=new Placement(second);
@@ -89,14 +99,17 @@ internal static class LiveTests
                 HoleFacts facts=reader.Read(first); Console.WriteLine("facts="+facts.Type+" diameter="+facts.Diameter+" depth="+facts.Depth);
                 Check(rules.Match(facts).IsDowel,"Native attachment resolves to the saved dowel preset");
                 TurboCallout.Automation.Fill(first,Notes.Build(rules,facts,false));
-                firstPlace.Verify(first);
+                firstPlace.Verify(first,2);
+                Check((int)((dynamic)first).CalloutHorizontalAlignment==2,"Left breakline receives right-aligned text");
                 Console.WriteLine("Inch: "+((dynamic)first).BalloonDisplayedText);
                 Console.WriteLine("Raw: "+((dynamic)first).BalloonText);
                 Console.WriteLine("Rendered inch: "+Rendered(first));
                 Check(Rendered(first).Contains(".2500"),"Inch note evaluates finished upper limit");
                 Check((int)((dynamic)otherStyle).PrimaryUnits==untouchedUnits,"Per-callout unit change leaves other annotation style unchanged");
                 TurboCallout.Automation.Fill(second,Notes.Build(rules,reader.Read(second),true));
-                secondPlace.Verify(second);
+                Console.WriteLine("After fill second direction="+((dynamic)second).CalloutBalloonBreaklineDirection+" align="+((dynamic)second).CalloutHorizontalAlignment);
+                secondPlace.Verify(second,0);
+                Check((int)((dynamic)second).CalloutHorizontalAlignment==0,"Right breakline receives left-aligned text");
                 Console.WriteLine("Dual: "+((dynamic)second).BalloonDisplayedText);
                 Console.WriteLine("Rendered dual: "+Rendered(second));
                 Check(Rendered(second).Contains(".2500"),"Dual note retains four-place inch limit");
@@ -105,14 +118,30 @@ internal static class LiveTests
             object allSheets=Keep(((dynamic)draft).Sheets), extraSheet=Keep(((dynamic)allSheets).Add("Other working sheet"));
             object extraNotes=Keep(((dynamic)extraSheet).Balloons),unattached=Keep(((dynamic)extraNotes).Add(.03,.03,0.0));
             ((dynamic)unattached).Callout=1;((dynamic)unattached).BalloonText="";
+            object custom=Keep(((dynamic)notes).Add(.07,.07,0.0));
+            ((dynamic)custom).Callout=1;((dynamic)custom).BalloonText="EXISTING CUSTOM NOTE";
+            object customStyle=Keep(((dynamic)custom).Style);((dynamic)customStyle).Name=originalStyle;
+            ((dynamic)custom).Leader=true;((dynamic)custom).BreakLine=true;Property.Set(custom,"CalloutBalloonBreaklineDirection",0);
+            ((dynamic)custom).SetTerminator(targetRef,cx,cy,0.0,false);
+            Property.Set(custom,"CalloutHorizontalAlignment",0);var customPlace=new Placement(custom);
+            // Simulate notes already filled by v0.1/v0.2. A rerun must correct
+            // only justification, retaining their raw text and selected units.
+            string firstText=(string)((dynamic)first).BalloonText,secondText=(string)((dynamic)second).BalloonText;
+            string secondStyle=(string)((dynamic)otherStyle).Name;
+            Property.Set(first,"CalloutHorizontalAlignment",0);Property.Set(second,"CalloutHorizontalAlignment",2);
+            RunReport repaired=TurboCallout.Automation.FillDocument(draft,rules,false,null);
+            Check(repaired.Filled==0&&repaired.AlignedExisting==2&&repaired.Errors==0,"Rerun repairs existing macro notes in both directions");
+            Check((string)((dynamic)first).BalloonText==firstText&&(string)((dynamic)second).BalloonText==secondText&&
+                (string)((dynamic)otherStyle).Name==secondStyle,"Alignment-only repair preserves note text and unit style");
+            customPlace.Verify(custom);Check(true,"Unrelated existing custom note remains unchanged");
             RunReport repeated=TurboCallout.Automation.FillDocument(draft,rules,false,null);
-            Check(repeated.Filled==0,"Repeated run preserves filled callouts");
+            Check(repeated.Filled==0&&repeated.AlignedExisting==0,"Repeated run preserves filled callouts");
             Check(repeated.Blank==1&&repeated.Review==1,"All working sheets scanned; unattached blank remains for review");
             ((dynamic)sheet).Activate();
             string draftPath=Path.Combine(root,"Callout-fixture.dft");((dynamic)draft).SaveAs(draftPath);((dynamic)draft).Close(false);draft=null;
             draft=Keep(((dynamic)docs).Open(draftPath));sheet=Keep(((dynamic)draft).ActiveSheet);notes=Keep(((dynamic)sheet).Balloons);
             first=Keep(((dynamic)notes).Item(1));second=Keep(((dynamic)notes).Item(2));
-            firstPlace.Verify(first);secondPlace.Verify(second);Check(true,"Both callout placements survive save/reopen");
+            firstPlace.Verify(first,2);secondPlace.Verify(second,0);Check(true,"Both callout alignments and leader positions survive save/reopen");
             using(var reader=new NativeHole(draft))Check(rules.Match(reader.Read(first)).IsDowel,"Model association survives save/reopen");
             Check(((string)((dynamic)first).BalloonText).Contains("%HS"),"Saved callout retains native linked fields");
             Console.WriteLine(checks+" live checks passed.");return 0;

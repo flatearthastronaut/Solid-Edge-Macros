@@ -1,15 +1,15 @@
-# Turbo Callout v0.2
+# Turbo Callout v0.3
 
 Fills blank native hole callouts in the active Solid Edge draft. Uses the same recognition source and saved-note library as Turbo Hole Table Callouts, compiled into a standalone x64 .NET Framework executable.
 
 ## Use
 
 1. Activate the drawing in Solid Edge.
-2. Run `Compiled Executables/Turbo Callout v0.2.exe`.
+2. Run `Compiled Executables/Turbo Callout v0.3.exe`.
 3. Choose **Inch only** or **Dual — metric[inch]**. Scanning and filling start immediately.
 4. Review the result counts and any unchanged callouts. Review the drawing and save it normally.
 
-All working sheets are scanned. Background and internal view sheets are excluded. Ordinary item balloons and parts-list balloons are excluded. All four raw text fields must be empty or whitespace; an existing note is never replaced just because its displayed text is blank. Running again leaves filled notes alone. The macro does not save the drawing.
+All working sheets are scanned. Background and internal view sheets are excluded. Ordinary item balloons and parts-list balloons are excluded. All four raw text fields must be empty or whitespace; an existing note is never replaced just because its displayed text is blank. Running again corrects horizontal alignment on existing Turbo Callout notes without changing their text or units. Other existing notes remain unchanged. The macro does not save the drawing.
 
 The supplied Turbo Callout icon is embedded in the executable and shown in the window. The supplied ICO and PNG are also provided beside the executable for macro managers.
 
@@ -27,7 +27,7 @@ Inch precision is four places for dowels, two for SHCS counterbores and SAE #6/#
 
 ## Placement and failure handling
 
-The existing callout keeps its justification, leader/text connection, breakline direction and distance, rotation, scale, leader vertices, and free-space point. Fixed text widths are retained; fit-to-content widths grow to accommodate the new text. Native local style setters reject some precision changes, so each filled callout receives a private document style copied from its original style and local presentation. Existing shared styles are not edited. Only units, relevant precision, and Smart Depth formats change.
+A break line extending left (West) produces right-aligned text; a break line extending right (East) produces left-aligned text. Notes without a horizontal break line keep their original justification. The macro reads the native four-direction `CalloutBalloonBreaklineDirection` property because the older Boolean can be stale in current drafts. The existing callout keeps its leader/text connection, breakline direction and distance, rotation, scale, leader vertices, and free-space point. Fixed text widths are retained; fit-to-content widths grow to accommodate the new text. Native local style setters reject some precision changes, so each filled callout receives a private document style copied from its original style and local presentation. Existing shared styles are not edited. New fills change units, relevant precision, Smart Depth formats, and the requested horizontal alignment. Existing Turbo Callout notes are identified by their private GUID style name; rerun repairs change only their horizontal alignment.
 
 Writes are checked and placement is verified. A failed fill restores the previous text, style name, and placement; a failed restoration is reported explicitly. The program follows the SDK's STA/message-filter pattern and releases each COM reference it acquires. It never calls `FinalReleaseComObject` or starts another Solid Edge session.
 
@@ -37,8 +37,10 @@ Writes are checked and placement is verified. A failed fill restores the previou
 - `Test.cmd`: pure recognition/note and existing-text protection tests.
 - `LiveTest.cmd`: create an isolated part/draft fixture under ignored `Inspection`, check rendered inch/dual tolerance limits, failed-fill restoration, other-style preservation, multiple working sheets, and save/reopen links and placement. Returns to the original document.
 - `SampleTest.cmd`: make separate inch/dual copies of the active draft under `Inspection`, fill and save/reopen each, verify existing text and all callout placements, and verify original text/placement unchanged. No changes are saved to the original.
-- `Inspect.cmd`: inspect native fields of blank callouts; diagnostic probes are removed immediately.
+- `Inspect.cmd`: inspect native fields of blank callouts; diagnostic probes are removed immediately. `Inspect.cmd --alignment` reads direction and justification without adding probes.
 - `Preview.cmd`: render the initial window to `Inspection/window.png`.
+
+v0.3 verified November 10, 2026: 1,107 regression checks and 17 isolated Solid Edge checks passed. Tests cover both horizontal directions, vertical/no-breakline preservation, alignment-only repairs of previously filled notes, unchanged custom notes and unit styles, rollback, and saved leader positions/model links. Both inch and dual copies of the current sample filled all 15 blank notes with zero review cases or errors; the requested alignments and existing leader positions survived save/reopen, while the original sample stayed unchanged.
 
 v0.2 verified November 10, 2026: 1,100 regression checks passed, including blind/through plain drills, both saved drill notes, special-family priority, conflicting-match protection, and unchanged shared hole-table rules. The current sample had 14 blank callouts: all 14 filled in each unit mode with zero review cases or apply errors, including the previously unmatched `.4375 × .75` and `.3125 × 1.00` simple holes. Both copies retained callout placement and existing text after save/reopen; repeated runs made no further fills. The original sample's text and placement stayed unchanged. The original v0.1 validation also passed 218 shared recognition/template checks, 68 table UI checks, and 12 isolated Solid Edge checks.
 

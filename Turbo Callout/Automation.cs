@@ -30,8 +30,54 @@ namespace TurboCallout
         }
     }
 
-    // Snapshot placement independently of the dimension style. Changing a unit
-    // must never reset justification, leader connection, rotation or free point.
+    internal static class NoteAlignment
+    {
+        // SDK: West=0, East=2; horizontal justification Left=0, Right=2.
+        // The older Boolean BreakLineDirection can remain false for an East
+        // callout in current drafts. Use the four-direction native property.
+        internal static int? ForBreakline(bool leader, bool breakLine, int direction)
+        {
+            if (!leader || !breakLine) return null;
+            return direction == 0 ? (int?)2 : direction == 2 ? (int?)0 : null;
+        }
+        internal static int? Target(object note)
+        {
+            return ForBreakline((bool)((dynamic)note).Leader, (bool)((dynamic)note).BreakLine,
+                (int)((dynamic)note).CalloutBalloonBreaklineDirection);
+        }
+        internal static bool IsExistingMacroNote(object note)
+        {
+            object style = null;
+            try
+            {
+                // All released versions assign this private GUID style. Limit
+                // rerun repairs to our notes; keep other existing notes alone.
+                style = ((dynamic)note).Style;
+                string name = (string)((dynamic)style).Name;
+                const string prefix = "Turbo Callout "; Guid id;
+                return name != null && name.StartsWith(prefix, StringComparison.Ordinal) &&
+                    Guid.TryParseExact(name.Substring(prefix.Length), "N", out id);
+            }
+            finally { Com.Release(style); }
+        }
+        internal static bool Apply(object note)
+        {
+            int? target = Target(note);
+            if (!target.HasValue || (int)((dynamic)note).CalloutHorizontalAlignment == target.Value) return false;
+            var before = new Placement(note);
+            try { before.Restore(note, target); return true; }
+            catch (Exception error)
+            {
+                try { before.Restore(note); }
+                catch (Exception rollback) { throw new InvalidOperationException("Alignment failed: " + error.Message + " Restoration needs review: " + rollback.Message, error); }
+                throw new InvalidOperationException("Original alignment restored: " + error.Message, error);
+            }
+        }
+    }
+
+    // Snapshot placement independently of the dimension style. The one allowed
+    // adjustment is the requested horizontal justification. An unmodified
+    // snapshot is retained for rollback; leader geometry stays unchanged.
     internal sealed class Placement
     {
         static readonly string[] Names = { "CalloutHorizontalAlignment", "CalloutLeaderTextConnectionPoint", "CalloutBalloonBreaklineDirection",
@@ -54,10 +100,13 @@ namespace TurboCallout
             for (int i = 0; i < count; i++)
             { double vx, vy, vz; ((dynamic)note).GetVertex(i, out vx, out vy, out vz); vertices.Add(new[] { vx, vy, vz }); }
         }
-        internal void Restore(object note)
+        internal void Restore(object note, int? horizontalAlignment = null)
         {
             foreach (var item in properties)
-                if (!Property.Equal(Property.Get(note, item.Key), item.Value)) Property.Set(note, item.Key, item.Value);
+            {
+                object wanted = item.Key == "CalloutHorizontalAlignment" && horizontalAlignment.HasValue ? horizontalAlignment.Value : item.Value;
+                if (!Property.Equal(Property.Get(note, item.Key), wanted)) Property.Set(note, item.Key, wanted);
+            }
             double ax, ay, az; ((dynamic)note).GetFreeSpacePoint(out ax, out ay, out az);
             if (!Property.Equal(x, ax) || !Property.Equal(y, ay) || !Property.Equal(z, az)) ((dynamic)note).SetFreeSpacePoint(x, y, z);
             if ((int)((dynamic)note).VertexCount != vertices.Count) throw new InvalidOperationException("Leader vertex count changed.");
@@ -66,12 +115,15 @@ namespace TurboCallout
                 ((dynamic)note).GetVertex(i, out ax, out ay, out az); double[] v = vertices[i];
                 if (!Property.Equal(v[0], ax) || !Property.Equal(v[1], ay) || !Property.Equal(v[2], az)) ((dynamic)note).SetVertex(i, v[0], v[1], v[2]);
             }
-            Verify(note);
+            Verify(note, horizontalAlignment);
         }
-        internal void Verify(object note)
+        internal void Verify(object note, int? horizontalAlignment = null)
         {
             foreach (var item in properties)
-                if (!Property.Equal(Property.Get(note, item.Key), item.Value)) throw new InvalidOperationException("Callout alignment changed: " + item.Key);
+            {
+                object wanted = item.Key == "CalloutHorizontalAlignment" && horizontalAlignment.HasValue ? horizontalAlignment.Value : item.Value;
+                if (!Property.Equal(Property.Get(note, item.Key), wanted)) throw new InvalidOperationException("Callout alignment changed: " + item.Key);
+            }
             double ax, ay, az; ((dynamic)note).GetFreeSpacePoint(out ax, out ay, out az);
             if (!Property.Equal(x, ax) || !Property.Equal(y, ay) || !Property.Equal(z, az)) throw new InvalidOperationException("Callout position changed.");
             if ((int)((dynamic)note).VertexCount != vertices.Count) throw new InvalidOperationException("Leader vertex count changed.");
@@ -159,20 +211,22 @@ namespace TurboCallout
 
     internal sealed class RunReport
     {
-        internal int Blank, Filled, Review, Errors;
+        internal int Blank, Filled, AlignedExisting, Review, Errors;
         internal readonly List<string> Details = new List<string>();
         public override string ToString()
         {
-            return String.Format("{0} blank callouts found.\r\n{1} filled; {2} need review; {3} errors.\r\n\r\nReview the drawing, then save it in Solid Edge.\r\n", Blank, Filled, Review, Errors) +
+            return String.Format("{0} blank callouts found.\r\n{1} filled; {4} existing notes aligned; {2} need review; {3} errors.\r\n\r\nReview the drawing, then save it in Solid Edge.\r\n", Blank, Filled, Review, Errors, AlignedExisting) +
                 String.Join("\r\n", Details);
         }
     }
 
     internal static class Automation
     {
+        internal static bool IsCallout(object note)
+        { return (int)((dynamic)note).Callout != 0 && !(bool)((dynamic)note).DisplayByItemNumber && !(bool)((dynamic)note).LinkToPartsList; }
         internal static bool IsBlank(object note)
         {
-            return (int)((dynamic)note).Callout != 0 && !(bool)((dynamic)note).DisplayByItemNumber && !(bool)((dynamic)note).LinkToPartsList &&
+            return IsCallout(note) &&
                 new[] { "BalloonText", "BalloonTextLower", "BalloonTextPrefix", "BalloonTextSuffix" }
                     .All(name => String.IsNullOrWhiteSpace(Convert.ToString(Property.Get(note, name))));
         }
@@ -216,7 +270,13 @@ namespace TurboCallout
                             object note = null; string label = sheetName + ", callout " + ni;
                             try
                             {
-                                note = ((dynamic)notes).Item(ni); if (!IsBlank(note)) continue;
+                                note = ((dynamic)notes).Item(ni); if (!IsCallout(note)) continue;
+                                if (!IsBlank(note))
+                                {
+                                    if (NoteAlignment.IsExistingMacroNote(note) && NoteAlignment.Apply(note))
+                                    { report.AlignedExisting++; report.Details.Add(label + ": aligned existing Turbo Callout note."); }
+                                    continue;
+                                }
                                 report.Blank++; if (progress != null) progress("Checking " + label + "...");
                                 NotePlan plan;
                                 try { plan = Notes.Build(rules, reader.Read(note), dual); }
@@ -244,6 +304,7 @@ namespace TurboCallout
             try
             {
                 var placement = new Placement(note);
+                int? alignment = NoteAlignment.Target(note);
                 style = ((dynamic)note).Style;
                 string originalName = (string)((dynamic)style).Name;
                 string before = (string)((dynamic)note).BalloonText;
@@ -252,7 +313,7 @@ namespace TurboCallout
                     created = NoteStyles.Create(note, style, plan, out styles, out createdName);
                     ((dynamic)style).Name = createdName;
                     ((dynamic)note).BalloonText = plan.Text;
-                    placement.Restore(note);
+                    placement.Restore(note, alignment);
                     if ((string)((dynamic)note).BalloonText != plan.Text) throw new InvalidOperationException("Callout text was not retained.");
                     string displayed = (string)((dynamic)note).BalloonDisplayedText;
                     if (String.IsNullOrWhiteSpace(displayed) || displayed.Contains("%{") || displayed.Contains("?"))

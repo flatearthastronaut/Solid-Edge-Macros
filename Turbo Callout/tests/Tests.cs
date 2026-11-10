@@ -38,6 +38,13 @@ internal static class Tests
     {
         try
         {
+            Check(NoteAlignment.ForBreakline(true,true,0)==2,"West breakline right-aligns the note");
+            Check(NoteAlignment.ForBreakline(true,true,2)==0,"East breakline left-aligns the note");
+            Check(NoteAlignment.ForBreakline(true,true,1)==null,"North breakline keeps alignment");
+            Check(NoteAlignment.ForBreakline(true,true,3)==null,"South breakline keeps alignment");
+            Check(NoteAlignment.ForBreakline(true,true,99)==null,"Unknown direction keeps alignment");
+            Check(NoteAlignment.ForBreakline(false,true,0)==null,"Leaderless note keeps alignment");
+            Check(NoteAlignment.ForBreakline(true,false,2)==null,"No-breakline note keeps alignment");
             RuleBook book=RuleBook.Load("..\\Turbo Hole Table Callouts\\Custom.xml");
             foreach(Preset p in book.Presets.Where(p=>p.Family=="Dowel"))
             {
