@@ -1,11 +1,11 @@
-# Turbo Callout v0.1
+# Turbo Callout v0.2
 
 Fills blank native hole callouts in the active Solid Edge draft. Uses the same recognition source and saved-note library as Turbo Hole Table Callouts, compiled into a standalone x64 .NET Framework executable.
 
 ## Use
 
 1. Activate the drawing in Solid Edge.
-2. Run `Compiled Executables/Turbo Callout v0.1.exe`.
+2. Run `Compiled Executables/Turbo Callout v0.2.exe`.
 3. Choose **Inch only** or **Dual — metric[inch]**. Scanning and filling start immediately.
 4. Review the result counts and any unchanged callouts. Review the drawing and save it normally.
 
@@ -19,7 +19,7 @@ The supplied Turbo Callout icon is embedded in the executable and shown in the w
 
 The native callout evaluator provides the associated hole type, diameter, depths, recess geometry, and thread data. This matters for multi-feature ports: the parent of a projected edge can be the threaded entrance while the callout's fields evaluate the spotface. A temporary duplicate receives the original leader's exact attachment, a private diagnostic style, and a numeric probe. The probe and style are deleted immediately. The original blank callout is filled in place; it is not replaced or rebound. Diagnostic probing can mark a drawing modified even if no standard matches, but does not save it.
 
-Supported families follow the shared rules: chart/saved dowel pin seats, 3/8-inch press-fit spring pin, Koenig/CV plug seats, saved face-seal recesses, SAE ports #2/#4/#6/#8, saved SHCS counterbores, and standard threaded holes. Unmatched or conflicting holes and unresolved attachments remain blank and are listed for review. Generic simple holes, unsupported spring-pin presets, and unsupported countersinks are not guessed into a special family.
+Supported special families follow the shared rules: chart/saved dowel pin seats, 3/8-inch press-fit spring pin, Koenig/CV plug seats, saved face-seal recesses, SAE ports #2/#4/#6/#8, saved SHCS counterbores, and standard threaded holes. After special-family recognition, an otherwise unmatched native simple drilled hole uses the complete saved `HC -DRILL` note for inch-only or `HC -DRILL M[I]` for dual dimensions, including its linked quantity wording. Both blind and through holes retain native Smart Depth. Conflicting special-family matches, inconsistent geometry, unsupported non-simple holes, and unresolved attachments remain blank for review. This fallback is specific to standalone callouts; the hole-table recognition rules are unchanged.
 
 Notes retain native size/depth fields and Smart Depth behavior, actual model dimensions, dowel fit limits and P.F./S.F. lines, face-seal depth limits, and the separate Koenig `(DO NOT CHAMFER HOLE)` line. The saved 12 mm Koenig entry supplies its bracketed inch limits when only a dual entry exists. Threaded holes include the native drilling/minor diameter. Spotface-only SAE features use the size-specific saved thread designation/depth; modeled threaded entrances use their native thread fields. #8 uses the shared rule's saved thread-depth standard. Review the saved standard note if the separate thread feature is later changed.
 
@@ -40,6 +40,6 @@ Writes are checked and placement is verified. A failed fill restores the previou
 - `Inspect.cmd`: inspect native fields of blank callouts; diagnostic probes are removed immediately.
 - `Preview.cmd`: render the initial window to `Inspection/window.png`.
 
-Verified November 10, 2026: 1,061 new regression checks, 218 shared recognition/template checks, 68 existing table UI checks, and 12 isolated Solid Edge checks passed. The supplied sample had 13 blank callouts: 11 filled in each unit mode, two left for review, zero apply errors. Both copies retained callout placement and existing text after save/reopen; repeated runs made no further fills. The two unmatched sample holes were `.4375 × .75` and `.3125 × 1.00` simple holes.
+v0.2 verified November 10, 2026: 1,100 regression checks passed, including blind/through plain drills, both saved drill notes, special-family priority, conflicting-match protection, and unchanged shared hole-table rules. The current sample had 14 blank callouts: all 14 filled in each unit mode with zero review cases or apply errors, including the previously unmatched `.4375 × .75` and `.3125 × 1.00` simple holes. Both copies retained callout placement and existing text after save/reopen; repeated runs made no further fills. The original sample's text and placement stayed unchanged. The original v0.1 validation also passed 218 shared recognition/template checks, 68 table UI checks, and 12 isolated Solid Edge checks.
 
 SDK reference: `SDK_2026_2510_English/SDK/API_Samples/Samples/cs/SolidEdge.Draft.Balloons` and the SDK COM signatures. Siemens' [Balloon API](https://support.industrysoftware.automation.siemens.com/trainings/se/107/api/SolidEdgeFrameworkSupport~Balloon_members.html) documents the native leader, text, and placement methods used here.

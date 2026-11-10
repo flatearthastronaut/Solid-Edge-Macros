@@ -75,8 +75,32 @@ internal static class Tests
                     Check(n.Text.Contains("%BS")&&n.Text.Contains("%BD"),"Koenig size/depth linked");
                 }
             }
-            var unknown=new HoleFacts {Type=1,Diameter=.3125,Depth=1};bool rejected=false;
-            try{Notes.Build(book,unknown,false);}catch(InvalidOperationException){rejected=true;}Check(rejected,"Unknown hole left for review");
+            foreach(var simple in new[]{new HoleFacts{Type=1,Diameter=.3125,Depth=1},new HoleFacts{Type=1,Diameter=.4375,Depth=.75},
+                new HoleFacts{Type=1,Diameter=.2,Depth=null}})
+            foreach(bool dual in new[]{false,true})
+            {
+                var note=Notes.Build(book,simple,dual);
+                Check(note.Category=="Simple drilled hole","Ordinary drilled-hole fallback");
+                Check(note.Text==Notes.FormatFields(LinkedCallouts.ReadSaved(dual?"HC -DRILL M[I]":"HC -DRILL"),dual).Replace("%RT","\r"),"Complete requested saved drill note");
+                Check(note.Text.Contains("%HS")&&note.Text.Contains("%ZH")&&note.Text.Contains("%QC"),"Drill size, smart depth and quantity remain linked");
+                Check(note.Text.Contains(dual?"TYP(%QC)":"(%QC)PLC'S EQ. SP."),"Mode-specific drill quantity wording");
+                Check(note.InchPlaces==3&&note.Dual==dual,"Drill precision and unit mode");
+            }
+            // A special-family conflict must never degrade to a generic drill.
+            Preset existing=book.Presets.First(p=>p.Family=="Dowel"&&p.Kind=="Simple");
+            var ambiguous=Facts(existing);var collision=new Preset{Family="Spring pin",Kind="Simple",Diameter=existing.Diameter,Depth=existing.Depth};
+            book.Presets.Add(collision);bool rejected=false;
+            try{Notes.Build(book,ambiguous,false);}catch(InvalidOperationException){rejected=true;}finally{book.Presets.Remove(collision);}
+            Check(rejected,"Conflicting simple-hole families stay for review");
+            foreach(var unsupported in new[]{new HoleFacts{Type=2,Diameter=.3,Bore=.7,BoreDepth=.1},new HoleFacts{Type=3,Diameter=.3,Sink=.5},
+                new HoleFacts{Type=1,Diameter=.2,Thread="1/4-20 UNC"},new HoleFacts{Type=1,Diameter=.2,Bore=.5},
+                new HoleFacts{Type=1,Diameter=null},new HoleFacts{Type=1,Diameter=Double.NaN},new HoleFacts{Type=1,Diameter=Double.PositiveInfinity},
+                new HoleFacts{Type=1,Diameter=.2,Depth=-1}})
+            {
+                rejected=false;try{Notes.Build(book,unsupported,false);}catch(InvalidOperationException){rejected=true;}
+                Check(rejected,"Malformed or non-simple evidence cannot use drill fallback");
+            }
+            Check(book.Match(new HoleFacts{Type=1,Diameter=.3125,Depth=1}).Slot==0,"Shared hole-table behavior unchanged");
             var conflict=new HoleFacts {Type=5,Diameter=.25,Bore=.979,BoreDepth=.13,Thread="7/16-20 UNF"};
             rejected=false;try{Notes.Build(book,conflict,false);}catch(InvalidOperationException){rejected=true;}Check(rejected,"Conflicting port evidence rejected");
             var threadNote=Notes.Build(book,new HoleFacts{Type=4,Diameter=.4219,Depth=1.08,Thread="1/2-13 UNC",ThreadDepth=.88},true);

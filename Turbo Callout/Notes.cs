@@ -21,6 +21,13 @@ namespace TurboCallout
         internal static NotePlan Build(RuleBook rules, HoleFacts hole, bool dual)
         {
             Decision choice = rules.Match(hole);
+            // The table rules deliberately reject unspecified hole families.
+            // Greg's annotation-only rule supplies a standard drill note for a
+            // native simple hole after all special-family matching has run.
+            // Accept only the shared engine's ordinary no-match result, never
+            // a conflicting pin match or another review condition.
+            if (choice.Slot == 0 && choice.Reason == "No verified standard-hole match. Leave unchanged." && IsPlainDrill(hole))
+                choice = new Decision { Category = "Simple drilled hole", Family = "Simple drill", Slot = 1 };
             if (choice.Slot == 0) throw new InvalidOperationException(choice.Reason);
             int places = choice.IsDowel ? 4 : choice.Port == 6 || choice.Port == 8 ||
                 choice.Family == "SHCS counterbore" ? 2 : 3;
@@ -79,6 +86,11 @@ namespace TurboCallout
             }
             else if (choice.Category == "Threaded hole")
                 text = "%DI%HS DRILL %ZH%RT" + LinkedCallouts.ReadSaved("HC -THR'D").Split(new[] { "%RT" }, StringSplitOptions.None)[0];
+            else if (choice.Family == "Simple drill")
+                // Use the complete requested note, including its model-linked
+                // quantity and Smart Depth. The inch and dual entries have
+                // different quantity wording, so select the actual saved entry.
+                text = LinkedCallouts.ReadSaved(dual ? "HC -DRILL M[I]" : "HC -DRILL");
             else if (choice.Family == "SHCS counterbore")
                 text = String.Join("%RT", LinkedCallouts.ReadSaved("HC -C'BORE").Split(new[] { "%RT" }, StringSplitOptions.None).Take(2));
             else throw new InvalidOperationException("No approved callout template for " + choice.Category + ".");
@@ -94,6 +106,18 @@ namespace TurboCallout
             // Native BalloonText uses carriage returns, not the table's %RT.
             return new NotePlan { Text = text.Replace("%RT", "\r"), Category = choice.Category, InchPlaces = places, Dual = dual };
         }
+
+        static bool IsPlainDrill(HoleFacts hole)
+        {
+            return hole.Type == 1 && String.IsNullOrWhiteSpace(hole.Thread) &&
+                PositiveFinite(hole.Diameter) && (!hole.Depth.HasValue || PositiveFinite(hole.Depth)) &&
+                AbsentOrZero(hole.Bore) && AbsentOrZero(hole.BoreDepth) && AbsentOrZero(hole.Sink) &&
+                AbsentOrZero(hole.Angle) && AbsentOrZero(hole.ThreadDepth);
+        }
+        static bool PositiveFinite(double? value)
+        { return value.HasValue && value.Value > 0 && !Double.IsInfinity(value.Value); }
+        static bool AbsentOrZero(double? value)
+        { return !value.HasValue || Math.Abs(value.Value) <= RuleBook.Epsilon; }
 
         static string Limits(string field, double? nominal, double min, double max)
         {
