@@ -38,7 +38,7 @@ namespace TurboCallout
         internal static int? ForBreakline(bool leader, bool breakLine, int direction)
         {
             if (!leader || !breakLine) return null;
-            return direction == 0 ? (int?)2 : direction == 2 ? (int?)0 : null;
+            return direction == 0 ? (int?)0 : direction == 2 ? (int?)2 : null;
         }
         internal static int? Target(object note)
         {

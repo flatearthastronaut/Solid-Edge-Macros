@@ -1,11 +1,11 @@
-# Turbo Callout v0.3
+# Turbo Callout v0.4
 
 Fills blank native hole callouts in the active Solid Edge draft. Uses the same recognition source and saved-note library as Turbo Hole Table Callouts, compiled into a standalone x64 .NET Framework executable.
 
 ## Use
 
 1. Activate the drawing in Solid Edge.
-2. Run `Compiled Executables/Turbo Callout v0.3.exe`.
+2. Run `Compiled Executables/Turbo Callout v0.4.exe`.
 3. Choose **Inch only** or **Dual — metric[inch]**. Scanning and filling start immediately.
 4. Review the result counts and any unchanged callouts. Review the drawing and save it normally.
 
@@ -27,7 +27,7 @@ Inch precision is four places for dowels, two for SHCS counterbores and SAE #6/#
 
 ## Placement and failure handling
 
-A break line extending left (West) produces right-aligned text; a break line extending right (East) produces left-aligned text. Notes without a horizontal break line keep their original justification. The macro reads the native four-direction `CalloutBalloonBreaklineDirection` property because the older Boolean can be stale in current drafts. The existing callout keeps its leader/text connection, breakline direction and distance, rotation, scale, leader vertices, and free-space point. Fixed text widths are retained; fit-to-content widths grow to accommodate the new text. Native local style setters reject some precision changes, so each filled callout receives a private document style copied from its original style and local presentation. Existing shared styles are not edited. New fills change units, relevant precision, Smart Depth formats, and the requested horizontal alignment. Existing Turbo Callout notes are identified by their private GUID style name; rerun repairs change only their horizontal alignment.
+A break line extending left (West) produces left-aligned text; a break line extending right (East) produces right-aligned text. This reverses the v0.3 rule per Greg's correction. Rerun the macro to correct notes produced by v0.3 without changing their text, units, or leader geometry. Notes without a horizontal break line keep their original justification. The macro reads the native four-direction `CalloutBalloonBreaklineDirection` property because the older Boolean can be stale in current drafts. The existing callout keeps its leader/text connection, breakline direction and distance, rotation, scale, leader vertices, and free-space point. Fixed text widths are retained; fit-to-content widths grow to accommodate the new text. Native local style setters reject some precision changes, so each filled callout receives a private document style copied from its original style and local presentation. Existing shared styles are not edited. New fills change units, relevant precision, Smart Depth formats, and the requested horizontal alignment. Existing Turbo Callout notes are identified by their private GUID style name; rerun repairs change only their horizontal alignment.
 
 Writes are checked and placement is verified. A failed fill restores the previous text, style name, and placement; a failed restoration is reported explicitly. The program follows the SDK's STA/message-filter pattern and releases each COM reference it acquires. It never calls `FinalReleaseComObject` or starts another Solid Edge session.
 
@@ -39,6 +39,8 @@ Writes are checked and placement is verified. A failed fill restores the previou
 - `SampleTest.cmd`: make separate inch/dual copies of the active draft under `Inspection`, fill and save/reopen each, verify existing text and all callout placements, and verify original text/placement unchanged. No changes are saved to the original.
 - `Inspect.cmd`: inspect native fields of blank callouts; diagnostic probes are removed immediately. `Inspect.cmd --alignment` reads direction and justification without adding probes.
 - `Preview.cmd`: render the initial window to `Inspection/window.png`.
+
+v0.4 verified November 10, 2026: 1,107 regression checks and 17 isolated Solid Edge checks passed with the reversed alignment rule. Tests cover both horizontal directions, repair of v0.3 notes without changing text or units, unchanged custom notes, rollback, and saved leader positions/model links. Both inch and dual copies of the current sample filled all 15 blank notes with zero review cases or errors; alignment and placement survived save/reopen. The original sample's text and placement stayed unchanged.
 
 v0.3 verified November 10, 2026: 1,107 regression checks and 17 isolated Solid Edge checks passed. Tests cover both horizontal directions, vertical/no-breakline preservation, alignment-only repairs of previously filled notes, unchanged custom notes and unit styles, rollback, and saved leader positions/model links. Both inch and dual copies of the current sample filled all 15 blank notes with zero review cases or errors; the requested alignments and existing leader positions survived save/reopen, while the original sample stayed unchanged.
 
