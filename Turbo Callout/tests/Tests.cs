@@ -1,0 +1,94 @@
+using System;
+using System.Globalization;
+using System.Linq;
+using System.Text.RegularExpressions;
+using HoleTableFormatter;
+using TurboCallout;
+
+public sealed class FakeNote
+{
+    public int Callout { get; set; }
+    public bool DisplayByItemNumber { get; set; }
+    public bool LinkToPartsList { get; set; }
+    public string BalloonText { get; set; }
+    public string BalloonTextLower { get; set; }
+    public string BalloonTextPrefix { get; set; }
+    public string BalloonTextSuffix { get; set; }
+}
+internal static class Tests
+{
+    static int checks;
+    static void Check(bool value,string text){checks++;if(!value)throw new Exception(text);}
+    static HoleFacts Facts(Preset p)
+    {
+        int type=p.Kind=="Simple"?1:p.Kind=="CounterBore"?2:p.Kind=="CounterDrill"?7:0;
+        bool thread=p.Port!=0&&p.Kind=="CounterDrill";
+        return new HoleFacts {Type=thread?8:type,Diameter=p.Diameter,Depth=p.Depth>0?(double?)p.Depth:null,
+            Bore=type==1?null:(double?)p.Bore,BoreDepth=type==1?null:(double?)p.BoreDepth,
+            Thread=thread?p.Thread:"",ThreadDepth=thread?.5:(double?)null};
+    }
+    static void Limits(string text,string field,double nominal,double minimum,double maximum,bool dual)
+    {
+        Match m=Regex.Match(text,@"%\{%"+field+@"(?:/DU)?/LT(?<hi>[+\-]?[\d.]+)\^(?<lo>[+\-]?[\d.]+)\}");
+        Check(m.Success,"Native tolerance fields retained");double scale=dual?25.4:1;
+        Check(Math.Abs(nominal+Double.Parse(m.Groups["hi"].Value,CultureInfo.InvariantCulture)/scale-maximum)<1e-7,"Upper manufacturing limit retained");
+        Check(Math.Abs(nominal+Double.Parse(m.Groups["lo"].Value,CultureInfo.InvariantCulture)/scale-minimum)<1e-7,"Lower manufacturing limit retained");
+    }
+    static int Main()
+    {
+        try
+        {
+            RuleBook book=RuleBook.Load("..\\Turbo Hole Table Callouts\\Custom.xml");
+            foreach(Preset p in book.Presets.Where(p=>p.Family=="Dowel"))
+            {
+                HoleFacts hole=Facts(p);Decision choice=book.Match(hole);Check(choice.IsDowel,"Recognize "+p.Name);
+                foreach(bool dual in new[]{false,true})
+                {
+                    NotePlan n=Notes.Build(book,hole,dual);Check(n.InchPlaces==4,"Dowel precision");
+                    Check(n.Text.Contains(choice.Fit=="PF"?"P.F.":"S.F."),"Fit note");
+                    Check(!n.Text.Contains("TYP(2)")&&!n.Text.Contains("FROM OPP."),"No guessed quantity or direction");
+                    Check(!n.Text.Contains("/@"),"Metric precision independently controlled");
+                    string field=hole.Type==1?"HS":"BS";Limits(n.Text,field,(hole.Type==1?hole.Diameter:hole.Bore).Value,choice.Minimum,choice.Maximum,dual);
+                    if(!dual)Check(!n.Text.Contains("[")&&!n.Text.Contains("/DU"),"Inch-only pin fit and fields");
+                }
+            }
+            foreach(Preset p in book.Presets.Where(p=>p.Family=="SAE port"))
+            {
+                var hole=Facts(p);
+                foreach(bool dual in new[]{false,true})
+                {
+                    var note=Notes.Build(book,hole,dual);Check(note.Text.Contains("#"+p.Port),"Port size");
+                    Check(note.Text.Contains(hole.Type==8?"%TS":RuleBook.PortDesignation(p.Port)),"Correct thread source");
+                    Check(note.InchPlaces==((p.Port==6||p.Port==8)?2:3),"SAE inch precision");
+                    Check(note.Text.Contains("%BS")&&note.Text.Contains("%BD"),"Port dimensions stay native");
+                }
+            }
+            foreach(Preset p in book.Presets.Where(p=>p.Family=="O-ring face seal"))
+            foreach(bool dual in new[]{false,true})
+            {var h=Facts(p);var n=Notes.Build(book,h,dual);Limits(n.Text,"BD",h.BoreDepth.Value,.050,.054,dual);}
+            foreach(Preset p in book.Presets.Where(p=>p.Family=="Koenig plug"))
+            {
+                var h=Facts(p);h.BoreDepth=.27;
+                foreach(bool dual in new[]{false,true})
+                {
+                    var n=Notes.Build(book,h,dual);Check(n.Text.Split('\r').Count(s=>s==LinkedCallouts.KoenigNote)==1,"Exactly one Koenig caution");
+                    Check(n.Text.Contains("%BS")&&n.Text.Contains("%BD"),"Koenig size/depth linked");
+                }
+            }
+            var unknown=new HoleFacts {Type=1,Diameter=.3125,Depth=1};bool rejected=false;
+            try{Notes.Build(book,unknown,false);}catch(InvalidOperationException){rejected=true;}Check(rejected,"Unknown hole left for review");
+            var conflict=new HoleFacts {Type=5,Diameter=.25,Bore=.979,BoreDepth=.13,Thread="7/16-20 UNF"};
+            rejected=false;try{Notes.Build(book,conflict,false);}catch(InvalidOperationException){rejected=true;}Check(rejected,"Conflicting port evidence rejected");
+            var threadNote=Notes.Build(book,new HoleFacts{Type=4,Diameter=.4219,Depth=1.08,Thread="1/2-13 UNC",ThreadDepth=.88},true);
+            Check(threadNote.Text.Contains("%HS")&&threadNote.Text.Contains("%TS")&&threadNote.Text.Contains("%ZT"),"Thread drill size, designation and smart depth retained");
+            var fake=new FakeNote{Callout=1};Check(TurboCallout.Automation.IsBlank(fake),"All-empty note eligible");
+            foreach(string name in new[]{"BalloonText","BalloonTextLower","BalloonTextPrefix","BalloonTextSuffix"})
+            {Property.Set(fake,name,"existing");Check(!TurboCallout.Automation.IsBlank(fake),"Protect existing "+name);Property.Set(fake,name,"");}
+            fake.Callout=0;Check(!TurboCallout.Automation.IsBlank(fake),"Ignore item balloons");fake.Callout=1;
+            fake.LinkToPartsList=true;Check(!TurboCallout.Automation.IsBlank(fake),"Ignore parts-list links");fake.LinkToPartsList=false;
+            fake.DisplayByItemNumber=true;Check(!TurboCallout.Automation.IsBlank(fake),"Ignore item-number balloons");
+            Console.WriteLine(checks+" checks passed.");return 0;
+        }
+        catch(Exception error){Console.WriteLine(error);return 1;}
+    }
+}
