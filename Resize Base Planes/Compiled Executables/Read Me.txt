@@ -1,0 +1,56 @@
+RESIZE BASE PLANES v1.1
+
+Run Resize Base Planes v1.1.exe with the intended Solid Edge model active.
+The small popup starts at X .40 and Y .40 every time. Press Enter or click
+Resize to apply. X and Y can be different. Tab moves between fields;
+Escape, Cancel, and the window close button exit without resizing anything.
+Successful resizing closes without another confirmation. Save your document
+in Solid Edge when you want to keep the change.
+
+Sizes are in the active document's distance units: inches in inch documents,
+millimeters in millimeter documents. Values must be positive numbers.
+Only Top, Right, and Front base planes in that document are resized.
+Assembly components, other reference planes, and model geometry are untouched.
+Works with Solid Edge 2026 part, sheet metal, and assembly documents.
+
+ICON OPTIONS
+1-Three-Planes: three intersecting colored reference planes.
+2-Fit-Frame: an olive plane with inward resize arrows.
+3-XY-Size: a blue plane with separate horizontal and vertical size arrows
+          (provisional executable icon, pending your choice).
+Each has a transparent PNG and Windows ICO, including 16/24/32/48/64/128/256
+pixel frames. Icon-Choices.png shows all three at large and toolbar sizes.
+The loose icons can be selected when customizing a macro button.
+To change the embedded executable/popup icon, run Build.cmd -IconChoice 2
+(or 1 or 3). The executable is written to Compiled Executables.
+
+BUILD AND TEST
+Build.cmd compiles with the installed .NET Framework 4.x C# compiler.
+Test.cmd builds and runs parser, popup, resize, and icon regression tests.
+No external packages or Solid Edge interop DLLs are needed at runtime.
+The previous /quiet switch remains available: it applies .40/.40 without
+showing the popup and returns a nonzero exit code on error.
+
+IMPLEMENTATION NOTES
+This project carries forward the previous working ResizeBasePlanes0400
+macro from this chat. The earlier macro was not present in this repository.
+It follows the local SDK_2026_2510_English/SDK/API_Samples/Samples/cs/
+SolidEdge.Automation example for STA/OLE handling and shares Hammill Common's
+COM lifetime helper. Each COM reference acquisition is explicitly owned.
+
+ResizeRefPlaneByDirDist accepts a displacement, not an absolute size.
+The macro reads the native Resize Plane fields, moves boundary 0 by half
+the full-size difference, then reads both values back. Floating panes are
+supported. The fields briefly appear while this happens.
+Current sizes are available at Solid Edge's displayed precision. Verification
+and repeat-run detection allow half a displayed increment, so a target with
+more decimals than the dialog does not cause repeated boundary movement.
+This display-size operation does not change physical model dimensions.
+
+VERIFIED NOVEMBER 10, 2026
+172 regression assertions passed, including popup Enter/Escape/Cancel,
+validation, custom X/Y values, repeat runs, scaled layout, and icon frames.
+Live checks on Solid Edge 226.00.07.04 passed in temporary assembly, part,
+and sheet metal documents: X .65/Y 1.20, .40/.40, repeat runs, and all six
+native size readbacks. Temporary documents were closed without saving and
+the original active document was restored.
