@@ -17,7 +17,7 @@ ICON OPTIONS
 1-Three-Planes: three intersecting colored reference planes.
 2-Fit-Frame: an olive plane with inward resize arrows.
 3-XY-Size: a blue plane with separate horizontal and vertical size arrows
-          (provisional executable icon, pending your choice).
+          (selected executable and popup icon, confirmed November 10, 2026).
 Each has a transparent PNG and Windows ICO, including 16/24/32/48/64/128/256
 pixel frames. Icon-Choices.png shows all three at large and toolbar sizes.
 The loose icons can be selected when customizing a macro button.
