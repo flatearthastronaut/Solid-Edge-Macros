@@ -11,7 +11,7 @@ namespace SolidEdgeConvert
     // Part and ParasolidPart both write .par, but require different import paths;
     // Step exports native documents, while StepAssembly imports STEP into .asm.
     // A new route also needs CLI dispatch, menu/COM registration and tests.
-    internal enum ConversionFormat { Step, Pdf, PdfWithDate, Part, ParasolidPart, ParasolidAssembly, StepAssembly, ParasolidExport, Stl, PdfSameType, PdfWithDateSameType, PdfWithoutGrindStock }
+    internal enum ConversionFormat { Step, Pdf, PdfWithDate, Part, ParasolidPart, ParasolidAssembly, StepAssembly, ParasolidExport, Stl, PdfSameType, PdfWithDateSameType, PdfWithoutGrindStock, StepWithDate, ParasolidWithDate }
 
     // These small boundaries let regression tests exercise failure cleanup without
     // starting CAD or touching a user's open documents.
@@ -42,6 +42,8 @@ namespace SolidEdgeConvert
             switch (format)
             {
                 case ConversionFormat.Step: return "STEP";
+                case ConversionFormat.StepWithDate: return "STEP with Date";
+                case ConversionFormat.ParasolidWithDate: return "Parasolid with Date";
                 case ConversionFormat.Pdf: return "PDF";
                 case ConversionFormat.PdfWithDate: return "PDF with Date";
                 case ConversionFormat.PdfSameType: return "PDF - All sheets of same type";
@@ -64,7 +66,9 @@ namespace SolidEdgeConvert
             // is exactly the path that receives the completed file. No CAD calls
             // occur here, so invalid source types fail before connecting to COM.
             string name = FormatName(format);
-            bool nativeExport = format == ConversionFormat.Step || format == ConversionFormat.ParasolidExport;
+            bool stepExport = format == ConversionFormat.Step || format == ConversionFormat.StepWithDate;
+            bool parasolidExport = format == ConversionFormat.ParasolidExport || format == ConversionFormat.ParasolidWithDate;
+            bool nativeExport = stepExport || parasolidExport;
             string inputExtension = nativeExport ? ".par or .asm" : ".dft";
             // STL is offered for parts only; do not broaden the assembly menus.
             if (format == ConversionFormat.Stl) inputExtension = ".par";
@@ -87,18 +91,19 @@ namespace SolidEdgeConvert
                 throw new ArgumentException(name + " conversion requires a " + inputExtension + " file.");
             if (!File.Exists(fullPath))
                 throw new FileNotFoundException("The selected CAD file could not be found.", fullPath);
-            if (format == ConversionFormat.PdfWithDate || format == ConversionFormat.PdfWithDateSameType)
+            string outputExtension = stepExport ? ".stp" : parasolidExport ? ".x_t"
+                : format == ConversionFormat.Stl ? ".stl"
+                : format == ConversionFormat.Part || format == ConversionFormat.ParasolidPart ? ".par"
+                : IsAssembly(format) ? ".asm" : ".pdf";
+            if (format == ConversionFormat.PdfWithDate || format == ConversionFormat.PdfWithDateSameType
+                || format == ConversionFormat.StepWithDate || format == ConversionFormat.ParasolidWithDate)
             {
                 // Use a Gregorian YYYYMMDD suffix regardless of Windows locale.
                 // The caller freezes the local date once for the whole batch.
                 return Path.Combine(Path.GetDirectoryName(fullPath), Path.GetFileNameWithoutExtension(fullPath)
-                    + " " + (exportDate ?? DateTime.Today).ToString("yyyyMMdd", CultureInfo.InvariantCulture) + ".pdf");
+                    + " " + (exportDate ?? DateTime.Today).ToString("yyyyMMdd", CultureInfo.InvariantCulture) + outputExtension);
             }
-            return Path.ChangeExtension(fullPath, format == ConversionFormat.Step ? ".stp"
-                : format == ConversionFormat.ParasolidExport ? ".x_t"
-                : format == ConversionFormat.Stl ? ".stl"
-                : format == ConversionFormat.Part || format == ConversionFormat.ParasolidPart ? ".par"
-                : IsAssembly(format) ? ".asm" : ".pdf");
+            return Path.ChangeExtension(fullPath, outputExtension);
         }
 
         internal static bool IsPdf(ConversionFormat format)
@@ -141,7 +146,10 @@ namespace SolidEdgeConvert
             // on an STA thread because Solid Edge/global translator state is shared.
             string output = OutputPath(source, format, exportDate);
             string formatName = FormatName(format);
-            bool useStepAdapter = format == ConversionFormat.Step || format == ConversionFormat.Part || format == ConversionFormat.StepAssembly;
+            // Dated model exports use the identical native translator path; only
+            // OutputPath changes. Parasolid must never touch STEP or PDF settings.
+            bool useStepAdapter = format == ConversionFormat.Step || format == ConversionFormat.StepWithDate
+                || format == ConversionFormat.Part || format == ConversionFormat.StepAssembly;
             source = Path.GetFullPath(source);
             if (File.Exists(output) && !replaceExisting)
                 throw new IOException("The " + formatName + " file already exists. Conversion was cancelled.");

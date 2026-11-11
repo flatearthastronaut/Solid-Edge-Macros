@@ -92,6 +92,14 @@ namespace SolidEdgeConvert
     public sealed class PdfWithoutGrindStockSelectionCommand : SelectionCommand
     { public PdfWithoutGrindStockSelectionCommand() : base(ConversionFormat.PdfWithoutGrindStock) { } }
 
+    [ComVisible(true), Guid(ShellMenu.DatedStepClass), ClassInterface(ClassInterfaceType.None)]
+    public sealed class DatedStepSelectionCommand : SelectionCommand
+    { public DatedStepSelectionCommand() : base(ConversionFormat.StepWithDate) { } }
+
+    [ComVisible(true), Guid(ShellMenu.DatedParasolidClass), ClassInterface(ClassInterfaceType.None)]
+    public sealed class DatedParasolidSelectionCommand : SelectionCommand
+    { public DatedParasolidSelectionCommand() : base(ConversionFormat.ParasolidWithDate) { } }
+
     internal sealed class ShellServer : ApplicationContext
     {
         private static ShellServer current;
@@ -122,6 +130,8 @@ namespace SolidEdgeConvert
                 cookies.Add(registration.RegisterTypeForComClients(typeof(PdfSameTypeSelectionCommand), RegistrationClassContext.LocalServer, RegistrationConnectionType.MultipleUse));
                 cookies.Add(registration.RegisterTypeForComClients(typeof(DatedPdfSameTypeSelectionCommand), RegistrationClassContext.LocalServer, RegistrationConnectionType.MultipleUse));
                 cookies.Add(registration.RegisterTypeForComClients(typeof(PdfWithoutGrindStockSelectionCommand), RegistrationClassContext.LocalServer, RegistrationConnectionType.MultipleUse));
+                cookies.Add(registration.RegisterTypeForComClients(typeof(DatedStepSelectionCommand), RegistrationClassContext.LocalServer, RegistrationConnectionType.MultipleUse));
+                cookies.Add(registration.RegisterTypeForComClients(typeof(DatedParasolidSelectionCommand), RegistrationClassContext.LocalServer, RegistrationConnectionType.MultipleUse));
                 // A small idle grace period lets Explorer finish using its proxy.
                 // No CAD work runs on this thread, and busy batches cannot expire.
                 idle.Interval = 1000;

@@ -762,6 +762,75 @@ internal static class RegressionTests
                 Equal(expected, Path.GetDirectoryName(s.ImportPath));
                 Check(!Directory.Exists(expected), "Failed conversion left an unused folder");
             });
+            Test("dated model names use one space and Gregorian YYYYMMDD for parts and assemblies", delegate {
+                System.Globalization.CultureInfo prior = System.Threading.Thread.CurrentThread.CurrentCulture;
+                try {
+                    System.Threading.Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("th-TH");
+                    foreach (ConversionFormat format in new[] { ConversionFormat.StepWithDate, ConversionFormat.ParasolidWithDate }) {
+                        string extension = format == ConversionFormat.StepWithDate ? ".stp" : ".x_t";
+                        foreach (string input in new[] { source, assemblySource })
+                            Equal(Path.Combine(folder, Path.GetFileNameWithoutExtension(input) + " 20310203" + extension), Conversion.OutputPath(input, format, exportDate));
+                        ExpectFailure(delegate { Conversion.OutputPath(draft, format); });
+                        ExpectFailure(delegate { Conversion.OutputPath(stepSource, format); });
+                    }
+                } finally { System.Threading.Thread.CurrentThread.CurrentCulture = prior; }
+            });
+            Test("dated model exports retain native translator settings and undated files", delegate {
+                foreach (ConversionFormat format in new[] { ConversionFormat.StepWithDate, ConversionFormat.ParasolidWithDate })
+                foreach (string input in new[] { source, assemblySource }) foreach (bool enabled in new[] { false, true }) {
+                    bool step = format == ConversionFormat.StepWithDate;
+                    string undated = Path.ChangeExtension(input, step ? ".stp" : ".x_t");
+                    string original = File.ReadAllText(input); File.WriteAllText(undated, "undated export");
+                    FakeSession s = new FakeSession(enabled) { RejectStepAccess = !step, RejectPdfAccess = true };
+                    string result = Conversion.Run(input, true, delegate { return s; }, delegate { }, format, exportDate);
+                    Equal(step ? ".stp" : ".x_t", s.SavedExtension); Equal(enabled, s.Adapter);
+                    Equal(step ? "STEP data" : "Parasolid data", File.ReadAllText(result));
+                    Check(s.Events.Contains("open") && !s.Events.Contains("import-step-assembly") && s.ImportPath == null, "Wrong model export route");
+                    Check(s.PartClosed && s.PartDisposed && s.Disposed, "Dated export leaked resources");
+                    Equal("undated export", File.ReadAllText(undated)); Equal(original, File.ReadAllText(input));
+                }
+            });
+            Test("failed dated model exports preserve prior files and clean staging", delegate {
+                foreach (ConversionFormat format in new[] { ConversionFormat.StepWithDate, ConversionFormat.ParasolidWithDate })
+                foreach (FakeSession s in new[] { new FakeSession(false) { FailSave = true }, new FakeSession(false) { FailClose = true }, new FakeSession(false) { EmptyOutput = true } }) {
+                    string target = Conversion.OutputPath(source, format, exportDate); File.WriteAllText(target, "previous dated export");
+                    s.RejectStepAccess = format == ConversionFormat.ParasolidWithDate; s.RejectPdfAccess = true;
+                    ExpectFailure(delegate { Conversion.Run(source, true, delegate { return s; }, delegate { }, format, exportDate); });
+                    Equal("previous dated export", File.ReadAllText(target)); Equal(false, s.Adapter);
+                    Equal(0, Directory.GetFiles(folder, "." + Path.GetFileNameWithoutExtension(target) + ".*" + Path.GetExtension(target)).Length);
+                }
+            });
+            Test("dated model batches share one date and support skipping and collisions", delegate {
+                foreach (ConversionFormat format in new[] { ConversionFormat.StepWithDate, ConversionFormat.ParasolidWithDate }) {
+                    List<BatchItem> results = BatchConversion.Run(new[] { source, draft, assemblySource }, format, ExistingOutput.Replace,
+                        delegate { return new FakeSession(false) { RejectPdfAccess = true }; }, delegate { }, exportDate);
+                    Check(results[0].Error == null && results[1].Error != null && results[2].Error == null, "Batch continuation failed");
+                    foreach (int index in new[] { 0, 2 }) Check(Path.GetFileNameWithoutExtension(results[index].Output).EndsWith(" 20310203"), "Batch date changed");
+                    List<BatchItem> skipped = BatchConversion.Run(new[] { source, assemblySource }, format, ExistingOutput.Skip,
+                        delegate { throw new Exception("Skipped file must not connect"); }, delegate { }, exportDate);
+                    Check(skipped[0].Skipped && skipped[1].Skipped, "Existing dated outputs not skipped");
+                    string sameName = Path.ChangeExtension(source, ".asm"); File.WriteAllText(sameName, "assembly");
+                    List<BatchItem> collision = BatchConversion.Run(new[] { source, sameName }, format, ExistingOutput.Replace,
+                        delegate { return new FakeSession(false); }, delegate { }, exportDate);
+                    Check(collision[0].Error == null && collision[1].Error != null, "Dated model collision not detected");
+                }
+            });
+            Test("dated model commands and COM handlers select the correct route", delegate {
+                Equal("\"C:\\Tools & CAD\\Convert.exe\" --step-date \"%1\"", ShellMenu.Command(@"C:\Tools & CAD\Convert.exe", ConversionFormat.StepWithDate));
+                Equal("\"C:\\Tools & CAD\\Convert.exe\" --parasolid-date \"%1\"", ShellMenu.Command(@"C:\Tools & CAD\Convert.exe", ConversionFormat.ParasolidWithDate));
+                Equal(new Guid(ShellMenu.DatedStepClass), typeof(DatedStepSelectionCommand).GUID);
+                Equal(new Guid(ShellMenu.DatedParasolidClass), typeof(DatedParasolidSelectionCommand).GUID);
+                System.Reflection.FieldInfo route = typeof(SelectionCommand).GetField("format", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                Equal(ConversionFormat.StepWithDate, route.GetValue(new DatedStepSelectionCommand()));
+                Equal(ConversionFormat.ParasolidWithDate, route.GetValue(new DatedParasolidSelectionCommand()));
+            });
+            Test("same-day dated model outputs cannot be replaced without approval", delegate {
+                foreach (ConversionFormat format in new[] { ConversionFormat.StepWithDate, ConversionFormat.ParasolidWithDate }) {
+                    string target = Conversion.OutputPath(source, format, exportDate); File.WriteAllText(target, "keep dated export");
+                    ExpectFailure(delegate { Conversion.Run(source, false, delegate { throw new Exception("Refused replacement must not connect"); }, delegate { }, format, exportDate); });
+                    Equal("keep dated export", File.ReadAllText(target));
+                }
+            });
             Console.WriteLine("Passed " + passed + " regression tests.");
             return 0;
         }

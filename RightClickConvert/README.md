@@ -1,8 +1,10 @@
-# Solid Edge Convert 1.14
+# Solid Edge Convert 1.15
+
+Version 1.15 adds **Convert > STEP with Date (.stp)** and **Convert > Parasolid with Date (.x_t)** for Solid Edge parts and assemblies. Select one or more `.par`/`.asm` files; `Bracket.par` produces `Bracket YYYYMMDD.stp` or `Bracket YYYYMMDD.x_t`. Exactly one space precedes the Gregorian date. The local date is captured once for the whole selection, including the overwrite prompt. Existing same-day outputs use the normal replace/skip/cancel choices; undated exports remain separate. These choices use the same native export settings and cleanup as their undated equivalents. Run **Install menus** after upgrading on other machines.
 
 Version 1.14 names each imported assembly folder exactly after the source model: `Bracket.step` produces `Bracket.asm` and a folder named `Bracket`. No Components label, number, or random ID is added. This applies to STEP and Parasolid assembly imports. If the folder name is already occupied (even by an empty folder), conversion reports an error before opening CAD and leaves existing contents unchanged. Existing folders from older releases are not renamed.
 
-The release is **`Compiled Executables\SolidEdgeConvert-v1.14.exe`**. Windows Properties → Details reports file/product version **1.14.0.0**, and the setup and conversion windows show **v1.14**. The custom CAD cube/conversion-arrow icon is retained.
+The release is **`Compiled Executables\SolidEdgeConvert-v1.15.exe`**. Windows Properties → Details reports file/product version **1.15.0.0**, and the setup and conversion windows show **v1.15**. The custom CAD cube/conversion-arrow icon is retained.
 
 The build also produces a byte-identical **`SolidEdgeConvert.exe`** so existing menus registered to that filename keep working. Either executable is standalone; the icon is embedded at six sizes from 16 to 256 pixels. To deploy the versioned filename on another machine, keep it in a permanent folder, launch it, and click **Install menus** to register that path.
 
@@ -47,7 +49,7 @@ Parasolid files (`.x_t` text or `.x_b` binary) have two choices: **Convert > Sol
 
 Solid Edge must be installed and licensed. The converter connects to the running application or starts it if needed. Solid Edge remains running afterwards, as it does with Batch.
 
-Run the executable again and click **Remove menus** to uninstall all seven file-extension menus and their twelve COM registrations. If you move the executable, run it from the new location and click **Install menus** again. No file associations or other programs' menus are changed. Run **Install menus** after upgrading to add the PDF sheet choices.
+Run the executable again and click **Remove menus** to uninstall all seven file-extension menus and their fourteen COM registrations. If you move the executable, run it from the new location and click **Install menus** again. No file associations or other programs' menus are changed. Run **Install menus** after upgrading to add the PDF sheet choices.
 
 Command-line alternatives (quote paths containing spaces):
 
@@ -57,6 +59,8 @@ SolidEdgeConvert.exe --uninstall
 SolidEdgeConvert.exe --step "C:\CAD\Bracket.par"
 SolidEdgeConvert.exe --parasolid "C:\CAD\Part1.par" "C:\CAD\Assembly1.asm"
 SolidEdgeConvert.exe --stl "C:\CAD\Part1.par" "C:\CAD\Part2.par"
+SolidEdgeConvert.exe --step-date "C:\CAD\Part1.par" "C:\CAD\Assembly1.asm"
+SolidEdgeConvert.exe --parasolid-date "C:\CAD\Part1.par" "C:\CAD\Assembly1.asm"
 SolidEdgeConvert.exe --pdf "C:\CAD\Drawing.dft"
 SolidEdgeConvert.exe --step "C:\CAD\Part1.par" "C:\CAD\Assembly1.asm"
 SolidEdgeConvert.exe --pdf "C:\CAD\Drawing1.dft" "C:\CAD\Drawing2.dft"
@@ -99,6 +103,8 @@ The tool reuses an open, saved part, assembly, or draft without closing it. An o
 The per-user cascading menus use `HKCU\Software\Classes\SystemFileAssociations\.par\shell\SolidEdgeMacros.Convert` and the equivalent `.asm`, `.dft`, `.stp`, `.step`, `.x_t`, and `.x_b` keys. Both levels specify `MultiSelectModel=Player`. Each subcommand's `DelegateExecute` activates a per-user local COM server in the same executable. `IObjectWithSelection` receives the whole selection as an `IShellItemArray`; `IExecuteCommand` queues a single batch. This avoids launching a process for every filename and avoids command-line selection truncation. The converter does not load a managed DLL into Explorer. It retires its server after 60 seconds without requests or an open batch/results window. Wait for that idle exit before rebuilding/replacing the executable if Windows reports it is in use.
 
 Server class IDs under `HKCU\Software\Classes\CLSID`:
+- STEP with Date: `{D376E185-40EA-4CB4-9892-C0F5348FE763}`
+- Parasolid with Date: `{916DB9EF-2CB4-447F-9367-8A7212D99047}`
 - STEP: `{B84A6BE1-A4D2-4CD2-A1AE-60EAA476AD11}`
 - PDF, same type: `{2240657E-EB65-4490-938E-A86F51D8DE87}`
 - PDF with Date, same type: `{6AF4605B-E0A4-4DF7-8020-7A2B87FA506C}`
@@ -112,13 +118,15 @@ Server class IDs under `HKCU\Software\Classes\CLSID`:
 - Parasolid to Part: `{263031DD-6A5B-4776-B4BC-39EB97D16A95}`
 - Parasolid to Assembly: `{826FDBF0-726C-4EE8-B8B2-AE63E63ACAF9}`
 
-The `LocalServer32` command is the quoted executable path followed by `--shell-server`. Registration and removal affect only those twelve classes and the converter's seven menu keys. This internal server switch is not a user-facing conversion command.
+The `LocalServer32` command is the quoted executable path followed by `--shell-server`. Registration and removal affect only those fourteen classes and the converter's seven menu keys. This internal server switch is not a user-facing conversion command.
 
 References: [Microsoft ExecuteCommand sample](https://learn.microsoft.com/en-us/windows/win32/shell/samples-executecommandverb), [verb selection models](https://learn.microsoft.com/en-us/windows/win32/shell/how-to-employ-the-verb-selection-model), [cascading menus](https://learn.microsoft.com/en-us/windows/win32/shell/how-to-create-cascading-menus-with-the-extendedsubcommandskey-registry-entry), and [Windows 11 context menus](https://blogs.windows.com/blog/2021/07/19/extending-the-context-menu-and-share-dialog-in-windows-11/).
 
 ## Build and test
 
-Run `Build.cmd` on 64-bit Windows with .NET Framework 4.x installed. It creates `Compiled Executables\SolidEdgeConvert-v1.14.exe` and the identical compatibility copy `Compiled Executables\SolidEdgeConvert.exe`. No package downloads, Visual Studio, or redistributed Siemens interop assemblies are required.
+Run `Build.cmd` on 64-bit Windows with .NET Framework 4.x installed. It creates `Compiled Executables\SolidEdgeConvert-v1.15.exe` and the identical compatibility copy `Compiled Executables\SolidEdgeConvert.exe`. No package downloads, Visual Studio, or redistributed Siemens interop assemblies are required.
+
+Version 1.15 validation: all 104 regression tests and release-branding checks passed. Dated model tests cover parts and assemblies, Gregorian formatting under a non-Gregorian locale, preservation of undated files and sources, native translator routing, restored settings, failure cleanup, batch dates/skipping/collisions, and distinct COM handler routes. Live CAD geometry exports were not rerun because these options reuse the existing exporters.
 
 Version 1.14 validation: all 98 regression tests and branding checks passed. Checks cover exact model-name folders for both assembly import routes, rejection of file/empty-folder collisions, one successful reservation under concurrent requests, preserved prior components, and cleanup after failure. Live CAD translation was not rerun for this naming change.
 
