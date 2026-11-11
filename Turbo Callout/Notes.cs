@@ -110,7 +110,19 @@ namespace TurboCallout
                 text = Regex.Replace(text, @"(?<=DRILL )(?:(?:%\{%HD[^{}]*\} DP\.)|THRU)", "%ZH");
             text = FormatFields(text, dual);
             // Native BalloonText uses carriage returns, not the table's %RT.
-            return new NotePlan { Text = text.Replace("%RT", "\r"), Category = choice.Category, InchPlaces = places, Dual = dual };
+            return new NotePlan { Text = EnsureTypical(text.Replace("%RT", "\r")), Category = choice.Category, InchPlaces = places, Dual = dual };
+        }
+
+        internal static bool HasTypical(string text)
+        { return Regex.IsMatch(text ?? "", @"(?:^|\r|\n|%RT)\s*TYP\b", RegexOptions.IgnoreCase); }
+
+        internal static string EnsureTypical(string text)
+        {
+            // Keep an existing TYP line verbatim, including its quantity or
+            // punctuation. A separate PLC'S line does not replace the requested
+            // TYP line. Append the native field without changing existing text.
+            if (String.IsNullOrWhiteSpace(text) || HasTypical(text)) return text;
+            return text + (text.EndsWith("\r", StringComparison.Ordinal) || text.EndsWith("\n", StringComparison.Ordinal) ? "" : "\r") + "TYP(%QC)";
         }
 
         static bool IsPlainDrill(HoleFacts hole)

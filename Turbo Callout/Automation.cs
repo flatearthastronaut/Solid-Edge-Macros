@@ -4,6 +4,10 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
+using TYPEATTR = System.Runtime.InteropServices.ComTypes.TYPEATTR;
+using FUNCDESC = System.Runtime.InteropServices.ComTypes.FUNCDESC;
+using INVOKEKIND = System.Runtime.InteropServices.ComTypes.INVOKEKIND;
 using System.Text;
 using HoleTableFormatter;
 
@@ -50,13 +54,9 @@ namespace TurboCallout
             object style = null;
             try
             {
-                // All released versions assign this private GUID style. Limit
-                // rerun repairs to our notes; keep other existing notes alone.
                 style = ((dynamic)note).Style;
                 string name = (string)((dynamic)style).Name;
-                const string prefix = "Turbo Callout "; Guid id;
-                return name != null && name.StartsWith(prefix, StringComparison.Ordinal) &&
-                    Guid.TryParseExact(name.Substring(prefix.Length), "N", out id);
+                return NoteStyles.IsManaged(name);
             }
             finally { Com.Release(style); }
         }
@@ -176,46 +176,199 @@ namespace TurboCallout
         }
     }
 
-    internal static class NoteStyles
+    // Read the running Solid Edge version's scalar formatting properties. Using
+    // its type information avoids a partial comparison that could merge styles
+    // with different fonts, tolerances, Smart Depth definitions or later-added
+    // settings. Name and Parent identify a style, not its effective formatting.
+    [ComImport, Guid("00020400-0000-0000-C000-000000000046"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    internal interface IStyleDispatch
     {
-        // Balloon.Style exposes some format setters that Solid Edge rejects.
-        // Make a private document style, then assign its name to the annotation.
-        // The source style and every other annotation remain untouched. Copy
-        // local presentation overrides before changing units on the new style.
+        void GetTypeInfoCount(out uint count);
+        void GetTypeInfo(uint index, uint locale, out ITypeInfo info);
+    }
+    internal sealed class StyleValues
+    {
+        internal readonly Dictionary<string, object> Values = new Dictionary<string, object>(StringComparer.Ordinal);
+        static readonly Dictionary<Guid, string[]> names = new Dictionary<Guid, string[]>();
+        static string[] Names(object style)
+        {
+            ITypeInfo info = null; IntPtr attr = IntPtr.Zero;
+            try
+            {
+                ((IStyleDispatch)style).GetTypeInfo(0, 0, out info); info.GetTypeAttr(out attr);
+                TYPEATTR type = (TYPEATTR)Marshal.PtrToStructure(attr, typeof(TYPEATTR));
+                string[] result; if (names.TryGetValue(type.guid, out result)) return result;
+                var gets = new HashSet<string>(); var puts = new HashSet<string>();
+                for (int i = 0; i < type.cFuncs; i++)
+                {
+                    IntPtr pointer = IntPtr.Zero;
+                    try
+                    {
+                        info.GetFuncDesc(i, out pointer);
+                        FUNCDESC func = (FUNCDESC)Marshal.PtrToStructure(pointer, typeof(FUNCDESC));
+                        string name, doc, help; int context;
+                        info.GetDocumentation(func.memid, out name, out doc, out context, out help);
+                        if (func.invkind == INVOKEKIND.INVOKE_PROPERTYGET && func.cParams == 0) gets.Add(name);
+                        if (func.invkind == INVOKEKIND.INVOKE_PROPERTYPUT && func.cParams == 1) puts.Add(name);
+                    }
+                    finally { if (pointer != IntPtr.Zero) info.ReleaseFuncDesc(pointer); }
+                }
+                result = gets.Intersect(puts).Where(n => n != "Name" && n != "Parent").OrderBy(n => n, StringComparer.Ordinal).ToArray();
+                if (result.Length < 100) throw new InvalidOperationException("Cannot inspect the complete dimension-style format.");
+                names.Add(type.guid, result); return result;
+            }
+            finally { if (attr != IntPtr.Zero) info.ReleaseTypeAttr(attr); Com.Release(info); }
+        }
+        internal StyleValues(object style)
+        {
+            foreach (string name in Names(style))
+            {
+                object value;
+                try { value = Property.Get(style, name); }
+                catch (InvalidOperationException error)
+                {
+                    // The type library still advertises removed members such
+                    // as AutoCenterLine. Omit only explicitly unavailable
+                    // properties, on both sides of the comparison; transient
+                    // and other errors must fail instead of allowing a match.
+                    var com = error.GetBaseException() as COMException;
+                    if (com != null && (com.ErrorCode == unchecked((int)0x80020003) || com.ErrorCode == unchecked((int)0x80004002))) continue;
+                    throw;
+                }
+                if (value != null && !(value is string) && !value.GetType().IsValueType)
+                { Com.Release(value); throw new InvalidOperationException("Unsupported style setting: " + name); }
+                Values.Add(name, value);
+            }
+        }
+        internal bool Matches(StyleValues other)
+        { return Values.Count == other.Values.Count && Values.All(p => other.Values.ContainsKey(p.Key) && Property.Equal(p.Value, other.Values[p.Key])); }
+        internal void Restore(object style)
+        {
+            foreach (var p in Values) if (!Property.Equal(Property.Get(style, p.Key), p.Value)) Property.Set(style, p.Key, p.Value);
+            if (!Matches(new StyleValues(style))) throw new InvalidOperationException("Callout formatting changed.");
+        }
+    }
+
+    internal sealed class NoteStyles : IDisposable
+    {
+        readonly object styles;
+        readonly Dictionary<string, StyleValues> reusable = new Dictionary<string, StyleValues>(StringComparer.Ordinal);
+        readonly HashSet<string> known = new HashSet<string>(StringComparer.Ordinal);
+        readonly List<string> legacy = new List<string>();
+        internal static bool IsLegacy(string name)
+        { const string prefix = "Turbo Callout "; Guid id; return name != null && name.StartsWith(prefix, StringComparison.Ordinal) && Guid.TryParseExact(name.Substring(prefix.Length), "N", out id); }
+        internal static bool IsManaged(string name)
+        { return IsLegacy(name) || System.Text.RegularExpressions.Regex.IsMatch(name ?? "", @"^Turbo Callout - (Inch|Dual) \d+dp(?: \(\d+\))?$"); }
+        internal NoteStyles(object draft)
+        {
+            styles = ((dynamic)draft).DimensionStyles;
+            try
+            {
+                for (int i = 1; i <= (int)((dynamic)styles).Count; i++)
+                {
+                    object style = null;
+                    try
+                    {
+                        style = ((dynamic)styles).Item(i); string name = (string)((dynamic)style).Name; known.Add(name);
+                        if (IsLegacy(name)) legacy.Add(name);
+                        else if (IsManaged(name)) reusable.Add(name, new StyleValues(style));
+                    }
+                    finally { Com.Release(style); }
+                }
+            }
+            catch { Com.Release(styles); throw; }
+        }
+        // Native local setters reject some unit/precision changes. Configure a
+        // temporary document style, then reuse a fully matching named style.
+        // Only distinct complete formats remain; a GUID style never survives a
+        // successful fill. Existing standard styles are never modified.
         static readonly string[] Presentation = { "Height", "TextWeight", "Font", "FontStyle", "TextOrientation", "TextPosition",
             "LimitTextArrangement", "ToleranceHeightRatio", "TerminatorType", "TerminatorDisplay", "OriginTerminatorType",
             "FreeSpaceTerminatorType", "TerminatorSize", "TerminatorInsideLimit", "LeaderLineLength", "TextClearanceGap",
             "DrivingColor", "DrivenColor", "ErrorColor", "TextAutoFillBackground", "SymbolFont", "PrimaryLeadingZeros",
             "PrimaryTrailingZeros", "SecondaryLeadingZeros", "SecondaryTrailingZeros", "PrimaryUnits", "SecondaryUnits",
             "PrimaryDecimalRoundOff", "SecondaryDecimalRoundOff" };
-        internal static object Create(object note, object local, NotePlan plan, out object styles, out string name)
+        object Find(string name)
         {
-            object doc = null, created = null; styles = null; name = "Turbo Callout " + Guid.NewGuid().ToString("N");
+            // DimensionStyles.Item accepts a VARIANT but current Solid Edge
+            // rejects style-name keys. Enumerate its supported numeric indices.
+            for (int i = 1; i <= (int)((dynamic)styles).Count; i++)
+            {
+                object value = ((dynamic)styles).Item(i); bool found = false;
+                try { found = (string)((dynamic)value).Name == name; if (found) return value; }
+                finally { if (!found) Com.Release(value); }
+            }
+            throw new InvalidOperationException("Source dimension style not found: " + name);
+        }
+        internal string Acquire(object local, NotePlan plan, out bool created)
+        {
+            object candidate = null, source = null; string scratch = "Turbo Callout Temporary " + Guid.NewGuid().ToString("N");
+            bool temporary = false; created = false; string step = "read source";
             try
             {
-                doc = ((dynamic)note).Document; styles = ((dynamic)doc).DimensionStyles;
-                created = ((dynamic)styles).Add(name, (string)((dynamic)local).Name);
-                foreach (string property in Presentation) Property.Set(created, property, Property.Get(local, property));
-                new UnitStyle(created, plan).Apply(created);
-                return created;
+                string original = (string)((dynamic)local).Name;
+                if (plan == null && reusable.ContainsKey(original)) return original;
+                source = Find(original);
+                var sourceFormat = new StyleValues(source);
+                step = "create temporary style";
+                candidate = ((dynamic)styles).Add(scratch, original); temporary = true;
+                // Retain the original inheritance instead of making obsolete
+                // GUID styles parents of the new shared styles.
+                step = "retain original parent";
+                try { Property.Set(candidate, "Parent", Property.Get(source, "Parent")); }
+                catch (InvalidOperationException error)
+                {
+                    var com = error.GetBaseException() as COMException;
+                    if (com == null || com.ErrorCode != unchecked((int)0x80040B54)) throw; // root style has no parent
+                }
+                // Assigning Parent can reset overrides to inherited values.
+                // Restore the source's complete effective format before any
+                // requested unit edits or pooling comparisons.
+                sourceFormat.Restore(candidate);
+                if (plan != null)
+                {
+                    step = "apply presentation and units";
+                    foreach (string property in Presentation) Property.Set(candidate, property, Property.Get(local, property));
+                    new UnitStyle(candidate, plan).Apply(candidate);
+                }
+                step = "compare complete style"; var format = new StyleValues(candidate);
+                foreach (var entry in reusable) if (entry.Value.Matches(format)) return entry.Key;
+                bool dual = (bool)Property.Get(candidate, "DualDisplay");
+                int digits = Convert.ToInt32(Property.Get(candidate, dual ? "SecondaryDecimalRoundOff" : "PrimaryDecimalRoundOff")) - 2;
+                string label = "Turbo Callout - " + (dual ? "Dual" : "Inch") + " " + digits + "dp", name = label; int suffix = 2;
+                while (known.Contains(name)) name = label + " (" + suffix++ + ")";
+                step = "name shared style"; ((dynamic)candidate).Name = name; temporary = false;
+                known.Add(name); reusable.Add(name, format); created = true; return name;
             }
-            catch
+            catch (Exception error) { throw new InvalidOperationException("Cannot " + step + ": " + error.Message, error); }
+            finally
             {
-                Com.Release(created);
-                if (styles != null) { try { ((dynamic)styles).Remove(name); } catch { } }
-                throw;
+                try { if (temporary) ((dynamic)styles).Remove(scratch); }
+                finally { Com.Release(source); Com.Release(candidate); }
             }
-            finally { Com.Release(doc); }
         }
+        internal void RemoveCreated(string name)
+        { ((dynamic)styles).Remove(name); reusable.Remove(name); known.Remove(name); }
+        internal void Cleanup(RunReport report)
+        {
+            // Solid Edge refuses to remove an in-use dimension style. That
+            // safeguard also protects dimensions, other annotation types,
+            // background sheets, and style inheritance outside this scan.
+            foreach (string name in legacy)
+                try { ((dynamic)styles).Remove(name); report.StylesRemoved++; }
+                catch (COMException) { report.StylesKept++; }
+            if (report.StylesKept > 0) report.Details.Add(report.StylesKept + " old styles are still in use and were retained.");
+        }
+        public void Dispose() { Com.Release(styles); }
     }
 
     internal sealed class RunReport
     {
-        internal int Blank, Filled, AlignedExisting, Review, Errors;
+        internal int Blank, Filled, AlignedExisting, UpdatedExisting, StylesRemoved, StylesKept, Review, Errors;
         internal readonly List<string> Details = new List<string>();
         public override string ToString()
         {
-            return String.Format("{0} blank callouts found.\r\n{1} filled; {4} existing notes aligned; {2} need review; {3} errors.\r\n\r\nReview the drawing, then save it in Solid Edge.\r\n", Blank, Filled, Review, Errors, AlignedExisting) +
+            return String.Format("{0} blank callouts found.\r\n{1} filled; {4} existing notes aligned; {5} existing notes updated; {6} old styles removed; {2} need review; {3} errors.\r\n\r\nReview the drawing, then save it in Solid Edge.\r\n", Blank, Filled, Review, Errors, AlignedExisting, UpdatedExisting, StylesRemoved) +
                 String.Join("\r\n", Details);
         }
     }
@@ -252,6 +405,7 @@ namespace TurboCallout
         {
             if (draft == null || (int)((dynamic)draft).Type != 2) throw new InvalidOperationException("Activate a Solid Edge draft (.dft).");
             var report = new RunReport(); object sheets = null;
+            using (var catalog = new NoteStyles(draft))
             try
             {
                 sheets = ((dynamic)draft).Sheets;
@@ -273,15 +427,18 @@ namespace TurboCallout
                                 note = ((dynamic)notes).Item(ni); if (!IsCallout(note)) continue;
                                 if (!IsBlank(note))
                                 {
-                                    if (NoteAlignment.IsExistingMacroNote(note) && NoteAlignment.Apply(note))
-                                    { report.AlignedExisting++; report.Details.Add(label + ": aligned existing Turbo Callout note."); }
+                                    if (NoteAlignment.IsExistingMacroNote(note))
+                                    {
+                                        if (Maintain(note, catalog)) { report.UpdatedExisting++; report.Details.Add(label + ": updated existing Turbo Callout note."); }
+                                        if (NoteAlignment.Apply(note)) { report.AlignedExisting++; report.Details.Add(label + ": aligned existing Turbo Callout note."); }
+                                    }
                                     continue;
                                 }
                                 report.Blank++; if (progress != null) progress("Checking " + label + "...");
                                 NotePlan plan;
                                 try { plan = Notes.Build(rules, reader.Read(note), dual); }
                                 catch (Exception error) { report.Review++; report.Details.Add(label + " unchanged: " + error.Message); continue; }
-                                Fill(note, plan);
+                                Fill(note, plan, catalog);
                                 report.Filled++; report.Details.Add(label + ": " + plan.Category);
                             }
                             catch (Exception error) { report.Errors++; report.Details.Add(label + ": " + error.Message); }
@@ -291,6 +448,7 @@ namespace TurboCallout
                     catch (Exception error) { report.Errors++; report.Details.Add("Sheet " + si + ": " + error.Message); }
                     finally { Com.Release(notes); Com.Release(sheet); }
                 }
+                catalog.Cleanup(report);
             }
             finally { Com.Release(sheets); }
             return report;
@@ -298,41 +456,97 @@ namespace TurboCallout
 
         internal static void Fill(object note, NotePlan plan)
         {
-            if (!IsBlank(note)) throw new InvalidOperationException("Callout is no longer blank; left unchanged.");
-            object style = null, styles = null, created = null;
-            string createdName = null;
+            object draft = null;
+            try { draft = ((dynamic)note).Document; using (var catalog = new NoteStyles(draft)) Fill(note, plan, catalog); }
+            finally { Com.Release(draft); }
+        }
+
+        static bool Maintain(object note, NoteStyles catalog)
+        {
+            object style = null; string name = null; bool created = false;
             try
             {
-                var placement = new Placement(note);
-                int? alignment = NoteAlignment.Target(note);
-                style = ((dynamic)note).Style;
-                string originalName = (string)((dynamic)style).Name;
-                string before = (string)((dynamic)note).BalloonText;
+                style = ((dynamic)note).Style; string original = (string)((dynamic)style).Name;
+                var format = new StyleValues(style); var position = new Placement(note);
+                string text = (string)((dynamic)note).BalloonText;
+                bool hasTypical = new[] { "BalloonText", "BalloonTextLower", "BalloonTextPrefix", "BalloonTextSuffix" }
+                    .Any(p => Notes.HasTypical(Convert.ToString(Property.Get(note, p))));
+                string updated = hasTypical ? text : Notes.EnsureTypical(text);
+                // Existing unattached notes can still consolidate their styles,
+                // but cannot acquire a quantity field with no model to count.
+                if (!(bool)((dynamic)note).IsTerminatorAttachedToEntity) updated = text;
                 try
                 {
-                    created = NoteStyles.Create(note, style, plan, out styles, out createdName);
-                    ((dynamic)style).Name = createdName;
-                    ((dynamic)note).BalloonText = plan.Text;
-                    placement.Restore(note, alignment);
-                    if ((string)((dynamic)note).BalloonText != plan.Text) throw new InvalidOperationException("Callout text was not retained.");
+                    name = catalog.Acquire(style, null, out created);
+                    if (name == original && updated == text) return false;
                     string displayed = (string)((dynamic)note).BalloonDisplayedText;
-                    if (String.IsNullOrWhiteSpace(displayed) || displayed.Contains("%{") || displayed.Contains("?"))
-                        throw new InvalidOperationException("Model-linked callout fields did not evaluate.");
-                    if (!(bool)((dynamic)note).IsTerminatorAttachedToEntity) throw new InvalidOperationException("Leader attachment was lost.");
+                    ((dynamic)style).Name = name; format.Restore(style); position.Restore(note);
+                    if ((string)((dynamic)note).BalloonText != text || (string)((dynamic)note).BalloonDisplayedText != displayed)
+                        throw new InvalidOperationException("Existing callout text changed while consolidating its style.");
+                    if (updated != text)
+                    {
+                        ((dynamic)note).BalloonText = updated; position.Restore(note);
+                        if ((string)((dynamic)note).BalloonText != updated) throw new InvalidOperationException("TYP line did not persist.");
+                        VerifyEvaluation(note);
+                    }
+                    return true;
                 }
                 catch (Exception error)
                 {
                     try
                     {
-                        ((dynamic)note).BalloonText = before; ((dynamic)style).Name = originalName; placement.Restore(note);
+                        ((dynamic)style).Name = original; format.Restore(style); ((dynamic)note).BalloonText = text; position.Restore(note);
+                        if (created) catalog.RemoveCreated(name);
+                    }
+                    catch (Exception rollback) { throw new InvalidOperationException("Update failed: " + error.Message + " Restoration needs review: " + rollback.Message, error); }
+                    throw new InvalidOperationException("Existing note restored: " + error.Message, error);
+                }
+            }
+            finally { Com.Release(style); }
+        }
+
+        static void VerifyEvaluation(object note)
+        {
+            string displayed = (string)((dynamic)note).BalloonDisplayedText;
+            if (String.IsNullOrWhiteSpace(displayed) || displayed.Contains("%{") || displayed.Contains("?"))
+                throw new InvalidOperationException("Model-linked callout fields did not evaluate.");
+            if (!(bool)((dynamic)note).IsTerminatorAttachedToEntity) throw new InvalidOperationException("Leader attachment was lost.");
+        }
+
+        static void Fill(object note, NotePlan plan, NoteStyles catalog)
+        {
+            if (!IsBlank(note)) throw new InvalidOperationException("Callout is no longer blank; left unchanged.");
+            object style = null; bool created = false; string createdName = null;
+            try
+            {
+                var placement = new Placement(note);
+                int? alignment = NoteAlignment.Target(note);
+                style = ((dynamic)note).Style;
+                var originalFormat = new StyleValues(style);
+                string originalName = (string)((dynamic)style).Name;
+                string before = (string)((dynamic)note).BalloonText;
+                try
+                {
+                    createdName = catalog.Acquire(style, plan, out created);
+                    ((dynamic)style).Name = createdName;
+                    ((dynamic)note).BalloonText = plan.Text;
+                    placement.Restore(note, alignment);
+                    if ((string)((dynamic)note).BalloonText != plan.Text) throw new InvalidOperationException("Callout text was not retained.");
+                    VerifyEvaluation(note);
+                }
+                catch (Exception error)
+                {
+                    try
+                    {
+                        ((dynamic)note).BalloonText = before; ((dynamic)style).Name = originalName; originalFormat.Restore(style); placement.Restore(note);
                         if ((string)((dynamic)note).BalloonText != before) throw new InvalidOperationException("Blank text could not be restored.");
-                        if (created != null) ((dynamic)styles).Remove(createdName);
+                        if (created) catalog.RemoveCreated(createdName);
                     }
                     catch (Exception rollback) { throw new InvalidOperationException("Fill failed: " + error.Message + " Restoration needs review: " + rollback.Message, error); }
                     throw new InvalidOperationException("Left blank after failed verification: " + error.Message, error);
                 }
             }
-            finally { Com.Release(created); Com.Release(styles); Com.Release(style); }
+            finally { Com.Release(style); }
         }
     }
 }

@@ -19,6 +19,7 @@ internal static class Tests
 {
     static int checks;
     static void Check(bool value,string text){checks++;if(!value)throw new Exception(text);}
+    static void Typical(NotePlan note){Check(note.Text.Split('\r').Count(line=>line=="TYP(%QC)")==1,"Generated note has exactly one native TYP quantity line");}
     static HoleFacts Facts(Preset p)
     {
         int type=p.Kind=="Simple"?1:p.Kind=="CounterBore"?2:p.Kind=="CounterDrill"?7:0;
@@ -38,6 +39,17 @@ internal static class Tests
     {
         try
         {
+            foreach(string text in new[]{"TYP(%QC)","SIZE\rTYP(2)","SIZE\r typ. (3) ","SIZE\nTYP (%QC)","SIZE%RTTYP(%QC)"})
+                Check(Notes.EnsureTypical(text)==text,"Preserve existing TYP line verbatim");
+            foreach(string text in new[]{"SIZE","SIZE\r(%QC)PLC'S EQ. SP. AS SHOWN","SIZE\r(FOR X S.H.C.S.)"})
+            {
+                string result=Notes.EnsureTypical(text);Check(result==text+"\rTYP(%QC)","Append one native TYP line without changing saved text");
+                Check(Notes.EnsureTypical(result)==result,"TYP append is idempotent");
+            }
+            Check(Notes.EnsureTypical("")=="","Do not turn empty text into a quantity-only note");
+            Check(NoteStyles.IsManaged("Turbo Callout - Dual 4dp")&&NoteStyles.IsManaged("Turbo Callout - Inch 3dp (2)"),"Recognize shared macro style names");
+            Check(NoteStyles.IsLegacy("Turbo Callout "+Guid.NewGuid().ToString("N")),"Recognize legacy GUID styles");
+            Check(!NoteStyles.IsManaged("Turbo Callout custom")&&!NoteStyles.IsManaged("Turbo Callout Temporary "+Guid.NewGuid().ToString("N")),"Protect unrelated styles");
             Check(NoteAlignment.ForBreakline(true,true,0)==0,"West breakline left-aligns the note");
             Check(NoteAlignment.ForBreakline(true,true,2)==2,"East breakline right-aligns the note");
             Check(NoteAlignment.ForBreakline(true,true,1)==null,"North breakline keeps alignment");
@@ -51,7 +63,7 @@ internal static class Tests
                 HoleFacts hole=Facts(p);Decision choice=book.Match(hole);Check(choice.IsDowel,"Recognize "+p.Name);
                 foreach(bool dual in new[]{false,true})
                 {
-                    NotePlan n=Notes.Build(book,hole,dual);Check(n.InchPlaces==4,"Dowel precision");
+                    NotePlan n=Notes.Build(book,hole,dual);Typical(n);Check(n.InchPlaces==4,"Dowel precision");
                     Check(n.Text.Contains(choice.Fit=="PF"?"P.F.":"S.F."),"Fit note");
                     Check(!n.Text.Contains("TYP(2)")&&!n.Text.Contains("FROM OPP."),"No guessed quantity or direction");
                     Check(!n.Text.Contains("/@"),"Metric precision independently controlled");
@@ -64,7 +76,7 @@ internal static class Tests
                 var hole=Facts(p);
                 foreach(bool dual in new[]{false,true})
                 {
-                    var note=Notes.Build(book,hole,dual);Check(note.Text.Contains("#"+p.Port),"Port size");
+                    var note=Notes.Build(book,hole,dual);Typical(note);Check(note.Text.Contains("#"+p.Port),"Port size");
                     Check(note.Text.Contains(hole.Type==8?"%TS":RuleBook.PortDesignation(p.Port)),"Correct thread source");
                     Check(note.InchPlaces==((p.Port==6||p.Port==8)?2:3),"SAE inch precision");
                     Check(note.Text.Contains("%BS")&&note.Text.Contains("%BD"),"Port dimensions stay native");
@@ -72,13 +84,16 @@ internal static class Tests
             }
             foreach(Preset p in book.Presets.Where(p=>p.Family=="O-ring face seal"))
             foreach(bool dual in new[]{false,true})
-            {var h=Facts(p);var n=Notes.Build(book,h,dual);Limits(n.Text,"BD",h.BoreDepth.Value,.050,.054,dual);}
+            {var h=Facts(p);var n=Notes.Build(book,h,dual);Typical(n);Limits(n.Text,"BD",h.BoreDepth.Value,.050,.054,dual);}
+            foreach(Preset p in book.Presets.Where(p=>p.Family=="Spring pin"))
+            foreach(bool dual in new[]{false,true})
+            {var n=Notes.Build(book,Facts(p),dual);Typical(n);Check(n.Text.Contains("(FOR 3/8 SPRING PIN)"),"Spring-pin purpose line retained with TYP");}
             foreach(Preset p in book.Presets.Where(p=>p.Family=="Koenig plug"))
             {
                 var h=Facts(p);h.BoreDepth=.27;
                 foreach(bool dual in new[]{false,true})
                 {
-                    var n=Notes.Build(book,h,dual);Check(n.Text.Split('\r').Count(s=>s==LinkedCallouts.KoenigNote)==1,"Exactly one Koenig caution");
+                    var n=Notes.Build(book,h,dual);Typical(n);Check(n.Text.Split('\r').Count(s=>s==LinkedCallouts.KoenigNote)==1,"Exactly one Koenig caution");
                     Check(n.Text.Contains("%BS")&&n.Text.Contains("%BD"),"Koenig size/depth linked");
                 }
             }
@@ -86,20 +101,20 @@ internal static class Tests
             foreach(Preset p in book.Presets.Where(p=>p.Family=="SHCS counterbore"))
             foreach(bool dual in new[]{false,true})
             {
-                var note=Notes.Build(book,Facts(p),dual);
+                var note=Notes.Build(book,Facts(p),dual);Typical(note);
                 Check(note.Text.Split('\r').Count(line=>line==equalSpacing)==1,"Counterbore retains exactly one saved equal-spacing quantity line");
                 Check(note.Text.Contains("%HS")&&note.Text.Contains("%BS")&&note.Text.Contains("%BD")&&note.Text.Contains("%ZH"),"Counterbore size and depths remain linked");
                 Check(note.Text.Split('\r').Count(line=>line=="(FOR X S.H.C.S.)")==1,"Counterbore retains exactly one literal saved screw-size line");
-                Check(note.Text.EndsWith(equalSpacing+"\r(FOR X S.H.C.S.)",StringComparison.Ordinal),"Counterbore keeps screw-size line after the quantity line");
+                Check(note.Text.EndsWith(equalSpacing+"\r(FOR X S.H.C.S.)\rTYP(%QC)",StringComparison.Ordinal),"Counterbore keeps screw-size and TYP lines after the quantity line");
                 Check(note.InchPlaces==2&&note.Dual==dual,"Counterbore precision and unit mode retained");
             }
             foreach(double? threadDepth in new double?[]{.88,null})
             foreach(bool dual in new[]{false,true})
             {
                 var hole=new HoleFacts{Type=4,Diameter=.4219,Depth=threadDepth.HasValue?(double?)1.08:null,Thread="1/2-13 UNC",ThreadDepth=threadDepth};
-                var note=Notes.Build(book,hole,dual);
+                var note=Notes.Build(book,hole,dual);Typical(note);
                 string saved=LinkedCallouts.ReadSaved(dual?"HC -THR'D M[I]":"HC -THR'D");
-                Check(note.Text==Notes.FormatFields("%DI%HS DRILL %ZH%RT"+saved,dual).Replace("%RT","\r"),"Thread retains complete mode-specific saved note plus drilling diameter");
+                Check(note.Text==Notes.EnsureTypical(Notes.FormatFields("%DI%HS DRILL %ZH%RT"+saved,dual).Replace("%RT","\r")),"Thread retains complete mode-specific saved note plus drilling diameter and TYP");
                 Check(note.Text.Split('\r').Count(line=>line==(dual?equalSpacing:"TYP(%QC)"))==1,"Thread retains exactly one saved quantity line");
                 Check(note.Text.Contains("%HS")&&note.Text.Contains("%TS")&&note.Text.Contains("%ZT")&&note.Text.Contains("%ZH"),"Blind and through thread fields stay native");
                 Check(note.InchPlaces==3&&note.Dual==dual,"Thread precision and unit mode retained");
@@ -108,9 +123,9 @@ internal static class Tests
                 new HoleFacts{Type=1,Diameter=.2,Depth=null}})
             foreach(bool dual in new[]{false,true})
             {
-                var note=Notes.Build(book,simple,dual);
+                var note=Notes.Build(book,simple,dual);Typical(note);
                 Check(note.Category=="Simple drilled hole","Ordinary drilled-hole fallback");
-                Check(note.Text==Notes.FormatFields(LinkedCallouts.ReadSaved(dual?"HC -DRILL M[I]":"HC -DRILL"),dual).Replace("%RT","\r"),"Complete requested saved drill note");
+                Check(note.Text==Notes.EnsureTypical(Notes.FormatFields(LinkedCallouts.ReadSaved(dual?"HC -DRILL M[I]":"HC -DRILL"),dual).Replace("%RT","\r")),"Complete requested saved drill note plus TYP");
                 Check(note.Text.Contains("%HS")&&note.Text.Contains("%ZH")&&note.Text.Contains("%QC"),"Drill size, smart depth and quantity remain linked");
                 Check(note.Text.Contains(dual?"TYP(%QC)":"(%QC)PLC'S EQ. SP."),"Mode-specific drill quantity wording");
                 Check(note.InchPlaces==3&&note.Dual==dual,"Drill precision and unit mode");

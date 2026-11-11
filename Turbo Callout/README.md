@@ -1,15 +1,15 @@
-# Turbo Callout v0.6
+# Turbo Callout v0.7
 
 Fills blank native hole callouts in the active Solid Edge draft. Uses the same recognition source and saved-note library as Turbo Hole Table Callouts, compiled into a standalone x64 .NET Framework executable.
 
 ## Use
 
 1. Activate the drawing in Solid Edge.
-2. Run `Compiled Executables/Turbo Callout v0.6.exe`.
+2. Run `Compiled Executables/Turbo Callout v0.7.exe`.
 3. Choose **Inch only** or **Dual — metric[inch]**. Scanning and filling start immediately.
 4. Review the result counts and any unchanged callouts. Review the drawing and save it normally.
 
-All working sheets are scanned. Background and internal view sheets are excluded. Ordinary item balloons and parts-list balloons are excluded. All four raw text fields must be empty or whitespace; an existing note is never replaced just because its displayed text is blank. Running again corrects horizontal alignment on existing Turbo Callout notes without changing their text or units. Other existing notes remain unchanged. The macro does not save the drawing.
+All working sheets are scanned. Background and internal view sheets are excluded. Ordinary item balloons and parts-list balloons are excluded. All four raw text fields must be empty or whitespace for a new fill; an existing note is never replaced just because its displayed text is blank. Running again consolidates previous Turbo Callout styles, adds a missing `TYP(%QC)` line to attached macro notes, and corrects their horizontal alignment. Existing units, precision, tolerances, custom text, and leader geometry are preserved. Other existing notes remain unchanged. The macro does not save the drawing.
 
 The supplied Turbo Callout icon is embedded in the executable and shown in the window. The supplied ICO and PNG are also provided beside the executable for macro managers.
 
@@ -25,11 +25,17 @@ Notes retain native size/depth fields and Smart Depth behavior, actual model dim
 
 Inch precision is four places for dowels, two for SHCS counterbores and SAE #6/#8, and three for the other supported families. Dual notes retain the existing metric precision independently. Two metric places are used only if the blank style has no metric unit configured. Tolerance offsets are converted to the primary display units; they remain attached to model fields. Fixed occurrence counts and opposite-side wording in saved notes are not assumed for an arbitrary leader.
 
-Starting with v0.5, counterbore and threaded notes retain their saved quantity lines. `(%QC)PLC'S EQ. SP. AS SHOWN` remains a separate line in both counterbore unit modes and in dual threaded notes; inch threaded notes retain their saved `TYP(%QC)` wording. `%QC` stays linked for Solid Edge to evaluate. Starting with v0.6, counterbore notes also retain the exact separate line `(FOR X S.H.C.S.)` after the quantity line, keeping the literal `X` as saved. These changes apply when filling blank callouts; existing populated notes retain their text.
+Counterbore and threaded notes retain their saved quantity lines. `(%QC)PLC'S EQ. SP. AS SHOWN` remains a separate line in both counterbore unit modes and in dual threaded notes; inch threaded notes retain their saved `TYP(%QC)` wording. Counterbore notes also retain the exact separate line `(FOR X S.H.C.S.)` after the quantity line, keeping the literal `X` as saved.
+
+Every generated note receives a separate `TYP(%QC)` line if it has no TYP line already. Existing TYP wording is preserved, including fixed quantities. The separate PLC'S line does not suppress TYP. `%QC` stays native so Solid Edge evaluates the associated quantity. Reruns add only missing TYP lines to existing attached Turbo Callout notes; they do not rebuild their earlier saved-note text. TYP detection checks all four callout text fields.
 
 ## Placement and failure handling
 
-A break line extending left (West) produces left-aligned text; a break line extending right (East) produces right-aligned text. This reverses the v0.3 rule per Greg's correction. Rerun the macro to correct notes produced by v0.3 without changing their text, units, or leader geometry. Notes without a horizontal break line keep their original justification. The macro reads the native four-direction `CalloutBalloonBreaklineDirection` property because the older Boolean can be stale in current drafts. The existing callout keeps its leader/text connection, breakline direction and distance, rotation, scale, leader vertices, and free-space point. Fixed text widths are retained; fit-to-content widths grow to accommodate the new text. Native local style setters reject some precision changes, so each filled callout receives a private document style copied from its original style and local presentation. Existing shared styles are not edited. New fills change units, relevant precision, Smart Depth formats, and the requested horizontal alignment. Existing Turbo Callout notes are identified by their private GUID style name; rerun repairs change only their horizontal alignment.
+A break line extending left (West) produces left-aligned text; a break line extending right (East) produces right-aligned text. Notes without a horizontal break line keep their original justification. The macro reads the native four-direction `CalloutBalloonBreaklineDirection` property because the older Boolean can be stale in current drafts. The existing callout keeps its leader/text connection, breakline direction and distance, rotation, scale, leader vertices, and free-space point. Fixed text widths are retained; fit-to-content widths grow to accommodate new text.
+
+Native local style setters reject some precision changes, so formatting uses shared document styles such as `Turbo Callout - Dual 4dp`. Callouts with matching complete style settings reuse the same style. The running Solid Edge type library supplies the readable scalar settings used for comparison; unsupported obsolete properties are excluded consistently, while other read failures stop the change. Different formats remain separate and use a numbered suffix when their unit/precision labels coincide. Existing standard styles are not modified.
+
+Reruns recognize both legacy GUID names and the new shared names. Legacy notes move to matching shared styles with their local overrides verified and restored. Unused legacy styles are removed; Solid Edge's native in-use protection retains styles referenced by other objects or inheritance. Results report how many styles were removed or retained. Temporary styles used for formatting and recognition are removed after use.
 
 Writes are checked and placement is verified. A failed fill restores the previous text, style name, and placement; a failed restoration is reported explicitly. The program follows the SDK's STA/message-filter pattern and releases each COM reference it acquires. It never calls `FinalReleaseComObject` or starts another Solid Edge session.
 
@@ -37,10 +43,12 @@ Writes are checked and placement is verified. A failed fill restores the previou
 
 - `Build.cmd`: compile the standalone executable into `Compiled Executables`.
 - `Test.cmd`: pure recognition/note and existing-text protection tests.
-- `LiveTest.cmd`: create an isolated part/draft fixture under ignored `Inspection`, check rendered inch/dual tolerance limits, failed-fill restoration, other-style preservation, multiple working sheets, and save/reopen links and placement. Returns to the original document.
-- `SampleTest.cmd`: make separate inch/dual copies of the active draft under `Inspection`, fill and save/reopen each, verify existing text and all callout placements, and verify original text/placement unchanged. No changes are saved to the original.
+- `LiveTest.cmd`: create an isolated part/draft fixture under ignored `Inspection`; verify rendered limits and TYP quantities, style reuse, legacy cleanup, local override preservation, protected style references, rollback, multiple sheets, and save/reopen. Returns to the original document.
+- `SampleTest.cmd [saved-draft-path]`: make separate inch/dual copies of the active draft or supplied sample under `Inspection`, fill/consolidate and save/reopen each, verify allowed TYP additions and all existing formatting/placements, and verify the original unchanged. No changes are saved to the original.
 - `Inspect.cmd`: inspect native fields of blank callouts; diagnostic probes are removed immediately. `Inspect.cmd --alignment` reads direction and justification without adding probes.
 - `Preview.cmd`: render the initial window to `Inspection/window.png`.
+
+v0.7 verified November 11, 2026: 1,484 regression checks and 26 isolated Solid Edge checks passed. Tests cover TYP lines in every supported hole family, preservation of existing TYP wording, reusable style names, identical-format reuse, rollback without deleting a shared style, legacy consolidation with local overrides, in-use style protection, and save/reopen of formatting and evaluated quantities. In both mode selections, copies of the populated sample consolidated 15 GUID styles into three shared dual styles (2/3/4 inch decimal places), updated all 15 macro notes, and reported zero errors or review cases. Existing note units, formatting, and placements survived save/reopen; repeat runs made no further changes. The source sample stayed unchanged.
 
 v0.6 verified November 11, 2026: 1,273 regression checks passed. Every saved SHCS counterbore preset was checked in both unit modes for exactly one literal `(FOR X S.H.C.S.)` line following the saved quantity line, with native size/depth fields, precision, and units retained. The v0.6 executable compiled successfully. Validation for this text-only change used regression tests.
 

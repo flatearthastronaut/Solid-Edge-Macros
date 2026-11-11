@@ -115,6 +115,28 @@ internal static class LiveTests
                 Check(Rendered(second).Contains(".2500"),"Dual note retains four-place inch limit");
                 Check(Rendered(second).Contains("6.35"),"Dual note displays metric equivalent");
             }
+            Check(((string)((dynamic)first).BalloonDisplayedText).Contains("TYP(1)")&&((string)((dynamic)second).BalloonDisplayedText).Contains("TYP(1)"),"Native quantity evaluates in inch and dual notes");
+            object styleCollection=Keep(((dynamic)draft).DimensionStyles),firstStyle=Keep(((dynamic)first).Style);
+            string sharedName=(string)((dynamic)firstStyle).Name;
+            Check(sharedName=="Turbo Callout - Inch 4dp"&&(string)((dynamic)otherStyle).Name=="Turbo Callout - Dual 4dp","Shared styles have readable unit and precision names");
+            int styleCount=(int)((dynamic)styleCollection).Count;
+            object duplicate=Keep(((dynamic)first).Duplicate(.01,0.0)),duplicateStyle=Keep(((dynamic)duplicate).Style);
+            ((dynamic)duplicate).SetTerminator(targetRef,cx,cy,0.0,false);((dynamic)duplicate).BalloonText=" ";
+            using(var reader=new NativeHole(draft))TurboCallout.Automation.Fill(duplicate,Notes.Build(rules,reader.Read(duplicate),false));
+            Check((string)((dynamic)duplicateStyle).Name==sharedName&&(int)((dynamic)styleCollection).Count==styleCount,"Identical callouts reuse a style without growing the style list");
+            ((dynamic)duplicate).BalloonText=" ";bool reuseFailed=false;
+            try{TurboCallout.Automation.Fill(duplicate,new NotePlan{Text="",InchPlaces=4,Dual=false});}catch(InvalidOperationException){reuseFailed=true;}
+            Check(reuseFailed&&(int)((dynamic)styleCollection).Count==styleCount&&(string)((dynamic)firstStyle).Name==sharedName,"Failed fill never removes a shared style used by another note");
+            ((dynamic)duplicate).BalloonText=((string)((dynamic)first).BalloonText).Replace("\rTYP(%QC)","");
+            string legacyName="Turbo Callout "+Guid.NewGuid().ToString("N");Keep(((dynamic)styleCollection).Add(legacyName,sharedName));
+            ((dynamic)duplicateStyle).Name=legacyName;Property.Set(duplicateStyle,"Height",(double)Property.Get(duplicateStyle,"Height")*1.1);
+            var legacyFormat=new StyleValues(duplicateStyle);var legacyPosition=new Placement(duplicate);string legacyText=(string)((dynamic)duplicate).BalloonText;
+            string unusedName="Turbo Callout "+Guid.NewGuid().ToString("N");Keep(((dynamic)styleCollection).Add(unusedName,sharedName));
+            // An item balloon is outside Turbo Callout's scope. Native removal
+            // must protect its legacy style even during requested cleanup.
+            string protectedName="Turbo Callout "+Guid.NewGuid().ToString("N");Keep(((dynamic)styleCollection).Add(protectedName,sharedName));
+            object protectedBalloon=Keep(((dynamic)notes).Add(.04,.04,0.0));((dynamic)protectedBalloon).Callout=0;((dynamic)protectedBalloon).BalloonText="42";
+            object protectedStyle=Keep(((dynamic)protectedBalloon).Style);((dynamic)protectedStyle).Name=protectedName;
             object allSheets=Keep(((dynamic)draft).Sheets), extraSheet=Keep(((dynamic)allSheets).Add("Other working sheet"));
             object extraNotes=Keep(((dynamic)extraSheet).Balloons),unattached=Keep(((dynamic)extraNotes).Add(.03,.03,0.0));
             ((dynamic)unattached).Callout=1;((dynamic)unattached).BalloonText="";
@@ -131,11 +153,15 @@ internal static class LiveTests
             Property.Set(first,"CalloutHorizontalAlignment",2);Property.Set(second,"CalloutHorizontalAlignment",0);
             RunReport repaired=TurboCallout.Automation.FillDocument(draft,rules,false,null);
             Check(repaired.Filled==0&&repaired.AlignedExisting==2&&repaired.Errors==0,"Rerun repairs existing macro notes in both directions");
+            Check(repaired.UpdatedExisting==1&&repaired.StylesRemoved==2&&repaired.StylesKept==1,"Rerun consolidates legacy styles and removes only unused styles");
+            Check((string)((dynamic)duplicateStyle).Name==sharedName&&legacyFormat.Matches(new StyleValues(duplicateStyle)),"Legacy migration preserves all readable local formatting overrides");
+            legacyPosition.Verify(duplicate);Check((string)((dynamic)duplicate).BalloonText==Notes.EnsureTypical(legacyText),"Legacy note gains only its missing TYP line with placement preserved");
+            Check((string)((dynamic)protectedStyle).Name==protectedName&&(string)((dynamic)protectedBalloon).BalloonText=="42","Style used by an unrelated item balloon is protected");
             Check((string)((dynamic)first).BalloonText==firstText&&(string)((dynamic)second).BalloonText==secondText&&
                 (string)((dynamic)otherStyle).Name==secondStyle,"Alignment-only repair preserves note text and unit style");
             customPlace.Verify(custom);Check(true,"Unrelated existing custom note remains unchanged");
             RunReport repeated=TurboCallout.Automation.FillDocument(draft,rules,false,null);
-            Check(repeated.Filled==0&&repeated.AlignedExisting==0,"Repeated run preserves filled callouts");
+            Check(repeated.Filled==0&&repeated.AlignedExisting==0&&repeated.UpdatedExisting==0&&repeated.StylesRemoved==0,"Repeated run preserves filled callouts and style count");
             Check(repeated.Blank==1&&repeated.Review==1,"All working sheets scanned; unattached blank remains for review");
             ((dynamic)sheet).Activate();
             string draftPath=Path.Combine(root,"Callout-fixture.dft");((dynamic)draft).SaveAs(draftPath);((dynamic)draft).Close(false);draft=null;
@@ -144,6 +170,7 @@ internal static class LiveTests
             firstPlace.Verify(first,0);secondPlace.Verify(second,2);Check(true,"Both callout alignments and leader positions survive save/reopen");
             using(var reader=new NativeHole(draft))Check(rules.Match(reader.Read(first)).IsDowel,"Model association survives save/reopen");
             Check(((string)((dynamic)first).BalloonText).Contains("%HS"),"Saved callout retains native linked fields");
+            object savedStyle=Keep(((dynamic)first).Style);Check((string)((dynamic)savedStyle).Name==sharedName&&((string)((dynamic)first).BalloonDisplayedText).Contains("TYP(1)"),"Shared style and evaluated TYP quantity survive save/reopen");
             Console.WriteLine(checks+" live checks passed.");return 0;
         }
         catch(Exception error){Console.WriteLine(error);return 1;}

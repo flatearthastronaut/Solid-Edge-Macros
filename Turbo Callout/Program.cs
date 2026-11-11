@@ -4,7 +4,7 @@ using System.Windows.Forms;
 using HoleTableFormatter;
 
 [assembly: System.Reflection.AssemblyTitle("Turbo Callout")]
-[assembly: System.Reflection.AssemblyVersion("0.6.0.0")]
+[assembly: System.Reflection.AssemblyVersion("0.7.0.0")]
 
 namespace TurboCallout
 {
@@ -16,7 +16,7 @@ namespace TurboCallout
         bool running;
         internal MainForm()
         {
-            Text = "Turbo Callout v0.6"; StartPosition = FormStartPosition.CenterScreen;
+            Text = "Turbo Callout v0.7"; StartPosition = FormStartPosition.CenterScreen;
             Font = new Font("Segoe UI", 10); ClientSize = new Size(414, 164);
             FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false;
             using (var stream = typeof(MainForm).Assembly.GetManifestResourceStream("TurboCallout.Icon")) Icon = new Icon(stream);
@@ -38,7 +38,7 @@ namespace TurboCallout
                 using (new BusyFilter())
                 {
                     RunReport report = Automation.Run(useDual, text => { status.Text = text; status.Refresh(); });
-                    status.Text = report.Filled + " filled; " + report.AlignedExisting + " aligned; " + report.Review + " need review; " + report.Errors + " errors.";
+                    status.Text = report.Filled + " filled; " + report.UpdatedExisting + " updated; " + report.StylesRemoved + " old styles removed; " + report.Errors + " errors.";
                     results.Text = report.ToString();
                 }
             }
