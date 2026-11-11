@@ -141,11 +141,10 @@ namespace TurboCallout
         readonly Dictionary<string, object> after = new Dictionary<string, object>();
         internal UnitStyle(object style, NotePlan plan)
         {
-            int metric = Convert.ToInt32(Property.Get(style, "PrimaryUnits")) == 3 ? Convert.ToInt32(Property.Get(style, "PrimaryDecimalRoundOff")) :
-                Convert.ToInt32(Property.Get(style, "SecondaryUnits")) == 3 ? Convert.ToInt32(Property.Get(style, "SecondaryDecimalRoundOff")) : 4;
-            // Enum decimal precision is digits+2. Preserve the existing metric
-            // precision independently; use the audited two-place metric default
-            // only if the blank annotation has no metric unit configured.
+            // Enum decimal precision is digits+2. The current rule requires
+            // one fewer metric digit than inch; typed higher-precision limits
+            // are formatted individually by Notes.ApplyPrecision.
+            int metric = plan.InchPlaces + 1;
             Add(style, "PrimaryUnits", plan.Dual ? 3 : 5);
             Add(style, "RoundOffType", 1);
             Add(style, "PrimaryDecimalRoundOff", plan.Dual ? metric : plan.InchPlaces + 2);
@@ -154,21 +153,23 @@ namespace TurboCallout
             Add(style, "PrimaryLinearToleranceUnits", plan.Dual ? 3 : 5);
             Add(style, "PrimaryLinearToleranceRoundOffType", 1);
             Add(style, "PrimaryLinearToleranceDecimalRoundOff", plan.Dual ? metric : plan.InchPlaces + 2);
-            if (plan.Dual)
-            {
-                Add(style, "SecondaryUnits", 5); Add(style, "SecondaryUnitRoundOff", 1);
-                Add(style, "SecondaryDecimalRoundOff", plan.InchPlaces + 2); Add(style, "SecondaryTrailingZeros", true);
-                Add(style, "SecondaryLinearToleranceUnits", 5); Add(style, "SecondaryLinearToleranceRoundOffType", 1);
-                Add(style, "SecondaryLinearToleranceDecimalRoundOff", plan.InchPlaces + 2);
-                Add(style, "SecondaryToleranceEquivalent", true); Add(style, "SecondaryUnitSeparator", 2);
-            }
+            // Normalize inactive secondary settings too. Otherwise converting
+            // old 2/3/4-place dual styles into inch-only notes produces three
+            // visually identical named styles differing only in hidden units.
+            Add(style, "SecondaryUnits", plan.Dual ? 5 : 3); Add(style, "SecondaryUnitRoundOff", 1);
+            Add(style, "SecondaryDecimalRoundOff", plan.Dual ? plan.InchPlaces + 2 : metric); Add(style, "SecondaryTrailingZeros", true);
+            Add(style, "SecondaryLinearToleranceUnits", plan.Dual ? 5 : 3); Add(style, "SecondaryLinearToleranceRoundOffType", 1);
+            Add(style, "SecondaryLinearToleranceDecimalRoundOff", plan.Dual ? plan.InchPlaces + 2 : metric);
+            Add(style, "SecondaryToleranceEquivalent", true); Add(style, "SecondaryUnitSeparator", 2);
             Add(style, "SmartDepthHoleThru", "THRU"); Add(style, "SmartDepthThreadThru", "THRU");
-            Add(style, "SmartDepthHoleFinite", plan.Dual ? "%{%HD/DU} DP." : "%HD DP.");
-            Add(style, "SmartDepthThreadFinite", plan.Dual ? "%{%TD/DU} DP." : "%TD DP.");
+            Add(style, "SmartDepthHoleFinite", plan.Dual ? "%{%HD/DU/@1} DP." : "%{%HD/@2} DP.");
+            Add(style, "SmartDepthThreadFinite", plan.Dual ? "%{%TD/DU/@1} DP." : "%{%TD/@2} DP.");
         }
         void Add(object style, string name, object value) { before.Add(name, Property.Get(style, name)); after.Add(name, value); }
         internal void Apply(object style) { Write(style, after); }
         internal void Restore(object style) { Write(style, before); }
+        internal void ApplyToSnapshot(StyleValues snapshot)
+        { foreach (var item in after) snapshot.Values[item.Key] = item.Value; }
         static void Write(object style, Dictionary<string, object> values)
         {
             foreach (var item in values) if (!Property.Equal(Property.Get(style, item.Key), item.Value)) Property.Set(style, item.Key, item.Value);
@@ -328,7 +329,11 @@ namespace TurboCallout
                 if (plan != null)
                 {
                     step = "apply presentation and units";
-                    foreach (string property in Presentation) Property.Set(candidate, property, Property.Get(local, property));
+                    // Existing local overrides are restored onto the note by
+                    // Maintain. Keep them out of the shared style so one local
+                    // height/font adjustment does not add another named style.
+                    if (!plan.PreserveFormat)
+                        foreach (string property in Presentation) Property.Set(candidate, property, Property.Get(local, property));
                     new UnitStyle(candidate, plan).Apply(candidate);
                 }
                 step = "compare complete style"; var format = new StyleValues(candidate);
@@ -354,9 +359,9 @@ namespace TurboCallout
             // Solid Edge refuses to remove an in-use dimension style. That
             // safeguard also protects dimensions, other annotation types,
             // background sheets, and style inheritance outside this scan.
-            foreach (string name in legacy)
+            foreach (string name in known.Where(IsManaged).ToArray())
                 try { ((dynamic)styles).Remove(name); report.StylesRemoved++; }
-                catch (COMException) { report.StylesKept++; }
+                catch (COMException) { if (legacy.Contains(name)) report.StylesKept++; }
             if (report.StylesKept > 0) report.Details.Add(report.StylesKept + " old styles are still in use and were retained.");
         }
         public void Dispose() { Com.Release(styles); }
@@ -429,7 +434,9 @@ namespace TurboCallout
                                 {
                                     if (NoteAlignment.IsExistingMacroNote(note))
                                     {
-                                        if (Maintain(note, catalog)) { report.UpdatedExisting++; report.Details.Add(label + ": updated existing Turbo Callout note."); }
+                                        string review;
+                                        if (Maintain(note, catalog, rules, reader, out review)) { report.UpdatedExisting++; report.Details.Add(label + ": updated existing Turbo Callout note."); }
+                                        if (review != null) { report.Review++; report.Details.Add(label + ": precision unchanged; " + review); }
                                         if (NoteAlignment.Apply(note)) { report.AlignedExisting++; report.Details.Add(label + ": aligned existing Turbo Callout note."); }
                                     }
                                     continue;
@@ -461,41 +468,61 @@ namespace TurboCallout
             finally { Com.Release(draft); }
         }
 
-        static bool Maintain(object note, NoteStyles catalog)
+        static bool Maintain(object note, NoteStyles catalog, RuleBook rules, NativeHole reader, out string review)
         {
+            review = null;
             object style = null; string name = null; bool created = false;
             try
             {
                 style = ((dynamic)note).Style; string original = (string)((dynamic)style).Name;
                 var format = new StyleValues(style); var position = new Placement(note);
-                string text = (string)((dynamic)note).BalloonText;
-                bool hasTypical = new[] { "BalloonText", "BalloonTextLower", "BalloonTextPrefix", "BalloonTextSuffix" }
-                    .Any(p => Notes.HasTypical(Convert.ToString(Property.Get(note, p))));
-                string updated = hasTypical ? text : Notes.EnsureTypical(text);
+                string[] fields = { "BalloonText", "BalloonTextLower", "BalloonTextPrefix", "BalloonTextSuffix" };
+                var before = fields.ToDictionary(p => p, p => Convert.ToString(Property.Get(note, p)));
+                var updated = new Dictionary<string, string>(before);
+                bool attached = (bool)((dynamic)note).IsTerminatorAttachedToEntity;
+                bool hasTypical = before.Values.Any(Notes.HasTypical);
+                if (attached && !hasTypical) updated["BalloonText"] = Notes.EnsureTypical(updated["BalloonText"]);
                 // Existing unattached notes can still consolidate their styles,
                 // but cannot acquire a quantity field with no model to count.
-                if (!(bool)((dynamic)note).IsTerminatorAttachedToEntity) updated = text;
+                NotePlan plan = null;
+                var expected = new StyleValues(style);
+                if (attached)
+                {
+                    // Read/recognize and prepare all four fields before changing
+                    // the original note. Keep user wording and literal values;
+                    // only native machining fields receive the new precision.
+                    try
+                    {
+                        bool dual = (bool)Property.Get(style, "DualDisplay");
+                        if ((int)Property.Get(style, "PrimaryUnits") != (dual ? 3 : 5) ||
+                            (dual && (int)Property.Get(style, "SecondaryUnits") != 5))
+                            throw new InvalidOperationException("Custom unit order needs review.");
+                        HoleFacts hole = reader.Read(note); Decision choice = Notes.Recognize(rules, hole);
+                        foreach (string field in fields) updated[field] = Notes.ApplyPrecision(updated[field], choice, hole, dual);
+                        plan = new NotePlan { Dual = dual, InchPlaces = 2, PreserveFormat = true };
+                        new UnitStyle(style, plan).ApplyToSnapshot(expected);
+                    }
+                    catch (Exception error) { review = error.Message; return false; }
+                }
                 try
                 {
-                    name = catalog.Acquire(style, null, out created);
-                    if (name == original && updated == text) return false;
-                    string displayed = (string)((dynamic)note).BalloonDisplayedText;
-                    ((dynamic)style).Name = name; format.Restore(style); position.Restore(note);
-                    if ((string)((dynamic)note).BalloonText != text || (string)((dynamic)note).BalloonDisplayedText != displayed)
-                        throw new InvalidOperationException("Existing callout text changed while consolidating its style.");
-                    if (updated != text)
-                    {
-                        ((dynamic)note).BalloonText = updated; position.Restore(note);
-                        if ((string)((dynamic)note).BalloonText != updated) throw new InvalidOperationException("TYP line did not persist.");
-                        VerifyEvaluation(note);
-                    }
+                    name = catalog.Acquire(style, plan, out created);
+                    if (name == original && fields.All(p => updated[p] == before[p]) && format.Matches(expected)) return false;
+                    ((dynamic)style).Name = name; expected.Restore(style);
+                    foreach (string field in fields) if (updated[field] != before[field]) Property.Set(note, field, updated[field]);
+                    position.Restore(note);
+                    if (fields.Any(p => Convert.ToString(Property.Get(note, p)) != updated[p]))
+                        throw new InvalidOperationException("Updated callout text did not persist.");
+                    if (attached) VerifyEvaluation(note);
                     return true;
                 }
                 catch (Exception error)
                 {
                     try
                     {
-                        ((dynamic)style).Name = original; format.Restore(style); ((dynamic)note).BalloonText = text; position.Restore(note);
+                        ((dynamic)style).Name = original; format.Restore(style);
+                        foreach (string field in fields) Property.Set(note, field, before[field]);
+                        position.Restore(note);
                         if (created) catalog.RemoveCreated(name);
                     }
                     catch (Exception rollback) { throw new InvalidOperationException("Update failed: " + error.Message + " Restoration needs review: " + rollback.Message, error); }
@@ -505,10 +532,20 @@ namespace TurboCallout
             finally { Com.Release(style); }
         }
 
+        internal static bool IsEvaluatedText(string text)
+        {
+            // BalloonDisplayedText leaves plain-text stack codes intact even
+            // though GetDisplayData renders them correctly. Accept only the
+            // numeric stacks we generate, never an unresolved property field.
+            string plain = System.Text.RegularExpressions.Regex.Replace(text ?? "",
+                @"%\{/ST[+\-]?(?:\d*\.)?\d+\^[+\-]?(?:\d*\.)?\d+\}", "0");
+            return !String.IsNullOrWhiteSpace(plain) && !plain.Contains("%{") && !plain.Contains("?");
+        }
+
         static void VerifyEvaluation(object note)
         {
             string displayed = (string)((dynamic)note).BalloonDisplayedText;
-            if (String.IsNullOrWhiteSpace(displayed) || displayed.Contains("%{") || displayed.Contains("?"))
+            if (!IsEvaluatedText(displayed))
                 throw new InvalidOperationException("Model-linked callout fields did not evaluate.");
             if (!(bool)((dynamic)note).IsTerminatorAttachedToEntity) throw new InvalidOperationException("Leader attachment was lost.");
         }

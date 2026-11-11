@@ -28,9 +28,23 @@ internal static class Tests
             Bore=type==1?null:(double?)p.Bore,BoreDepth=type==1?null:(double?)p.BoreDepth,
             Thread=thread?p.Thread:"",ThreadDepth=thread?.5:(double?)null};
     }
-    static void Limits(string text,string field,double nominal,double minimum,double maximum,bool dual)
+    static void Limits(string text,string field,double nominal,double minimum,double maximum,bool dual,int places=4)
     {
-        Match m=Regex.Match(text,@"%\{%"+field+@"(?:/DU)?/LT(?<hi>[+\-]?[\d.]+)\^(?<lo>[+\-]?[\d.]+)\}");
+        if(dual)
+        {
+            Match fixedPair=Regex.Match(text,@"%\{/ST(?<mh>[\d.]+)\^(?<ml>[\d.]+)\}\[%\{/ST(?<ih>[\d.]+)\^(?<il>[\d.]+)\}\]");
+            Check(fixedPair.Success,"Dual higher-precision limits are fixed stacked text in one callout");
+            foreach(var item in new[]{new{Key="mh",Value=maximum*25.4,Digits=places-1},new{Key="ml",Value=minimum*25.4,Digits=places-1},
+                new{Key="ih",Value=maximum,Digits=places},new{Key="il",Value=minimum,Digits=places}})
+            {
+                string value=fixedPair.Groups[item.Key].Value;
+                Check(value.Split('.')[1].Length==item.Digits,"Fixed limits have the requested decimal places");
+                Check(Math.Abs(Double.Parse(value,CultureInfo.InvariantCulture)-Math.Round(item.Value,item.Digits,MidpointRounding.AwayFromZero))<1e-8,"Fixed limit preserves the approved manufacturing value");
+            }
+            Check(!Regex.IsMatch(text,@"%\{%"+field+@"(?:/|\})"),"High-precision dual value does not use the shared two-place secondary formatter");
+            return;
+        }
+        Match m=Regex.Match(text,@"%\{%"+field+@"/LT(?<hi>[+\-]?[\d.]+)\^(?<lo>[+\-]?[\d.]+)/@"+places+@"\}");
         Check(m.Success,"Native tolerance fields retained");double scale=dual?25.4:1;
         Check(Math.Abs(nominal+Double.Parse(m.Groups["hi"].Value,CultureInfo.InvariantCulture)/scale-maximum)<1e-7,"Upper manufacturing limit retained");
         Check(Math.Abs(nominal+Double.Parse(m.Groups["lo"].Value,CultureInfo.InvariantCulture)/scale-minimum)<1e-7,"Lower manufacturing limit retained");
@@ -47,6 +61,9 @@ internal static class Tests
                 Check(Notes.EnsureTypical(result)==result,"TYP append is idempotent");
             }
             Check(Notes.EnsureTypical("")=="","Do not turn empty text into a quantity-only note");
+            Check(TurboCallout.Automation.IsEvaluatedText("%DI%{/ST6.350^6.337}[%{/ST.2500^.2495}] DIA 9.7 DP."),"Accept valid fixed numeric stacks in displayed text");
+            foreach(string unresolved in new[]{"", "%{%HS/DU}", "%{/ST%HS^%BS}", "%{/ST6.35^?}", "?"})
+                Check(!TurboCallout.Automation.IsEvaluatedText(unresolved),"Unresolved native fields still fail verification");
             Check(NoteStyles.IsManaged("Turbo Callout - Dual 4dp")&&NoteStyles.IsManaged("Turbo Callout - Inch 3dp (2)"),"Recognize shared macro style names");
             Check(NoteStyles.IsLegacy("Turbo Callout "+Guid.NewGuid().ToString("N")),"Recognize legacy GUID styles");
             Check(!NoteStyles.IsManaged("Turbo Callout custom")&&!NoteStyles.IsManaged("Turbo Callout Temporary "+Guid.NewGuid().ToString("N")),"Protect unrelated styles");
@@ -58,15 +75,36 @@ internal static class Tests
             Check(NoteAlignment.ForBreakline(false,true,0)==null,"Leaderless note keeps alignment");
             Check(NoteAlignment.ForBreakline(true,false,2)==null,"No-breakline note keeps alignment");
             RuleBook book=RuleBook.Load("..\\Turbo Hole Table Callouts\\Custom.xml");
+            foreach(Preset preset in book.Presets)
+            {
+                HoleFacts facts=Facts(preset);Decision decision=book.Match(facts);if(decision.Slot==0)continue;
+                Check(Notes.InchPlaces(decision,facts,"HD")==2&&Notes.InchPlaces(decision,facts,"TD")==2,"Drilling and thread depths use two inch places");
+                Check(Notes.InchPlaces(decision,facts,"BD")== (decision.Family=="O-ring face seal"?3:2),"Only face-seal recess depth uses three inch places");
+                if(decision.IsDowel)Check(Notes.InchPlaces(decision,facts,facts.Type==1?"HS":"BS")==4,"Dowel diameter uses four inch places");
+                else if(decision.Family=="Spring pin")Check(Notes.InchPlaces(decision,facts,"HS")==3,"Spring-pin diameter uses three inch places");
+                else Check(Notes.InchPlaces(decision,facts,"HS")==2,"Pilot drill diameter uses two inch places");
+                foreach(bool dual in new[]{false,true})
+                {
+                    NotePlan note=Notes.Build(book,facts,dual);
+                    Check(note.InchPlaces==2,"All notes share the two-place inch unit style");
+                    Check(Notes.ApplyPrecision(note.Text,decision,facts,dual)==note.Text,"Precision formatting is idempotent without rescaling tolerances");
+                    foreach(Match m in Regex.Matches(note.Text,@"%\{%(?<field>HS|HD|BS|BD|TD)(?<options>[^{}]*)\}"))
+                    {
+                        int digits=Notes.InchPlaces(decision,facts,m.Groups["field"].Value);
+                        Check(!dual||digits==2,"Only two-place native numeric fields remain in dual notes");
+                        Check(m.Groups["options"].Value.EndsWith("/@"+(dual?1:digits)),"Each native machining field has its required precision");
+                    }
+                }
+            }
             foreach(Preset p in book.Presets.Where(p=>p.Family=="Dowel"))
             {
                 HoleFacts hole=Facts(p);Decision choice=book.Match(hole);Check(choice.IsDowel,"Recognize "+p.Name);
                 foreach(bool dual in new[]{false,true})
                 {
-                    NotePlan n=Notes.Build(book,hole,dual);Typical(n);Check(n.InchPlaces==4,"Dowel precision");
+                    NotePlan n=Notes.Build(book,hole,dual);Typical(n);Check(n.InchPlaces==2,"Dowel depth style precision");
                     Check(n.Text.Contains(choice.Fit=="PF"?"P.F.":"S.F."),"Fit note");
                     Check(!n.Text.Contains("TYP(2)")&&!n.Text.Contains("FROM OPP."),"No guessed quantity or direction");
-                    Check(!n.Text.Contains("/@"),"Metric precision independently controlled");
+                    Check(n.Text.Contains(dual?"%{/ST":"/@4"),"Dowel diameter has fixed dual limits or native four-place inch limits");
                     string field=hole.Type==1?"HS":"BS";Limits(n.Text,field,(hole.Type==1?hole.Diameter:hole.Bore).Value,choice.Minimum,choice.Maximum,dual);
                     if(!dual)Check(!n.Text.Contains("[")&&!n.Text.Contains("/DU"),"Inch-only pin fit and fields");
                 }
@@ -78,13 +116,13 @@ internal static class Tests
                 {
                     var note=Notes.Build(book,hole,dual);Typical(note);Check(note.Text.Contains("#"+p.Port),"Port size");
                     Check(note.Text.Contains(hole.Type==8?"%TS":RuleBook.PortDesignation(p.Port)),"Correct thread source");
-                    Check(note.InchPlaces==((p.Port==6||p.Port==8)?2:3),"SAE inch precision");
+                    Check(note.InchPlaces==2,"SAE inch precision");
                     Check(note.Text.Contains("%BS")&&note.Text.Contains("%BD"),"Port dimensions stay native");
                 }
             }
             foreach(Preset p in book.Presets.Where(p=>p.Family=="O-ring face seal"))
             foreach(bool dual in new[]{false,true})
-            {var h=Facts(p);var n=Notes.Build(book,h,dual);Typical(n);Limits(n.Text,"BD",h.BoreDepth.Value,.050,.054,dual);}
+            {var h=Facts(p);var n=Notes.Build(book,h,dual);Typical(n);Limits(n.Text,"BD",h.BoreDepth.Value,.050,.054,dual,3);}
             foreach(Preset p in book.Presets.Where(p=>p.Family=="Spring pin"))
             foreach(bool dual in new[]{false,true})
             {var n=Notes.Build(book,Facts(p),dual);Typical(n);Check(n.Text.Contains("(FOR 3/8 SPRING PIN)"),"Spring-pin purpose line retained with TYP");}
@@ -94,7 +132,7 @@ internal static class Tests
                 foreach(bool dual in new[]{false,true})
                 {
                     var n=Notes.Build(book,h,dual);Typical(n);Check(n.Text.Split('\r').Count(s=>s==LinkedCallouts.KoenigNote)==1,"Exactly one Koenig caution");
-                    Check(n.Text.Contains("%BS")&&n.Text.Contains("%BD"),"Koenig size/depth linked");
+                    Check((dual?n.Text.Contains("%{/ST"):n.Text.Contains("%BS"))&&n.Text.Contains("%BD"),"Koenig seat limits retained and depth linked");
                 }
             }
             const string equalSpacing="(%QC)PLC'S EQ. SP. AS SHOWN";
@@ -114,10 +152,10 @@ internal static class Tests
                 var hole=new HoleFacts{Type=4,Diameter=.4219,Depth=threadDepth.HasValue?(double?)1.08:null,Thread="1/2-13 UNC",ThreadDepth=threadDepth};
                 var note=Notes.Build(book,hole,dual);Typical(note);
                 string saved=LinkedCallouts.ReadSaved(dual?"HC -THR'D M[I]":"HC -THR'D");
-                Check(note.Text==Notes.EnsureTypical(Notes.FormatFields("%DI%HS DRILL %ZH%RT"+saved,dual).Replace("%RT","\r")),"Thread retains complete mode-specific saved note plus drilling diameter and TYP");
+                Check(note.Text==Notes.EnsureTypical(Notes.ApplyPrecision(Notes.FormatFields("%DI%HS DRILL %ZH%RT"+saved,dual),Notes.Recognize(book,hole),hole,dual).Replace("%RT","\r")),"Thread retains complete mode-specific saved note plus drilling diameter and TYP");
                 Check(note.Text.Split('\r').Count(line=>line==(dual?equalSpacing:"TYP(%QC)"))==1,"Thread retains exactly one saved quantity line");
                 Check(note.Text.Contains("%HS")&&note.Text.Contains("%TS")&&note.Text.Contains("%ZT")&&note.Text.Contains("%ZH"),"Blind and through thread fields stay native");
-                Check(note.InchPlaces==3&&note.Dual==dual,"Thread precision and unit mode retained");
+                Check(note.InchPlaces==2&&note.Dual==dual,"Thread depth uses two-place inch precision");
             }
             foreach(var simple in new[]{new HoleFacts{Type=1,Diameter=.3125,Depth=1},new HoleFacts{Type=1,Diameter=.4375,Depth=.75},
                 new HoleFacts{Type=1,Diameter=.2,Depth=null}})
@@ -125,10 +163,10 @@ internal static class Tests
             {
                 var note=Notes.Build(book,simple,dual);Typical(note);
                 Check(note.Category=="Simple drilled hole","Ordinary drilled-hole fallback");
-                Check(note.Text==Notes.EnsureTypical(Notes.FormatFields(LinkedCallouts.ReadSaved(dual?"HC -DRILL M[I]":"HC -DRILL"),dual).Replace("%RT","\r")),"Complete requested saved drill note plus TYP");
+                Check(note.Text==Notes.EnsureTypical(Notes.ApplyPrecision(Notes.FormatFields(LinkedCallouts.ReadSaved(dual?"HC -DRILL M[I]":"HC -DRILL"),dual),Notes.Recognize(book,simple),simple,dual).Replace("%RT","\r")),"Complete requested saved drill note plus TYP");
                 Check(note.Text.Contains("%HS")&&note.Text.Contains("%ZH")&&note.Text.Contains("%QC"),"Drill size, smart depth and quantity remain linked");
                 Check(note.Text.Contains(dual?"TYP(%QC)":"(%QC)PLC'S EQ. SP."),"Mode-specific drill quantity wording");
-                Check(note.InchPlaces==3&&note.Dual==dual,"Drill precision and unit mode");
+                Check(note.InchPlaces==2&&note.Dual==dual,"Drill precision and unit mode");
             }
             // A special-family conflict must never degrade to a generic drill.
             Preset existing=book.Presets.First(p=>p.Family=="Dowel"&&p.Kind=="Simple");

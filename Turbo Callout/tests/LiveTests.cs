@@ -21,7 +21,10 @@ internal static class LiveTests
         for(int i=0;i<(int)((dynamic)display).GetTextCount();i++)
         {
             string s="";double a=0,b=0,c=0,d=0,e=0,f=0,g=0,h=0,j=0;
-            ((dynamic)display).GetTextAtIndex(i,ref s,ref a,ref b,ref c,ref d,ref e,ref f,ref g,ref h,ref j);text.Add(s);
+            ((dynamic)display).GetTextAtIndex(i,ref s,ref a,ref b,ref c,ref d,ref e,ref f,ref g,ref h,ref j);
+            // Some versions include the raw source as a metadata entry. It is
+            // not rendered text and must not make a precision check pass.
+            if(!String.IsNullOrEmpty(s)&&!s.Contains("%"))text.Add(s);
         }
         return String.Join(" | ",text);
     }
@@ -38,7 +41,7 @@ internal static class LiveTests
         using(new BusyFilter()) try
         {
             app=Keep(Marshal.GetActiveObject("SolidEdge.Application")); docs=Keep(((dynamic)app).Documents);
-            previous=Keep(((dynamic)app).ActiveDocument);
+            try{previous=Keep(((dynamic)app).ActiveDocument);}catch(COMException){}
             part=Keep(((dynamic)docs).Add("SolidEdge.PartDocument"));
             object planes=Keep(((dynamic)part).RefPlanes), plane=Keep(((dynamic)planes).Item(3));
             object profile=Profile(part,plane), circles=Keep(((dynamic)profile).Circles2d);
@@ -105,6 +108,7 @@ internal static class LiveTests
                 Console.WriteLine("Raw: "+((dynamic)first).BalloonText);
                 Console.WriteLine("Rendered inch: "+Rendered(first));
                 Check(Rendered(first).Contains(".2500"),"Inch note evaluates finished upper limit");
+                Check(Rendered(first).Contains(".38")&&!Rendered(first).Contains(".380"),"Inch dowel depth renders two places alongside four-place limits");
                 Check((int)((dynamic)otherStyle).PrimaryUnits==untouchedUnits,"Per-callout unit change leaves other annotation style unchanged");
                 TurboCallout.Automation.Fill(second,Notes.Build(rules,reader.Read(second),true));
                 Console.WriteLine("After fill second direction="+((dynamic)second).CalloutBalloonBreaklineDirection+" align="+((dynamic)second).CalloutHorizontalAlignment);
@@ -114,11 +118,14 @@ internal static class LiveTests
                 Console.WriteLine("Rendered dual: "+Rendered(second));
                 Check(Rendered(second).Contains(".2500"),"Dual note retains four-place inch limit");
                 Check(Rendered(second).Contains("6.35"),"Dual note displays metric equivalent");
+                Check(Rendered(second).Contains("6.350")&&Rendered(second).Contains("6.337")&&Rendered(second).Contains("9.7")&&
+                    Rendered(second).Contains(".38")&&!Rendered(second).Contains(".380"),"Single dual callout mixes fixed four/three-place limits with linked two/one-place depth");
             }
             Check(((string)((dynamic)first).BalloonDisplayedText).Contains("TYP(1)")&&((string)((dynamic)second).BalloonDisplayedText).Contains("TYP(1)"),"Native quantity evaluates in inch and dual notes");
+            Check((int)((dynamic)notes).Count==2,"Each filled leader remains exactly one native callout");
             object styleCollection=Keep(((dynamic)draft).DimensionStyles),firstStyle=Keep(((dynamic)first).Style);
             string sharedName=(string)((dynamic)firstStyle).Name;
-            Check(sharedName=="Turbo Callout - Inch 4dp"&&(string)((dynamic)otherStyle).Name=="Turbo Callout - Dual 4dp","Shared styles have readable unit and precision names");
+            Check(sharedName=="Turbo Callout - Inch 2dp"&&(string)((dynamic)otherStyle).Name=="Turbo Callout - Dual 2dp","Shared styles have readable two-place unit names");
             int styleCount=(int)((dynamic)styleCollection).Count;
             object duplicate=Keep(((dynamic)first).Duplicate(.01,0.0)),duplicateStyle=Keep(((dynamic)duplicate).Style);
             ((dynamic)duplicate).SetTerminator(targetRef,cx,cy,0.0,false);((dynamic)duplicate).BalloonText=" ";
@@ -171,6 +178,17 @@ internal static class LiveTests
             using(var reader=new NativeHole(draft))Check(rules.Match(reader.Read(first)).IsDowel,"Model association survives save/reopen");
             Check(((string)((dynamic)first).BalloonText).Contains("%HS"),"Saved callout retains native linked fields");
             object savedStyle=Keep(((dynamic)first).Style);Check((string)((dynamic)savedStyle).Name==sharedName&&((string)((dynamic)first).BalloonDisplayedText).Contains("TYP(1)"),"Shared style and evaluated TYP quantity survive save/reopen");
+            // Change only this disposable fixture model. The dual limit text
+            // must stay fixed as requested, while both notes' depths and the
+            // inch-only native diameter continue to follow their model fields.
+            ((dynamic)data).HoleDiameter=.25975*.0254;((dynamic)hole).Depth=.52*.0254;((dynamic)part).Save();
+            object reopenedLinks=Keep(((dynamic)draft).ModelLinks),reopenedLink=Keep(((dynamic)reopenedLinks).Item(1));
+            ((dynamic)reopenedLink).ForceUpdateViews();
+            Check(Rendered(first).Contains(".2600")&&Rendered(first).Contains(".52"),"Inch diameter and two-place depth update from the model");
+            Check(Rendered(second).Contains(".2500")&&Rendered(second).Contains("6.350")&&!Rendered(second).Contains(".2600")&&
+                Rendered(second).Contains("13.2")&&Rendered(second).Contains(".52"),"Dual typed limits remain fixed while its depth updates in both units");
+            ((dynamic)data).HoleDiameter=.24975*.0254;((dynamic)hole).Depth=.38*.0254;((dynamic)part).Save();
+            ((dynamic)reopenedLink).ForceUpdateViews();((dynamic)draft).Save();
             Console.WriteLine(checks+" live checks passed.");return 0;
         }
         catch(Exception error){Console.WriteLine(error);return 1;}

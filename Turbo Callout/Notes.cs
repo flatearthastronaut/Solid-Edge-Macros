@@ -14,23 +14,28 @@ namespace TurboCallout
         internal string Text, Category;
         internal int InchPlaces;
         internal bool Dual;
+        internal bool PreserveFormat;
     }
 
     internal static class Notes
     {
+        // Precision belongs to the individual machining value, not the whole
+        // hole family: a four-place dowel diameter still has a two-place depth.
+        internal static int InchPlaces(Decision choice, HoleFacts hole, string field)
+        {
+            if (field == "BD" && choice.Family == "O-ring face seal") return 3;
+            if (field == "HD" || field == "BD" || field == "TD") return 2;
+            if (choice.IsDowel && field == (hole.Type == 1 ? "HS" : "BS")) return 4;
+            if (choice.Family == "Spring pin" && field == "HS") return 3;
+            // Koenig seats retain their saved three-place limit diameters;
+            // their pilot drill and seat depth follow the new two-place rule.
+            if (choice.Family == "Koenig plug" && field == "BS") return 3;
+            return 2;
+        }
+
         internal static NotePlan Build(RuleBook rules, HoleFacts hole, bool dual)
         {
-            Decision choice = rules.Match(hole);
-            // The table rules deliberately reject unspecified hole families.
-            // Greg's annotation-only rule supplies a standard drill note for a
-            // native simple hole after all special-family matching has run.
-            // Accept only the shared engine's ordinary no-match result, never
-            // a conflicting pin match or another review condition.
-            if (choice.Slot == 0 && choice.Reason == "No verified standard-hole match. Leave unchanged." && IsPlainDrill(hole))
-                choice = new Decision { Category = "Simple drilled hole", Family = "Simple drill", Slot = 1 };
-            if (choice.Slot == 0) throw new InvalidOperationException(choice.Reason);
-            int places = choice.IsDowel ? 4 : choice.Port == 6 || choice.Port == 8 ||
-                choice.Family == "SHCS counterbore" ? 2 : 3;
+            Decision choice = Recognize(rules, hole);
             string text;
             if (choice.IsDowel)
             {
@@ -108,9 +113,64 @@ namespace TurboCallout
                 text = Regex.Replace(text, @"%\{%HD[^{}]*\} DP\.", "%ZH");
             if (choice.IsDowel && hole.Type == 7)
                 text = Regex.Replace(text, @"(?<=DRILL )(?:(?:%\{%HD[^{}]*\} DP\.)|THRU)", "%ZH");
-            text = FormatFields(text, dual);
+            text = ApplyPrecision(FormatFields(text, dual), choice, hole, dual);
             // Native BalloonText uses carriage returns, not the table's %RT.
-            return new NotePlan { Text = EnsureTypical(text.Replace("%RT", "\r")), Category = choice.Category, InchPlaces = places, Dual = dual };
+            return new NotePlan { Text = EnsureTypical(text.Replace("%RT", "\r")), Category = choice.Category, InchPlaces = 2, Dual = dual };
+        }
+
+        internal static Decision Recognize(RuleBook rules, HoleFacts hole)
+        {
+            // The table rules deliberately reject unspecified hole families.
+            // Supply Greg's drill-note fallback only after special matching,
+            // never for a conflicting pin match or another review condition.
+            Decision choice = rules.Match(hole);
+            if (choice.Slot == 0 && choice.Reason == "No verified standard-hole match. Leave unchanged." && IsPlainDrill(hole))
+                choice = new Decision { Category = "Simple drilled hole", Family = "Simple drill", Slot = 1 };
+            if (choice.Slot == 0) throw new InvalidOperationException(choice.Reason);
+            return choice;
+        }
+
+        const string Fields = @"%\{%(?<field>HS|HD|BS|BD|SS|TD)(?<options>[^{}]*)\}|(?<!\{)%(?<field>HS|HD|BS|BD|SS|TD)";
+
+        internal static string ApplyPrecision(string text, Decision choice, HoleFacts hole, bool dual)
+        {
+            // A single native dual callout has only one secondary round-off.
+            // Greg's saved-note fallback keeps that at two inch places and
+            // types the higher-precision limits. Inch-only notes can retain
+            // native fields throughout because /@ controls their inch values.
+            // Existing text already uses primary-unit LT offsets: do not run
+            // it through FormatFields, which converts new inch seed offsets.
+            return Regex.Replace(text ?? "", Fields, m =>
+            {
+                string field = m.Groups["field"].Value;
+                int places = InchPlaces(choice, hole, field);
+                string options = Regex.Replace(m.Groups["options"].Value, @"/(?:DU|NU)(?=/|$)|/@\d+", "", RegexOptions.IgnoreCase);
+                if (dual && places > 2)
+                {
+                    double? value = field == "HS" ? hole.Diameter : field == "BS" ? hole.Bore : field == "BD" ? hole.BoreDepth : null;
+                    if (!PositiveFinite(value)) throw new InvalidOperationException("Missing value for fixed precision: " + field);
+                    if (options.Length == 0) return FixedValue(value.Value, places);
+                    Match limit = Regex.Match(options, @"^/LT(?<hi>[+\-]?[\d.]+)\^(?<lo>[+\-]?[\d.]+)$", RegexOptions.IgnoreCase);
+                    if (!limit.Success) throw new InvalidOperationException("Custom tolerance formatting needs review before changing precision: " + field);
+                    double upper = value.Value + Double.Parse(limit.Groups["hi"].Value, CultureInfo.InvariantCulture) / 25.4;
+                    double lower = value.Value + Double.Parse(limit.Groups["lo"].Value, CultureInfo.InvariantCulture) / 25.4;
+                    if (upper <= lower) throw new InvalidOperationException("Invalid limits for fixed precision: " + field);
+                    // ST preserves the current stacked limit presentation,
+                    // while the values themselves are explicitly fixed text.
+                    return "%{/ST" + FixedNumber(upper * 25.4, places - 1, false) + "^" + FixedNumber(lower * 25.4, places - 1, false) +
+                        "}[%{/ST" + FixedNumber(upper, places, true) + "^" + FixedNumber(lower, places, true) + "}]";
+                }
+                return "%{%" + field + (dual ? "/DU" : "") + options + "/@" + (dual ? places - 1 : places) + "}";
+            });
+        }
+
+        static string FixedValue(double inch, int places)
+        { return FixedNumber(inch * 25.4, places - 1, false) + "[" + FixedNumber(inch, places, true) + "]"; }
+
+        static string FixedNumber(double value, int places, bool inch)
+        {
+            string result = Math.Round(value, places, MidpointRounding.AwayFromZero).ToString("F" + places, CultureInfo.InvariantCulture);
+            return inch && result.StartsWith("0.", StringComparison.Ordinal) ? result.Substring(1) : result;
         }
 
         internal static bool HasTypical(string text)
@@ -166,8 +226,9 @@ namespace TurboCallout
         {
             // LT offsets are expressed in the primary display unit. Convert
             // offsets, not model geometry, when using metric[inch] annotations.
-            // Do not use /@ on dual fields: that overrides metric precision.
-            text = Regex.Replace(text, @"%\{%(?<field>HS|HD|BS|BD|SS|TD)(?<options>[^{}]*)\}|(?<!\{)%(?<field>HS|HD|BS|BD|SS|TD)", m =>
+            // ApplyPrecision subsequently assigns primary-unit /@ overrides
+            // and converts the exceptional dual limits into fixed text.
+            text = Regex.Replace(text, Fields, m =>
             {
                 string options = Regex.Replace(m.Groups["options"].Value, @"/(?:DU|NU)(?=/|$)|/@\d+", "", RegexOptions.IgnoreCase);
                 if (dual) options = Regex.Replace(options, @"/LT(?<hi>[+\-]?[\d.]+)\^(?<lo>[+\-]?[\d.]+)", t =>
