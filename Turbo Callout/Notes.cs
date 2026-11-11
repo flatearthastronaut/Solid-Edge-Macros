@@ -95,11 +95,10 @@ namespace TurboCallout
                 // different quantity wording, so select the actual saved entry.
                 text = LinkedCallouts.ReadSaved(dual ? "HC -DRILL M[I]" : "HC -DRILL");
             else if (choice.Family == "SHCS counterbore")
-                // Keep the model-linked quantity/equal-spacing line. Only the
-                // unresolved screw-size placeholder is unsuitable for an
-                // automatic note; do not truncate the remaining saved lines.
-                text = String.Join("%RT", LinkedCallouts.ReadSaved(dual ? "HC -C'BORE M[I]" : "HC -C'BORE")
-                    .Split(new[] { "%RT" }, StringSplitOptions.None).Where(line => line != "(FOR X S.H.C.S.)"));
+                // Keep the complete saved note, including the linked quantity
+                // and the requested literal (FOR X S.H.C.S.) line. Leave X
+                // exactly as saved rather than guessing a screw designation.
+                text = LinkedCallouts.ReadSaved(dual ? "HC -C'BORE M[I]" : "HC -C'BORE");
             else throw new InvalidOperationException("No approved callout template for " + choice.Category + ".");
             if (String.IsNullOrWhiteSpace(text)) throw new InvalidOperationException("Saved note could not preserve the model links.");
             // Unlike hole-table cell overrides, native annotations evaluate smart

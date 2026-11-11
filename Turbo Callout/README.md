@@ -1,11 +1,11 @@
-# Turbo Callout v0.5
+# Turbo Callout v0.6
 
 Fills blank native hole callouts in the active Solid Edge draft. Uses the same recognition source and saved-note library as Turbo Hole Table Callouts, compiled into a standalone x64 .NET Framework executable.
 
 ## Use
 
 1. Activate the drawing in Solid Edge.
-2. Run `Compiled Executables/Turbo Callout v0.5.exe`.
+2. Run `Compiled Executables/Turbo Callout v0.6.exe`.
 3. Choose **Inch only** or **Dual — metric[inch]**. Scanning and filling start immediately.
 4. Review the result counts and any unchanged callouts. Review the drawing and save it normally.
 
@@ -23,9 +23,9 @@ Supported special families follow the shared rules: chart/saved dowel pin seats,
 
 Notes retain native size/depth fields and Smart Depth behavior, actual model dimensions, dowel fit limits and P.F./S.F. lines, face-seal depth limits, and the separate Koenig `(DO NOT CHAMFER HOLE)` line. The saved 12 mm Koenig entry supplies its bracketed inch limits when only a dual entry exists. Threaded holes include the native drilling/minor diameter. Spotface-only SAE features use the size-specific saved thread designation/depth; modeled threaded entrances use their native thread fields. #8 uses the shared rule's saved thread-depth standard. Review the saved standard note if the separate thread feature is later changed.
 
-Inch precision is four places for dowels, two for SHCS counterbores and SAE #6/#8, and three for the other supported families. Dual notes retain the existing metric precision independently. Two metric places are used only if the blank style has no metric unit configured. Tolerance offsets are converted to the primary display units; they remain attached to model fields. Fixed occurrence counts, opposite-side wording, and unresolved `X` placeholders in saved notes are not assumed for an arbitrary leader.
+Inch precision is four places for dowels, two for SHCS counterbores and SAE #6/#8, and three for the other supported families. Dual notes retain the existing metric precision independently. Two metric places are used only if the blank style has no metric unit configured. Tolerance offsets are converted to the primary display units; they remain attached to model fields. Fixed occurrence counts and opposite-side wording in saved notes are not assumed for an arbitrary leader.
 
-Starting with v0.5, counterbore and threaded notes retain their saved quantity lines. `(%QC)PLC'S EQ. SP. AS SHOWN` remains a separate line in both counterbore unit modes and in dual threaded notes; inch threaded notes retain their saved `TYP(%QC)` wording. `%QC` stays linked for Solid Edge to evaluate. Counterbore notes omit the unresolved `(FOR X S.H.C.S.)` placeholder. These changes apply when filling blank callouts; existing populated notes retain their text.
+Starting with v0.5, counterbore and threaded notes retain their saved quantity lines. `(%QC)PLC'S EQ. SP. AS SHOWN` remains a separate line in both counterbore unit modes and in dual threaded notes; inch threaded notes retain their saved `TYP(%QC)` wording. `%QC` stays linked for Solid Edge to evaluate. Starting with v0.6, counterbore notes also retain the exact separate line `(FOR X S.H.C.S.)` after the quantity line, keeping the literal `X` as saved. These changes apply when filling blank callouts; existing populated notes retain their text.
 
 ## Placement and failure handling
 
@@ -41,6 +41,8 @@ Writes are checked and placement is verified. A failed fill restores the previou
 - `SampleTest.cmd`: make separate inch/dual copies of the active draft under `Inspection`, fill and save/reopen each, verify existing text and all callout placements, and verify original text/placement unchanged. No changes are saved to the original.
 - `Inspect.cmd`: inspect native fields of blank callouts; diagnostic probes are removed immediately. `Inspect.cmd --alignment` reads direction and justification without adding probes.
 - `Preview.cmd`: render the initial window to `Inspection/window.png`.
+
+v0.6 verified November 11, 2026: 1,273 regression checks passed. Every saved SHCS counterbore preset was checked in both unit modes for exactly one literal `(FOR X S.H.C.S.)` line following the saved quantity line, with native size/depth fields, precision, and units retained. The v0.6 executable compiled successfully. Validation for this text-only change used regression tests.
 
 v0.5 verified November 11, 2026: 1,243 regression checks passed, including every saved SHCS counterbore preset in both unit modes and blind/through threaded holes. Checks verify the exact saved quantity line occurs once, drilling/thread/Smart Depth fields remain linked, unit mode and precision remain unchanged, and the unresolved screw-size placeholder is omitted. The v0.5 executable compiled successfully. This template-text change was verified by regression tests; live Solid Edge checks below describe earlier releases.
 

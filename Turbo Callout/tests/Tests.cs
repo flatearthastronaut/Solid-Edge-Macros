@@ -89,7 +89,8 @@ internal static class Tests
                 var note=Notes.Build(book,Facts(p),dual);
                 Check(note.Text.Split('\r').Count(line=>line==equalSpacing)==1,"Counterbore retains exactly one saved equal-spacing quantity line");
                 Check(note.Text.Contains("%HS")&&note.Text.Contains("%BS")&&note.Text.Contains("%BD")&&note.Text.Contains("%ZH"),"Counterbore size and depths remain linked");
-                Check(!note.Text.Contains("FOR X"),"Counterbore omits only the unresolved screw-size placeholder");
+                Check(note.Text.Split('\r').Count(line=>line=="(FOR X S.H.C.S.)")==1,"Counterbore retains exactly one literal saved screw-size line");
+                Check(note.Text.EndsWith(equalSpacing+"\r(FOR X S.H.C.S.)",StringComparison.Ordinal),"Counterbore keeps screw-size line after the quantity line");
                 Check(note.InchPlaces==2&&note.Dual==dual,"Counterbore precision and unit mode retained");
             }
             foreach(double? threadDepth in new double?[]{.88,null})
