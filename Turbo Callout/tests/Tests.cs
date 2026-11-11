@@ -82,6 +82,27 @@ internal static class Tests
                     Check(n.Text.Contains("%BS")&&n.Text.Contains("%BD"),"Koenig size/depth linked");
                 }
             }
+            const string equalSpacing="(%QC)PLC'S EQ. SP. AS SHOWN";
+            foreach(Preset p in book.Presets.Where(p=>p.Family=="SHCS counterbore"))
+            foreach(bool dual in new[]{false,true})
+            {
+                var note=Notes.Build(book,Facts(p),dual);
+                Check(note.Text.Split('\r').Count(line=>line==equalSpacing)==1,"Counterbore retains exactly one saved equal-spacing quantity line");
+                Check(note.Text.Contains("%HS")&&note.Text.Contains("%BS")&&note.Text.Contains("%BD")&&note.Text.Contains("%ZH"),"Counterbore size and depths remain linked");
+                Check(!note.Text.Contains("FOR X"),"Counterbore omits only the unresolved screw-size placeholder");
+                Check(note.InchPlaces==2&&note.Dual==dual,"Counterbore precision and unit mode retained");
+            }
+            foreach(double? threadDepth in new double?[]{.88,null})
+            foreach(bool dual in new[]{false,true})
+            {
+                var hole=new HoleFacts{Type=4,Diameter=.4219,Depth=threadDepth.HasValue?(double?)1.08:null,Thread="1/2-13 UNC",ThreadDepth=threadDepth};
+                var note=Notes.Build(book,hole,dual);
+                string saved=LinkedCallouts.ReadSaved(dual?"HC -THR'D M[I]":"HC -THR'D");
+                Check(note.Text==Notes.FormatFields("%DI%HS DRILL %ZH%RT"+saved,dual).Replace("%RT","\r"),"Thread retains complete mode-specific saved note plus drilling diameter");
+                Check(note.Text.Split('\r').Count(line=>line==(dual?equalSpacing:"TYP(%QC)"))==1,"Thread retains exactly one saved quantity line");
+                Check(note.Text.Contains("%HS")&&note.Text.Contains("%TS")&&note.Text.Contains("%ZT")&&note.Text.Contains("%ZH"),"Blind and through thread fields stay native");
+                Check(note.InchPlaces==3&&note.Dual==dual,"Thread precision and unit mode retained");
+            }
             foreach(var simple in new[]{new HoleFacts{Type=1,Diameter=.3125,Depth=1},new HoleFacts{Type=1,Diameter=.4375,Depth=.75},
                 new HoleFacts{Type=1,Diameter=.2,Depth=null}})
             foreach(bool dual in new[]{false,true})

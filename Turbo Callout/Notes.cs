@@ -85,14 +85,21 @@ namespace TurboCallout
                 }
             }
             else if (choice.Category == "Threaded hole")
-                text = "%DI%HS DRILL %ZH%RT" + LinkedCallouts.ReadSaved("HC -THR'D").Split(new[] { "%RT" }, StringSplitOptions.None)[0];
+                // Retain the saved quantity line as well as the thread fields.
+                // Each unit mode has its own wording; %QC stays native so Solid
+                // Edge evaluates the count from the attached hole feature.
+                text = "%DI%HS DRILL %ZH%RT" + LinkedCallouts.ReadSaved(dual ? "HC -THR'D M[I]" : "HC -THR'D");
             else if (choice.Family == "Simple drill")
                 // Use the complete requested note, including its model-linked
                 // quantity and Smart Depth. The inch and dual entries have
                 // different quantity wording, so select the actual saved entry.
                 text = LinkedCallouts.ReadSaved(dual ? "HC -DRILL M[I]" : "HC -DRILL");
             else if (choice.Family == "SHCS counterbore")
-                text = String.Join("%RT", LinkedCallouts.ReadSaved("HC -C'BORE").Split(new[] { "%RT" }, StringSplitOptions.None).Take(2));
+                // Keep the model-linked quantity/equal-spacing line. Only the
+                // unresolved screw-size placeholder is unsuitable for an
+                // automatic note; do not truncate the remaining saved lines.
+                text = String.Join("%RT", LinkedCallouts.ReadSaved(dual ? "HC -C'BORE M[I]" : "HC -C'BORE")
+                    .Split(new[] { "%RT" }, StringSplitOptions.None).Where(line => line != "(FOR X S.H.C.S.)"));
             else throw new InvalidOperationException("No approved callout template for " + choice.Category + ".");
             if (String.IsNullOrWhiteSpace(text)) throw new InvalidOperationException("Saved note could not preserve the model links.");
             // Unlike hole-table cell overrides, native annotations evaluate smart
