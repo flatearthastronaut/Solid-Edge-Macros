@@ -1,11 +1,11 @@
-# Turbo Callout v0.11
+# Turbo Callout v0.12
 
 Fills blank native hole callouts in the active Solid Edge draft. Uses the same recognition source and saved-note library as Turbo Hole Table Callouts, compiled into a standalone x64 .NET Framework executable.
 
 ## Use
 
 1. Activate the drawing in Solid Edge.
-2. Run `Compiled Executables/Turbo Callout v0.11.exe`.
+2. Run `Compiled Executables/Turbo Callout v0.12.exe`.
 3. Choose **Inch only** or **Dual — metric[inch]**. Scanning and filling start immediately.
 4. Review the result counts and any unchanged callouts. Review the drawing and save it normally.
 
@@ -45,6 +45,8 @@ When the native `%QC` quantity is one, omit the **entire TYP and associated PLC'
 
 Typed stacked tolerance values use **100% of the surrounding note height**, giving .125-inch characters in the standard .125-inch notes. Solid Edge applies `ToleranceHeightRatio` to literal `/ST` stacks; its usual 80% setting made them .100 inch. New fills and reruns correct that ratio only for macro notes containing typed numeric stacks. Fixed values, precision, base text height, and leader placement are preserved. Notes without typed stacks retain their existing tolerance-height setting, and matching formats continue to share styles.
 
+Machining text uses two spaces before and after `DRILL`, and three spaces after `DIA` (one extra around `DRILL`, two extra after `DIA`). New fills and existing macro notes receive the spacing in all four text fields. Reruns do not accumulate more spaces; wider custom gaps and native property/stack codes are preserved. Values, precision, text height, and leader geometry are unchanged.
+
 ## Placement and failure handling
 
 A break line extending left (West) produces left-aligned text; a break line extending right (East) produces right-aligned text. Notes without a horizontal break line keep their original justification. The macro reads the native four-direction `CalloutBalloonBreaklineDirection` property because the older Boolean can be stale in current drafts. The existing callout keeps its leader/text connection, breakline direction and distance, rotation, scale, leader vertices, and free-space point. Fixed text widths are retained; fit-to-content widths grow to accommodate new text.
@@ -63,6 +65,8 @@ Writes are checked and placement is verified. A failed fill restores the previou
 - `SampleTest.cmd [saved-draft-path] [--blank]`: make separate inch/dual copies of the active draft or supplied sample under `Inspection`, fill/update and save/reopen each, verify requested precision changes and all other formatting/placements, and verify the original unchanged. `--blank` empties only macro notes in the disposable copies to test initial filling against the sample's real model associations. No changes are saved to the original.
 - `Inspect.cmd`: inspect native fields of blank callouts; diagnostic probes are removed immediately. `Inspect.cmd --alignment` reads direction and justification without adding probes.
 - `Preview.cmd`: render the initial window to `Inspection/window.png`.
+
+v0.12 verified November 12, 2026: 4,940 regression checks and 35 isolated Solid Edge checks passed. All supported templates have the requested DRILL/DIA spacing in both unit modes, including stable reruns, adjacent keywords, and protected field/stack codes. Populated sample copies updated all 15 notes with zero errors or review cases, retained their styles, heights, precision, model links, and leader positions, and passed save/reopen and repeat-run checks. The source sample remained unchanged.
 
 v0.11 verified November 12, 2026: 4,443 regression checks and 35 isolated Solid Edge checks passed. The native rendering check confirmed that changing the stack ratio from 80% to 100% increases the rendered stack by 25%, with .125-inch base height and identical typed text. Copies of the populated sample updated only its seven notes containing typed stacks, with zero errors or review cases. Values, precision, leader placement, model attachments, save/reopen, repeat-run stability, and the untouched source sample were verified. Other note formats remained unchanged.
 

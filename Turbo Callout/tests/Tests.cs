@@ -62,6 +62,23 @@ internal static class Tests
             }
             Check(Notes.EnsureTypical("")=="","Do not turn empty text into a quantity-only note");
             foreach(string sep in new[]{"\r","\n","\r\n","%RT"})
+            foreach(var pair in new[]{
+                new{Before="%DI%{%HS/DU/@1} DRILL %ZH",After="%DI%{%HS/DU/@1}  DRILL  %ZH"},
+                new{Before="%DI%{/ST8.10^8.00}[%{/ST.319^.315}] DIA %{%BD/DU/@1} DP.",After="%DI%{/ST8.10^8.00}[%{/ST.319^.315}] DIA   %{%BD/DU/@1} DP."},
+                new{Before=".25  DRILL  1.50 DP.",After=".25  DRILL  1.50 DP."},
+                new{Before=".25    DRILL     1.50 DP. DIA    THRU",After=".25    DRILL     1.50 DP. DIA    THRU"},
+                new{Before=".25 drill THRU DIA %ZH",After=".25  drill  THRU DIA   %ZH"},
+                new{Before="DIA DRILL DRILL DIA",After="DIA   DRILL  DRILL  DIA   "},
+                new{Before="DRILLING DIAMETER RADIAL %DIA %DRILL %{DRILL|DIA} %{%HS/LT+.001^-.001/@4}",After="DRILLING DIAMETER RADIAL %DIA %DRILL %{DRILL|DIA} %{%HS/LT+.001^-.001/@4}"}})
+            {
+                string input=pair.Before+sep+"(DO NOT CHAMFER HOLE)"+sep+"TYP(%QC)",expected=pair.After+sep+"(DO NOT CHAMFER HOLE)"+sep+"TYP(%QC)";
+                string spaced=Notes.ApplyWordSpacing(input);
+                Check(spaced==expected,"DRILL gets two surrounding spaces and DIA three following spaces, with other text/fields preserved");
+                Check(Notes.ApplyWordSpacing(spaced)==spaced,"Rerunning does not accumulate word spacing");
+                Check(spaced.Replace(" ","")==input.Replace(" ",""),"Spacing changes only ordinary space characters");
+            }
+            Check(Notes.ApplyWordSpacing(null)==null&&Notes.ApplyWordSpacing("")=="","Empty native text fields remain empty");
+            foreach(string sep in new[]{"\r","\n","\r\n","%RT"})
             foreach(string typ in new[]{"TYP(1)","TYP(%QC)"," typ. ( 1 ) ","TYP(%{%QC})"})
             {
                 foreach(var pair in new[]{new{Text="SIZE"+sep+typ,Expected="SIZE"},new{Text=typ+sep+"SIZE",Expected="SIZE"},
@@ -154,6 +171,11 @@ internal static class Tests
                     Check(Notes.OmitSingleTypical(note.Text,2)==note.Text,"Every hole family retains its linked quantity line above one");
                     Check(Notes.ApplyQuantity(new[]{note.Text},decision,2)[0]==note.Text,"New template already satisfies its family quantity policy");
                     Check(Notes.ApplyPrecision(note.Text,decision,facts,dual)==note.Text,"Precision formatting is idempotent without rescaling tolerances");
+                    Check(Notes.ApplyWordSpacing(note.Text)==note.Text,"Every new hole family already has stable word spacing");
+                    foreach(Match word in Regex.Matches(note.Text,@"(?<before> *)\bDRILL\b(?<after> *)"))
+                        Check(word.Groups["before"].Length==2&&word.Groups["after"].Length==2,"Every template has exactly two spaces around DRILL");
+                    foreach(Match word in Regex.Matches(note.Text,@"\bDIA\b(?<after> *)"))
+                        Check(word.Groups["after"].Length==3,"Every template has exactly three spaces after DIA");
                     foreach(Match m in Regex.Matches(note.Text,@"%\{%(?<field>HS|HD|BS|BD|TD)(?<options>[^{}]*)\}"))
                     {
                         int digits=Notes.InchPlaces(decision,facts,m.Groups["field"].Value);
@@ -217,7 +239,7 @@ internal static class Tests
                 var hole=new HoleFacts{Type=4,Diameter=.4219,Depth=threadDepth.HasValue?(double?)1.08:null,Thread="1/2-13 UNC",ThreadDepth=threadDepth};
                 var note=Notes.Build(book,hole,dual);Check(!Notes.HasTypical(note.Text),"Thread has no TYP line in either mode");
                 string saved=LinkedCallouts.ReadSaved(dual?"HC -THR'D M[I]":"HC -THR'D");
-                Check(note.Text==Notes.ApplyPrecision(Notes.FormatFields("%DI%HS DRILL %ZH%RT"+saved.Replace("TYP(%QC)",equalSpacing),dual),Notes.Recognize(book,hole),hole,dual).Replace("%RT","\r"),"Thread retains saved machining fields with the requested spacing wording");
+                Check(note.Text==Notes.ApplyWordSpacing(Notes.ApplyPrecision(Notes.FormatFields("%DI%HS DRILL %ZH%RT"+saved.Replace("TYP(%QC)",equalSpacing),dual),Notes.Recognize(book,hole),hole,dual).Replace("%RT","\r")),"Thread retains saved machining fields with the requested spacing wording");
                 Check(note.Text.Split('\r').Count(line=>line==equalSpacing)==1,"Thread uses exactly one linked spacing line in either mode");
                 Check(note.Text.Contains("%HS")&&note.Text.Contains("%TS")&&note.Text.Contains("%ZT")&&note.Text.Contains("%ZH"),"Blind and through thread fields stay native");
                 Check(note.InchPlaces==2&&note.Dual==dual,"Thread depth uses two-place inch precision");
@@ -228,7 +250,7 @@ internal static class Tests
             {
                 var note=Notes.Build(book,simple,dual);Typical(note);
                 Check(note.Category=="Simple drilled hole","Ordinary drilled-hole fallback");
-                Check(note.Text==Notes.EnsureTypical(Notes.ApplyPrecision(Notes.FormatFields(LinkedCallouts.ReadSaved(dual?"HC -DRILL M[I]":"HC -DRILL"),dual),Notes.Recognize(book,simple),simple,dual).Replace("%RT","\r")),"Complete requested saved drill note plus TYP");
+                Check(note.Text==Notes.ApplyWordSpacing(Notes.EnsureTypical(Notes.ApplyPrecision(Notes.FormatFields(LinkedCallouts.ReadSaved(dual?"HC -DRILL M[I]":"HC -DRILL"),dual),Notes.Recognize(book,simple),simple,dual).Replace("%RT","\r"))),"Complete requested saved drill note plus TYP");
                 Check(note.Text.Contains("%HS")&&note.Text.Contains("%ZH")&&note.Text.Contains("%QC"),"Drill size, smart depth and quantity remain linked");
                 Check(note.Text.Contains(dual?"TYP(%QC)":"(%QC)PLC'S EQ. SP."),"Mode-specific drill quantity wording");
                 Check(note.InchPlaces==2&&note.Dual==dual,"Drill precision and unit mode");

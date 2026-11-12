@@ -487,7 +487,7 @@ namespace TurboCallout
                 var format = new StyleValues(style); var position = new Placement(note);
                 string[] fields = { "BalloonText", "BalloonTextLower", "BalloonTextPrefix", "BalloonTextSuffix" };
                 var before = fields.ToDictionary(p => p, p => Convert.ToString(Property.Get(note, p)));
-                var updated = before.ToDictionary(p => p.Key, p => Notes.OmitSingleTypical(p.Value, null));
+                var updated = before.ToDictionary(p => p.Key, p => Notes.ApplyWordSpacing(Notes.OmitSingleTypical(p.Value, null)));
                 bool attached = (bool)((dynamic)note).IsTerminatorAttachedToEntity;
                 // Existing unattached notes can still consolidate their styles,
                 // but cannot acquire a quantity field with no model to count.
@@ -506,7 +506,7 @@ namespace TurboCallout
                             throw new InvalidOperationException("Custom unit order needs review.");
                         int? quantity; HoleFacts hole = reader.Read(note, out quantity); Decision choice = Notes.Recognize(rules, hole);
                         string[] text = Notes.ApplyQuantity(fields.Select(field => Notes.ApplyPrecision(before[field], choice, hole, dual)).ToArray(), choice, quantity);
-                        for (int i = 0; i < fields.Length; i++) updated[fields[i]] = text[i];
+                        for (int i = 0; i < fields.Length; i++) updated[fields[i]] = Notes.ApplyWordSpacing(text[i]);
                         plan = new NotePlan { Dual = dual, InchPlaces = 2, PreserveFormat = true, FullSizeStacks = updated.Values.Any(Notes.HasFixedStacks) };
                         new UnitStyle(style, plan).ApplyToSnapshot(expected);
                     }

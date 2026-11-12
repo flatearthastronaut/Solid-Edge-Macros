@@ -68,7 +68,7 @@ internal static class SampleTest
             object notes=Keep(((dynamic)sheet).Balloons),note=Keep(((dynamic)notes).Item(Int32.Parse(key[1]))),style=Keep(((dynamic)note).Style);
             bool dual=(bool)Property.Get(style,"DualDisplay");int? quantity;HoleFacts hole=reader.Read(note,out quantity);Decision choice=Notes.Recognize(rules,hole);
             item.Value.ExpectedText=item.Value.Text.Select(t=>Notes.ApplyPrecision(t,choice,hole,dual)).ToArray();
-            item.Value.ExpectedText=Notes.ApplyQuantity(item.Value.ExpectedText,choice,quantity);
+            item.Value.ExpectedText=Notes.ApplyQuantity(item.Value.ExpectedText,choice,quantity).Select(Notes.ApplyWordSpacing).ToArray();
             item.Value.ExpectedFormat=new StyleValues(style);
             new UnitStyle(style,new NotePlan{Dual=dual,InchPlaces=2,FullSizeStacks=item.Value.ExpectedText.Any(Notes.HasFixedStacks)}).ApplyToSnapshot(item.Value.ExpectedFormat);
         }

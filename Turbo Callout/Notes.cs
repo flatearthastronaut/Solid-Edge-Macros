@@ -113,7 +113,7 @@ namespace TurboCallout
                 text = Regex.Replace(text, @"%\{%HD[^{}]*\} DP\.", "%ZH");
             if (choice.IsDowel && hole.Type == 7)
                 text = Regex.Replace(text, @"(?<=DRILL )(?:(?:%\{%HD[^{}]*\} DP\.)|THRU)", "%ZH");
-            text = ApplyPrecision(FormatFields(text, dual), choice, hole, dual);
+            text = ApplyWordSpacing(ApplyPrecision(FormatFields(text, dual), choice, hole, dual));
             // Native BalloonText uses carriage returns, not the table's %RT.
             return new NotePlan { Text = ApplyQuantity(new[] { text.Replace("%RT", "\r") }, choice, null)[0], Category = choice.Category, InchPlaces = 2, Dual = dual, FullSizeStacks = HasFixedStacks(text) };
         }
@@ -178,6 +178,29 @@ namespace TurboCallout
 
         internal static bool HasFixedStacks(string text)
         { return Regex.IsMatch(text ?? "", @"%\{/ST[+\-]?(?:\d*\.)?\d+\^[+\-]?(?:\d*\.)?\d+\}", RegexOptions.IgnoreCase); }
+
+        internal static string ApplyWordSpacing(string text)
+        {
+            // Saved machining lines have one separating space. Add one on
+            // each side of DRILL and two after DIA by enforcing totals of
+            // two/three spaces. Minimums make reruns stable and preserve any
+            // wider custom gaps. Treat native field/stack codes as opaque so
+            // neither property names nor fixed manufacturing values change.
+            // Separate one-sided passes also handle adjacent keywords sharing
+            // a gap: DIA DRILL must settle at three spaces, not grow on reruns.
+            return RewriteLines(text, line => PadWord(PadWord(PadWord(line, "DRILL", 2, true), "DRILL", 2, false), "DIA", 3, false));
+        }
+
+        static string PadWord(string line, string word, int minimum, bool before)
+        {
+            string token = @"(?<!%)\b(?<word>" + word + @")\b", gap = @"(?<gap> *)";
+            return Regex.Replace(line, @"%\{[^{}]*\}|" + (before ? gap + token : token + gap), m =>
+            {
+                if (!m.Groups["word"].Success) return m.Value;
+                string spaces = new string(' ', Math.Max(minimum, m.Groups["gap"].Length));
+                return before ? spaces + m.Groups["word"].Value : m.Groups["word"].Value + spaces;
+            }, RegexOptions.IgnoreCase);
+        }
 
         internal static bool UsesSpacingQuantity(Decision choice)
         { return choice.Category == "Threaded hole" || choice.Family == "SHCS counterbore"; }
