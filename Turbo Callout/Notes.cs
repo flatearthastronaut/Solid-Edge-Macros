@@ -90,9 +90,8 @@ namespace TurboCallout
                 }
             }
             else if (choice.Category == "Threaded hole")
-                // Retain the saved quantity line as well as the thread fields.
-                // Each unit mode has its own wording; %QC stays native so Solid
-                // Edge evaluates the count from the attached hole feature.
+                // Retain the saved thread fields; the family quantity policy
+                // below gives both unit modes the same linked spacing line.
                 text = "%DI%HS DRILL %ZH%RT" + LinkedCallouts.ReadSaved(dual ? "HC -THR'D M[I]" : "HC -THR'D");
             else if (choice.Family == "Simple drill")
                 // Use the complete requested note, including its model-linked
@@ -115,7 +114,7 @@ namespace TurboCallout
                 text = Regex.Replace(text, @"(?<=DRILL )(?:(?:%\{%HD[^{}]*\} DP\.)|THRU)", "%ZH");
             text = ApplyPrecision(FormatFields(text, dual), choice, hole, dual);
             // Native BalloonText uses carriage returns, not the table's %RT.
-            return new NotePlan { Text = EnsureTypical(text.Replace("%RT", "\r")), Category = choice.Category, InchPlaces = 2, Dual = dual };
+            return new NotePlan { Text = ApplyQuantity(new[] { text.Replace("%RT", "\r") }, choice, null)[0], Category = choice.Category, InchPlaces = 2, Dual = dual };
         }
 
         internal static Decision Recognize(RuleBook rules, HoleFacts hole)
@@ -176,11 +175,73 @@ namespace TurboCallout
         internal static bool HasTypical(string text)
         { return Regex.IsMatch(text ?? "", @"(?:^|\r|\n|%RT)\s*TYP\b", RegexOptions.IgnoreCase); }
 
+        internal static bool UsesSpacingQuantity(Decision choice)
+        { return choice.Category == "Threaded hole" || choice.Family == "SHCS counterbore"; }
+
+        const string SpacingQuantity = "(%QC)PLC'S EQ. SP. AS SHOWN";
+        const string QuantityCount = @"(?:\d+|%QC|%\{%QC(?:/[^{}]*)?\})";
+        const string SpacingWords = @"PLC['’]S[ \t]+EQ\.?[ \t]*SP\.?(?:[ \t]+AS[ \t]+SHOWN)?[ \t]*\.?";
+        static bool IsSpacingLine(string line)
+        { return Regex.IsMatch(line, @"^[ \t]*(?:\([ \t]*" + QuantityCount + @"[ \t]*\)[ \t]*)?" + SpacingWords + @"[ \t]*$", RegexOptions.IgnoreCase); }
+        static bool IsTypicalQuantityLine(string line)
+        { return Regex.IsMatch(line, @"^[ \t]*TYP\.?[ \t]*\([ \t]*" + QuantityCount + @"[ \t]*\)[ \t]*(?:" + SpacingWords + @")?[ \t]*$", RegexOptions.IgnoreCase); }
+
+        internal static string[] ApplyQuantity(string[] texts, Decision choice, int? quantity)
+        {
+            // Work across all four native text fields so a lower/prefix/suffix
+            // TYP cannot cause a duplicate quantity line in the main text.
+            string[] result = (string[])texts.Clone();
+            if (!UsesSpacingQuantity(choice))
+            {
+                if (!texts.Any(HasTypical)) result[0] = EnsureTypical(result[0]);
+                return result.Select(t => OmitSingleTypical(t, quantity)).ToArray();
+            }
+
+            bool hadQuantity = texts.Any(t => Regex.Split(t ?? "", @"\r\n|\r|\n|%RT").Any(line => IsSpacingLine(line) || IsTypicalQuantityLine(line)));
+            // Explicit quantity-one text is still omitted when the model count
+            // cannot be read. Never infer a new count from a literal number.
+            result = result.Select(t => OmitSingleTypical(t, quantity)).ToArray();
+            bool hasSpacing = result.Any(t => Regex.Split(t ?? "", @"\r\n|\r|\n|%RT").Any(IsSpacingLine));
+            bool inserted = false;
+            for (int field = 0; field < result.Length; field++)
+                result[field] = RewriteLines(result[field], line =>
+                {
+                    bool spacing = IsSpacingLine(line), typical = IsTypicalQuantityLine(line);
+                    if (!spacing && !typical) return line;
+                    // Prefer the existing spacing-line position, especially
+                    // above the counterbore's (FOR X S.H.C.S.) purpose line.
+                    if (quantity != 1 && !inserted && (spacing || !hasSpacing))
+                    { inserted = true; return SpacingQuantity; }
+                    return null;
+                });
+            if (result.Any(HasTypical))
+                throw new InvalidOperationException("Custom TYP wording needs review before replacing its quantity line.");
+            if (!inserted && quantity != 1 && (quantity.HasValue || !hadQuantity) && !String.IsNullOrWhiteSpace(result[0]))
+                result[0] += (result[0].EndsWith("\r", StringComparison.Ordinal) || result[0].EndsWith("\n", StringComparison.Ordinal) ? "" : "\r") + SpacingQuantity;
+            return result;
+        }
+
+        // Returning null removes a whole line, including its separator. Other
+        // text and line-ending conventions are retained exactly as supplied.
+        static string RewriteLines(string text, Func<string, string> rewrite)
+        {
+            if (String.IsNullOrEmpty(text)) return text;
+            string[] parts = Regex.Split(text, @"(\r\n|\r|\n|%RT)");
+            var result = new System.Text.StringBuilder(); int previous = -1;
+            for (int i = 0; i < parts.Length; i += 2)
+            {
+                string line = rewrite(parts[i]); if (line == null) continue;
+                if (previous >= 0) result.Append(parts[previous + 1]);
+                result.Append(line); previous = i;
+            }
+            return result.ToString();
+        }
+
         internal static string EnsureTypical(string text)
         {
             // Keep an existing TYP line verbatim, including its quantity or
-            // punctuation. A separate PLC'S line does not replace the requested
-            // TYP line. Append the native field without changing existing text.
+            // punctuation. Used for families other than standard threaded holes
+            // and SHCS counterbores, whose quantity policy uses spacing only.
             if (String.IsNullOrWhiteSpace(text) || HasTypical(text)) return text;
             return text + (text.EndsWith("\r", StringComparison.Ordinal) || text.EndsWith("\n", StringComparison.Ordinal) ? "" : "\r") + "TYP(%QC)";
         }

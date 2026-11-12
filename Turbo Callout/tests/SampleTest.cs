@@ -68,10 +68,26 @@ internal static class SampleTest
             object notes=Keep(((dynamic)sheet).Balloons),note=Keep(((dynamic)notes).Item(Int32.Parse(key[1]))),style=Keep(((dynamic)note).Style);
             bool dual=(bool)Property.Get(style,"DualDisplay");int? quantity;HoleFacts hole=reader.Read(note,out quantity);Decision choice=Notes.Recognize(rules,hole);
             item.Value.ExpectedText=item.Value.Text.Select(t=>Notes.ApplyPrecision(t,choice,hole,dual)).ToArray();
-            if(!item.Value.Text.Any(Notes.HasTypical))item.Value.ExpectedText[0]=Notes.EnsureTypical(item.Value.ExpectedText[0]);
-            item.Value.ExpectedText=item.Value.ExpectedText.Select(t=>Notes.OmitSingleTypical(t,quantity)).ToArray();
+            item.Value.ExpectedText=Notes.ApplyQuantity(item.Value.ExpectedText,choice,quantity);
             item.Value.ExpectedFormat=new StyleValues(style);
             new UnitStyle(style,new NotePlan{Dual=dual,InchPlaces=2}).ApplyToSnapshot(item.Value.ExpectedFormat);
+        }
+    }
+    static void VerifyQuantities(object doc,RuleBook rules)
+    {
+        var snapshots=Capture(doc);object sheets=Keep(((dynamic)doc).Sheets);
+        using(var reader=new NativeHole(doc))foreach(var item in snapshots)
+        {
+            if(!item.Value.Macro||!item.Value.Attached)continue;
+            string[] key=item.Key.Split('/');object sheet=Keep(((dynamic)sheets).Item(Int32.Parse(key[0])));
+            object notes=Keep(((dynamic)sheet).Balloons),note=Keep(((dynamic)notes).Item(Int32.Parse(key[1])));
+            int? quantity;Decision choice=Notes.Recognize(rules,reader.Read(note,out quantity));
+            if(choice.Category!="Threaded hole"&&choice.Family!="SHCS counterbore")continue;
+            string[] text=item.Value.Text;
+            if(text.Any(Notes.HasTypical))throw new Exception("Thread/counterbore still has a TYP line: "+item.Key);
+            int count=text.Sum(t=>(t??"").Split('\r').Count(line=>line=="(%QC)PLC'S EQ. SP. AS SHOWN"));
+            if(count!=(quantity==1?0:1))throw new Exception("Wrong thread/counterbore spacing quantity: "+item.Key);
+            if(choice.Family=="SHCS counterbore"&&!text.Any(t=>(t??"").Contains("(FOR X S.H.C.S.)")))throw new Exception("Counterbore lost its purpose line.");
         }
     }
     static void BlankMacroNotes(object doc)
@@ -113,10 +129,10 @@ internal static class SampleTest
                 if(report.Filled+report.AlignedExisting+report.UpdatedExisting+report.StylesRemoved==0||report.Errors!=0)throw new Exception("No successful changes or apply errors in sample copy.");
                 object styles=Keep(((dynamic)copy).DimensionStyles);Console.WriteLine("Remaining macro styles:");
                 for(int i=1;i<=(int)((dynamic)styles).Count;i++){object style=Keep(((dynamic)styles).Item(i));string name=(string)((dynamic)style).Name;if(NoteStyles.IsManaged(name))Console.WriteLine(name);}
-                Verify(copy,before,false);var filled=Capture(copy);
+                Verify(copy,before,false);VerifyQuantities(copy,rules);var filled=Capture(copy);
                 if(filled.Count!=before.Count)throw new Exception("Macro changed the number of callouts.");
                 ((dynamic)copy).Save();((dynamic)copy).Close(false);copy=null;
-                copy=Keep(((dynamic)docs).Open(path));Verify(copy,filled,true);
+                copy=Keep(((dynamic)docs).Open(path));Verify(copy,filled,true);VerifyQuantities(copy,rules);
                 RunReport repeat=TurboCallout.Automation.FillDocument(copy,rules,dual,null);
                 if(repeat.Filled!=0||repeat.AlignedExisting!=0||repeat.UpdatedExisting!=0||repeat.StylesRemoved!=0||repeat.Errors!=0)throw new Exception("Repeat run changed filled callouts or failed.");
                 ((dynamic)copy).Close(false);copy=null;Console.WriteLine("PASS "+path);

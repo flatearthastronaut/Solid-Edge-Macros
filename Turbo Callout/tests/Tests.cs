@@ -82,6 +82,43 @@ internal static class Tests
                 Check(Notes.OmitSingleTypical("SIZE\r"+line+"\r(FOR X S.H.C.S.)",1)=="SIZE\r(FOR X S.H.C.S.)","Omit the entire single-occurrence quantity/spacing line");
             foreach(int? quantity in new int?[]{null,2,3})
                 Check(Notes.OmitSingleTypical("SIZE\r(%QC)PLC'S EQ. SP. AS SHOWN\rTYP(%QC)",quantity)=="SIZE\r(%QC)PLC'S EQ. SP. AS SHOWN\rTYP(%QC)","Retain linked spacing and TYP lines when count exceeds one or is unresolved");
+            const string equalSpacing="(%QC)PLC'S EQ. SP. AS SHOWN";
+            foreach(var choice in new[]{new Decision{Category="Threaded hole"},new Decision{Family="SHCS counterbore"}})
+            {
+                foreach(string sep in new[]{"\r","\n","\r\n","%RT"})
+                foreach(string quantityText in new[]{"TYP(%QC)","typ. (2)","TYP(%{%QC}) PLC'S EQ. SP. AS SHOWN",equalSpacing,"(2)PLC'S EQ. SP."})
+                foreach(int quantity in new[]{1,2,10})
+                {
+                    var input=new[]{"SIZE"+sep+quantityText+sep+"(FOR X S.H.C.S.)","","",""};
+                    string[] result=Notes.ApplyQuantity(input,choice,quantity);
+                    Check(result[0]=="SIZE"+sep+(quantity==1?"":equalSpacing+sep)+"(FOR X S.H.C.S.)","Thread/counterbore quantity uses spacing only, omitting one, and preserves manufacturing text/endings");
+                    Check(result.SequenceEqual(Notes.ApplyQuantity(result,choice,quantity)),"Family quantity update is idempotent");
+                    Check(input[0].Contains(quantityText),"Quantity formatting does not mutate its input");
+                }
+                for(int field=0;field<4;field++)
+                {
+                    var input=new[]{"SIZE","LOWER","PREFIX","SUFFIX"};
+                    input[field]+="\r"+equalSpacing;input[(field+1)%4]+="\rTYP(%QC)";
+                    var result=Notes.ApplyQuantity(input,choice,2);
+                    Check(result[field]==input[field],"Existing spacing line stays in its original native text field");
+                    Check(!result.Any(Notes.HasTypical)&&result.Sum(t=>t.Split('\r').Count(line=>line==equalSpacing))==1,"All four fields share exactly one spacing line and no TYP");
+                    for(int i=0;i<4;i++)Check(result[i].StartsWith(new[]{"SIZE","LOWER","PREFIX","SUFFIX"}[i]),"Other text survives field migration");
+                }
+                var duplicate=Notes.ApplyQuantity(new[]{"SIZE\r"+equalSpacing,"TYP(%QC)",equalSpacing,""},choice,2);
+                Check(duplicate.SequenceEqual(new[]{"SIZE\r"+equalSpacing,"","",""}),"Duplicate spacing/TYP lines consolidate across fields");
+                Check(Notes.ApplyQuantity(new[]{"SIZE","","",""},choice,1)[0]=="SIZE","Single hole does not acquire a spacing line");
+                Check(Notes.ApplyQuantity(new[]{"SIZE","","",""},choice,2)[0]=="SIZE\r"+equalSpacing,"Spacing returns when native quantity increases");
+                Check(Notes.ApplyQuantity(new[]{"SIZE\rTYP(%QC)"},choice,null)[0]=="SIZE\r"+equalSpacing,"Unknown native count retains a linked quantity");
+                Check(Notes.ApplyQuantity(new[]{"SIZE\rTYP(1)"},choice,null)[0]=="SIZE","Literal one still omits the whole quantity line");
+                bool customRejected=false;
+                try{Notes.ApplyQuantity(new[]{"SIZE\rTYP(2) EACH SIDE"},choice,2);}catch(InvalidOperationException){customRejected=true;}
+                Check(customRejected,"Custom TYP manufacturing wording is left for review rather than discarded");
+            }
+            foreach(var choice in new[]{new Decision{Family="SAE port",Port=4},new Decision{Family="O-ring face seal"},new Decision{Family="Dowel"},new Decision{Family="Simple drill"}})
+            {
+                var input=new[]{"SIZE\r"+equalSpacing,"TYP(2)","",""};
+                Check(Notes.ApplyQuantity(input,choice,2).SequenceEqual(input),"Special families and simple drills keep their existing quantity policy");
+            }
             Check(TurboCallout.Automation.IsEvaluatedText("%DI%{/ST6.350^6.337}[%{/ST.2500^.2495}] DIA 9.7 DP."),"Accept valid fixed numeric stacks in displayed text");
             foreach(string unresolved in new[]{"", "%{%HS/DU}", "%{/ST%HS^%BS}", "%{/ST6.35^?}", "?"})
                 Check(!TurboCallout.Automation.IsEvaluatedText(unresolved),"Unresolved native fields still fail verification");
@@ -109,7 +146,8 @@ internal static class Tests
                     NotePlan note=Notes.Build(book,facts,dual);
                     Check(note.InchPlaces==2,"All notes share the two-place inch unit style");
                     Check(Notes.OmitSingleTypical(note.Text,1)==note.Text.Replace("\rTYP(%QC)","").Replace("\r(%QC)PLC'S EQ. SP. AS SHOWN","").Replace("\r(%QC)PLC'S EQ. SP.",""),"Every hole family omits its quantity/spacing lines at quantity one");
-                    Check(Notes.OmitSingleTypical(note.Text,2)==note.Text,"Every hole family retains its linked TYP line above one");
+                    Check(Notes.OmitSingleTypical(note.Text,2)==note.Text,"Every hole family retains its linked quantity line above one");
+                    Check(Notes.ApplyQuantity(new[]{note.Text},decision,2)[0]==note.Text,"New template already satisfies its family quantity policy");
                     Check(Notes.ApplyPrecision(note.Text,decision,facts,dual)==note.Text,"Precision formatting is idempotent without rescaling tolerances");
                     foreach(Match m in Regex.Matches(note.Text,@"%\{%(?<field>HS|HD|BS|BD|TD)(?<options>[^{}]*)\}"))
                     {
@@ -158,25 +196,24 @@ internal static class Tests
                     Check((dual?n.Text.Contains("%{/ST"):n.Text.Contains("%BS"))&&n.Text.Contains("%BD"),"Koenig seat limits retained and depth linked");
                 }
             }
-            const string equalSpacing="(%QC)PLC'S EQ. SP. AS SHOWN";
             foreach(Preset p in book.Presets.Where(p=>p.Family=="SHCS counterbore"))
             foreach(bool dual in new[]{false,true})
             {
-                var note=Notes.Build(book,Facts(p),dual);Typical(note);
+                var note=Notes.Build(book,Facts(p),dual);Check(!Notes.HasTypical(note.Text),"Counterbore has no TYP line in either mode");
                 Check(note.Text.Split('\r').Count(line=>line==equalSpacing)==1,"Counterbore retains exactly one saved equal-spacing quantity line");
                 Check(note.Text.Contains("%HS")&&note.Text.Contains("%BS")&&note.Text.Contains("%BD")&&note.Text.Contains("%ZH"),"Counterbore size and depths remain linked");
                 Check(note.Text.Split('\r').Count(line=>line=="(FOR X S.H.C.S.)")==1,"Counterbore retains exactly one literal saved screw-size line");
-                Check(note.Text.EndsWith(equalSpacing+"\r(FOR X S.H.C.S.)\rTYP(%QC)",StringComparison.Ordinal),"Counterbore keeps screw-size and TYP lines after the quantity line");
+                Check(note.Text.EndsWith(equalSpacing+"\r(FOR X S.H.C.S.)",StringComparison.Ordinal),"Counterbore keeps screw-size line after its only quantity line");
                 Check(note.InchPlaces==2&&note.Dual==dual,"Counterbore precision and unit mode retained");
             }
             foreach(double? threadDepth in new double?[]{.88,null})
             foreach(bool dual in new[]{false,true})
             {
                 var hole=new HoleFacts{Type=4,Diameter=.4219,Depth=threadDepth.HasValue?(double?)1.08:null,Thread="1/2-13 UNC",ThreadDepth=threadDepth};
-                var note=Notes.Build(book,hole,dual);Typical(note);
+                var note=Notes.Build(book,hole,dual);Check(!Notes.HasTypical(note.Text),"Thread has no TYP line in either mode");
                 string saved=LinkedCallouts.ReadSaved(dual?"HC -THR'D M[I]":"HC -THR'D");
-                Check(note.Text==Notes.EnsureTypical(Notes.ApplyPrecision(Notes.FormatFields("%DI%HS DRILL %ZH%RT"+saved,dual),Notes.Recognize(book,hole),hole,dual).Replace("%RT","\r")),"Thread retains complete mode-specific saved note plus drilling diameter and TYP");
-                Check(note.Text.Split('\r').Count(line=>line==(dual?equalSpacing:"TYP(%QC)"))==1,"Thread retains exactly one saved quantity line");
+                Check(note.Text==Notes.ApplyPrecision(Notes.FormatFields("%DI%HS DRILL %ZH%RT"+saved.Replace("TYP(%QC)",equalSpacing),dual),Notes.Recognize(book,hole),hole,dual).Replace("%RT","\r"),"Thread retains saved machining fields with the requested spacing wording");
+                Check(note.Text.Split('\r').Count(line=>line==equalSpacing)==1,"Thread uses exactly one linked spacing line in either mode");
                 Check(note.Text.Contains("%HS")&&note.Text.Contains("%TS")&&note.Text.Contains("%ZT")&&note.Text.Contains("%ZH"),"Blind and through thread fields stay native");
                 Check(note.InchPlaces==2&&note.Dual==dual,"Thread depth uses two-place inch precision");
             }
