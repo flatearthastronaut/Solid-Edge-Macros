@@ -15,6 +15,7 @@ namespace TurboCallout
         internal int InchPlaces;
         internal bool Dual;
         internal bool PreserveFormat;
+        internal bool FullSizeStacks;
     }
 
     internal static class Notes
@@ -114,7 +115,7 @@ namespace TurboCallout
                 text = Regex.Replace(text, @"(?<=DRILL )(?:(?:%\{%HD[^{}]*\} DP\.)|THRU)", "%ZH");
             text = ApplyPrecision(FormatFields(text, dual), choice, hole, dual);
             // Native BalloonText uses carriage returns, not the table's %RT.
-            return new NotePlan { Text = ApplyQuantity(new[] { text.Replace("%RT", "\r") }, choice, null)[0], Category = choice.Category, InchPlaces = 2, Dual = dual };
+            return new NotePlan { Text = ApplyQuantity(new[] { text.Replace("%RT", "\r") }, choice, null)[0], Category = choice.Category, InchPlaces = 2, Dual = dual, FullSizeStacks = HasFixedStacks(text) };
         }
 
         internal static Decision Recognize(RuleBook rules, HoleFacts hole)
@@ -174,6 +175,9 @@ namespace TurboCallout
 
         internal static bool HasTypical(string text)
         { return Regex.IsMatch(text ?? "", @"(?:^|\r|\n|%RT)\s*TYP\b", RegexOptions.IgnoreCase); }
+
+        internal static bool HasFixedStacks(string text)
+        { return Regex.IsMatch(text ?? "", @"%\{/ST[+\-]?(?:\d*\.)?\d+\^[+\-]?(?:\d*\.)?\d+\}", RegexOptions.IgnoreCase); }
 
         internal static bool UsesSpacingQuantity(Decision choice)
         { return choice.Category == "Threaded hole" || choice.Family == "SHCS counterbore"; }

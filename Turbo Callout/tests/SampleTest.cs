@@ -70,7 +70,7 @@ internal static class SampleTest
             item.Value.ExpectedText=item.Value.Text.Select(t=>Notes.ApplyPrecision(t,choice,hole,dual)).ToArray();
             item.Value.ExpectedText=Notes.ApplyQuantity(item.Value.ExpectedText,choice,quantity);
             item.Value.ExpectedFormat=new StyleValues(style);
-            new UnitStyle(style,new NotePlan{Dual=dual,InchPlaces=2}).ApplyToSnapshot(item.Value.ExpectedFormat);
+            new UnitStyle(style,new NotePlan{Dual=dual,InchPlaces=2,FullSizeStacks=item.Value.ExpectedText.Any(Notes.HasFixedStacks)}).ApplyToSnapshot(item.Value.ExpectedFormat);
         }
     }
     static void VerifyQuantities(object doc,RuleBook rules)
@@ -82,6 +82,12 @@ internal static class SampleTest
             string[] key=item.Key.Split('/');object sheet=Keep(((dynamic)sheets).Item(Int32.Parse(key[0])));
             object notes=Keep(((dynamic)sheet).Balloons),note=Keep(((dynamic)notes).Item(Int32.Parse(key[1])));
             int? quantity;Decision choice=Notes.Recognize(rules,reader.Read(note,out quantity));
+            if(item.Value.Text.Any(Notes.HasFixedStacks))
+            {
+                object style=Keep(((dynamic)note).Style);
+                if(!Property.Equal(Property.Get(style,"ToleranceHeightRatio"),1.0))throw new Exception("Typed stack is smaller than the surrounding text: "+item.Key);
+                if(!Property.Equal(Property.Get(style,"Height"),.125*.0254))throw new Exception("Sample note height is not .125 inch: "+item.Key);
+            }
             if(choice.Category!="Threaded hole"&&choice.Family!="SHCS counterbore")continue;
             string[] text=item.Value.Text;
             if(text.Any(Notes.HasTypical))throw new Exception("Thread/counterbore still has a TYP line: "+item.Key);

@@ -164,6 +164,10 @@ namespace TurboCallout
             Add(style, "SmartDepthHoleThru", "THRU"); Add(style, "SmartDepthThreadThru", "THRU");
             Add(style, "SmartDepthHoleFinite", plan.Dual ? "%{%HD/DU/@1} DP." : "%{%HD/@2} DP.");
             Add(style, "SmartDepthThreadFinite", plan.Dual ? "%{%TD/DU/@1} DP." : "%{%TD/@2} DP.");
+            // Literal /ST limits use the tolerance-height ratio, not the
+            // fraction-size setting. Match the surrounding note (normally
+            // .125 inch) without changing its base height or fixed values.
+            if (plan.FullSizeStacks) Add(style, "ToleranceHeightRatio", 1.0);
         }
         void Add(object style, string name, object value) { before.Add(name, Property.Get(style, name)); after.Add(name, value); }
         internal void Apply(object style) { Write(style, after); }
@@ -503,7 +507,7 @@ namespace TurboCallout
                         int? quantity; HoleFacts hole = reader.Read(note, out quantity); Decision choice = Notes.Recognize(rules, hole);
                         string[] text = Notes.ApplyQuantity(fields.Select(field => Notes.ApplyPrecision(before[field], choice, hole, dual)).ToArray(), choice, quantity);
                         for (int i = 0; i < fields.Length; i++) updated[fields[i]] = text[i];
-                        plan = new NotePlan { Dual = dual, InchPlaces = 2, PreserveFormat = true };
+                        plan = new NotePlan { Dual = dual, InchPlaces = 2, PreserveFormat = true, FullSizeStacks = updated.Values.Any(Notes.HasFixedStacks) };
                         new UnitStyle(style, plan).ApplyToSnapshot(expected);
                     }
                     catch (Exception error) { review = error.Message; return false; }

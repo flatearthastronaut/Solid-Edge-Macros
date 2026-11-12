@@ -119,6 +119,10 @@ internal static class Tests
                 var input=new[]{"SIZE\r"+equalSpacing,"TYP(2)","",""};
                 Check(Notes.ApplyQuantity(input,choice,2).SequenceEqual(input),"Special families and simple drills keep their existing quantity policy");
             }
+            foreach(string text in new[]{"%{/ST6.350^6.337}","%{/ST.2500^.2495}","%{/ST+.054^+.050}","SIZE\r%{/ST-.001^-.003}"})
+                Check(Notes.HasFixedStacks(text),"Recognize typed numeric stacks for full text height without changing values");
+            foreach(string text in new[]{null,"","%{%HS/LT+.0005^-.0005/@4}","%{/ST%HS^%BS}","6.350/6.337"})
+                Check(!Notes.HasFixedStacks(text),"Native limits and ordinary text keep their existing tolerance-height setting");
             Check(TurboCallout.Automation.IsEvaluatedText("%DI%{/ST6.350^6.337}[%{/ST.2500^.2495}] DIA 9.7 DP."),"Accept valid fixed numeric stacks in displayed text");
             foreach(string unresolved in new[]{"", "%{%HS/DU}", "%{/ST%HS^%BS}", "%{/ST6.35^?}", "?"})
                 Check(!TurboCallout.Automation.IsEvaluatedText(unresolved),"Unresolved native fields still fail verification");
@@ -144,6 +148,7 @@ internal static class Tests
                 foreach(bool dual in new[]{false,true})
                 {
                     NotePlan note=Notes.Build(book,facts,dual);
+                    Check(note.FullSizeStacks==(dual&&(decision.IsDowel||decision.Family=="Spring pin"||decision.Family=="Koenig plug"||decision.Family=="O-ring face seal")),"Only generated typed stacks request full note text height");
                     Check(note.InchPlaces==2,"All notes share the two-place inch unit style");
                     Check(Notes.OmitSingleTypical(note.Text,1)==note.Text.Replace("\rTYP(%QC)","").Replace("\r(%QC)PLC'S EQ. SP. AS SHOWN","").Replace("\r(%QC)PLC'S EQ. SP.",""),"Every hole family omits its quantity/spacing lines at quantity one");
                     Check(Notes.OmitSingleTypical(note.Text,2)==note.Text,"Every hole family retains its linked quantity line above one");

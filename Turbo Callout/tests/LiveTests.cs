@@ -29,6 +29,21 @@ internal static class LiveTests
         return String.Join(" | ",text);
     }
     static void Check(bool yes, string text) { if (!yes) throw new Exception(text); checks++; Console.WriteLine("PASS " + text); }
+    static double StackWidth(object note)
+    {
+        // The metric upper limit and its following bracket are separate native
+        // text runs. Their origins measure the rendered stack width, avoiding
+        // an assertion based only on the style property we just assigned.
+        object display=Keep(((dynamic)note).GetDisplayData());double? start=null,end=null;
+        for(int i=0;i<(int)((dynamic)display).GetTextCount();i++)
+        {
+            string s="";double x=0,y=0,z=0,a=0,b=0,c=0,d=0,e=0,f=0;
+            ((dynamic)display).GetTextAtIndex(i,ref s,ref x,ref y,ref z,ref a,ref b,ref c,ref d,ref e,ref f);
+            if(s=="6.350")start=x;if(s=="[")end=x;
+        }
+        if(!start.HasValue||!end.HasValue)throw new Exception("Cannot measure the rendered metric tolerance stack.");
+        return Math.Abs(end.Value-start.Value);
+    }
     static object Profile(object part, object plane)
     {
         object sets = Keep(((dynamic)part).ProfileSets), set = Keep(((dynamic)sets).Add()), profiles = Keep(((dynamic)set).Profiles);
@@ -121,6 +136,11 @@ internal static class LiveTests
                 Check(Rendered(second).Contains("6.35"),"Dual note displays metric equivalent");
                 Check(Rendered(second).Contains("6.350")&&Rendered(second).Contains("6.337")&&Rendered(second).Contains("9.7")&&
                     Rendered(second).Contains(".38")&&!Rendered(second).Contains(".380"),"Single dual callout mixes fixed four/three-place limits with linked two/one-place depth");
+                Check(Property.Equal(Property.Get(otherStyle,"Height"),.125*.0254)&&Property.Equal(Property.Get(otherStyle,"ToleranceHeightRatio"),1.0),"Typed stacks use the full .125-inch note height");
+                double fullWidth=StackWidth(second),smallWidth;string unchanged=(string)((dynamic)second).BalloonText;
+                try{Property.Set(otherStyle,"ToleranceHeightRatio",.8);smallWidth=StackWidth(second);}
+                finally{Property.Set(otherStyle,"ToleranceHeightRatio",1.0);}
+                Check(Math.Abs(fullWidth/smallWidth-1.25)<1e-6&&(string)((dynamic)second).BalloonText==unchanged,"Native rendered stack grows from 80 to 100 percent while all typed values remain unchanged");
             }
             Check(!Notes.HasTypical((string)((dynamic)first).BalloonText)&&!Notes.HasTypical((string)((dynamic)second).BalloonText),"New inch and dual callouts omit TYP when quantity is one");
             Check((int)((dynamic)notes).Count==2,"Each filled leader remains exactly one native callout");
