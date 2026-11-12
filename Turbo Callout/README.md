@@ -11,7 +11,7 @@ Fills blank native hole callouts in the active Solid Edge draft. Uses the same r
 
 All working sheets are scanned. Background and internal view sheets are excluded. Ordinary item balloons and parts-list balloons are excluded. All four raw text fields must be empty or whitespace for a new fill; an existing note is never replaced just because its displayed text is blank. Running again applies the precision, stacked-text height, and quantity-line rules below to existing attached Turbo Callout notes, consolidates their styles, and corrects their horizontal alignment. Existing unit mode, manufacturing limits, other wording/formatting, and leader geometry are preserved. Other existing notes remain unchanged. The macro does not save the drawing.
 
-The supplied Turbo Callout icon is embedded in the executable and shown in the window. The supplied ICO and PNG are also provided beside the executable for macro managers.
+The selected option B icon (white note lines and hole leader, yellow lightning bolt, navy tile) matches the Turbo Hole Table Callouts theme. It is embedded in the v1.0 executable and shown in the window. The ICO includes 16–256 pixel sizes; the ICO and PNG are also provided beside the executable for macro managers. See `Assets/README.md` for the selected artwork and packaging instructions.
 
 ## Recognition and notes
 
