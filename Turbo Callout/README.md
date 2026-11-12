@@ -1,11 +1,11 @@
-# Turbo Callout v0.13
+# Turbo Callout v1.0
 
 Fills blank native hole callouts in the active Solid Edge draft. Uses the same recognition source and saved-note library as Turbo Hole Table Callouts, compiled into a standalone x64 .NET Framework executable.
 
 ## Use
 
 1. Activate the drawing in Solid Edge.
-2. Run `Compiled Executables/Turbo Callout v0.13.exe`.
+2. Run `Compiled Executables/Turbo Callout v1.0.exe`.
 3. Choose **Inch only** or **Dual — metric[inch]**. Scanning and filling start immediately.
 4. Review the result counts and any unchanged callouts. Review the drawing and save it normally.
 
@@ -45,7 +45,7 @@ When the native `%QC` quantity is one, omit the **entire TYP and associated PLC'
 
 Typed stacked tolerance values use **100% of the surrounding note height**, giving .125-inch characters in the standard .125-inch notes. Solid Edge applies `ToleranceHeightRatio` to literal `/ST` stacks; its usual 80% setting made them .100 inch. New fills and reruns correct that ratio only for macro notes containing typed numeric stacks. Fixed values, precision, base text height, and leader placement are preserved. Notes without typed stacks retain their existing tolerance-height setting, and matching formats continue to share styles.
 
-Machining text uses two spaces before and after `DRILL`, two spaces after `THR'D` and `SPOTFACE`, and three spaces after `DIA` (one extra around `DRILL` and after `THR'D`/`SPOTFACE`, two extra after `DIA`). New fills and existing macro notes receive the spacing in all four text fields. Reruns do not accumulate more spaces; wider custom gaps and native property/stack codes are preserved. Values, precision, text height, and leader geometry are unchanged.
+Machining text uses two spaces before and after `DRILL`, two spaces after `THR'D`, `SPOTFACE`, and `C'BORE`/`CBORE`, and three spaces after `DIA` (one extra around `DRILL` and after the thread/spotface/counterbore labels, two extra after `DIA`). New fills and existing macro notes receive the spacing in all four text fields. Reruns do not accumulate more spaces; wider custom gaps, label spelling, and native property/stack codes are preserved. Values, precision, text height, and leader geometry are unchanged.
 
 ## Placement and failure handling
 
@@ -65,6 +65,8 @@ Writes are checked and placement is verified. A failed fill restores the previou
 - `SampleTest.cmd [saved-draft-path] [--blank]`: make separate inch/dual copies of the active draft or supplied sample under `Inspection`, fill/update and save/reopen each, verify requested precision changes and all other formatting/placements, and verify the original unchanged. `--blank` empties only macro notes in the disposable copies to test initial filling against the sample's real model associations. No changes are saved to the original.
 - `Inspect.cmd`: inspect native fields of blank callouts; diagnostic probes are removed immediately. `Inspect.cmd --alignment` reads direction and justification without adding probes.
 - `Preview.cmd`: render the initial window to `Inspection/window.png`.
+
+v1.0 released November 12, 2026: 5,162 regression checks passed. The final spacing rule adds one extra space after C'BORE/CBORE, preserving spelling, wider custom gaps, and stable reruns. Populated sample copies updated only the counterbore note, with zero errors or review cases. Save/reopen and repeat-run checks passed; values, precision, text height, styles, model links, and leader placement were retained. The source sample remained unchanged. Executable and assembly versions are 1.0 and 1.0.0.0 respectively.
 
 v0.13 verified November 12, 2026: 5,060 regression checks passed, including THR'D/SPOTFACE spacing, adjacent words, preserved field codes, and stable reruns. Sample copies updated only the two standard threaded notes and three SAE-port notes, with zero errors or review cases. Save/reopen and repeat-run checks passed; existing values, precision, .125-inch stack height, styles, model links, and leader placement were retained. The source sample remained unchanged.
 

@@ -75,6 +75,12 @@ internal static class Tests
                 new{Before="THR'D SPOTFACE DRILL DIA THR'D",After="THR'D  SPOTFACE  DRILL  DIA   THR'D  "},
                 new{Before="M4 thr'd %ZT SPOTFACE    .13 DP.",After="M4 thr'd  %ZT SPOTFACE    .13 DP."},
                 new{Before="SPOTFACES %{THR'D|SPOTFACE} %SPOTFACE",After="SPOTFACES %{THR'D|SPOTFACE} %SPOTFACE"},
+                new{Before="%DI%{%BS/DU/@1} C'BORE %{%BD/DU/@1} DP.",After="%DI%{%BS/DU/@1} C'BORE  %{%BD/DU/@1} DP."},
+                new{Before=".60 CBORE .41 DP.",After=".60 CBORE  .41 DP."},
+                new{Before=".60 c’bore .41 DP.",After=".60 c’bore  .41 DP."},
+                new{Before="C'BORE    %BD DP.",After="C'BORE    %BD DP."},
+                new{Before="DIA CBORE SPOTFACE THR'D C'BORE",After="DIA   CBORE  SPOTFACE  THR'D  C'BORE  "},
+                new{Before="CBORED C'BORES %{C'BORE|CBORE} %CBORE",After="CBORED C'BORES %{C'BORE|CBORE} %CBORE"},
                 new{Before="DRILLING DIAMETER RADIAL %DIA %DRILL %{DRILL|DIA} %{%HS/LT+.001^-.001/@4}",After="DRILLING DIAMETER RADIAL %DIA %DRILL %{DRILL|DIA} %{%HS/LT+.001^-.001/@4}"}})
             {
                 string input=pair.Before+sep+"(DO NOT CHAMFER HOLE)"+sep+"TYP(%QC)",expected=pair.After+sep+"(DO NOT CHAMFER HOLE)"+sep+"TYP(%QC)";
@@ -182,8 +188,8 @@ internal static class Tests
                         Check(word.Groups["before"].Length==2&&word.Groups["after"].Length==2,"Every template has exactly two spaces around DRILL");
                     foreach(Match word in Regex.Matches(note.Text,@"\bDIA\b(?<after> *)"))
                         Check(word.Groups["after"].Length==3,"Every template has exactly three spaces after DIA");
-                    foreach(Match word in Regex.Matches(note.Text,@"\b(?:THR'D|SPOTFACE)\b(?<after> *)"))
-                        Check(word.Groups["after"].Length>=2,"Thread and spotface templates have two following spaces");
+                    foreach(Match word in Regex.Matches(note.Text,@"\b(?:THR'D|SPOTFACE|C['’]?BORE)\b(?<after> *)"))
+                        Check(word.Groups["after"].Length>=2,"Thread, spotface and counterbore templates have two following spaces");
                     foreach(Match m in Regex.Matches(note.Text,@"%\{%(?<field>HS|HD|BS|BD|TD)(?<options>[^{}]*)\}"))
                     {
                         int digits=Notes.InchPlaces(decision,facts,m.Groups["field"].Value);
