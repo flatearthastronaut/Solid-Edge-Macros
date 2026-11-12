@@ -185,6 +185,29 @@ namespace TurboCallout
             return text + (text.EndsWith("\r", StringComparison.Ordinal) || text.EndsWith("\n", StringComparison.Ordinal) ? "" : "\r") + "TYP(%QC)";
         }
 
+        internal static string OmitSingleTypical(string text, int? quantity)
+        {
+            if (String.IsNullOrEmpty(text)) return text;
+            // TYP and PLC'S EQ. SP. describe the same occurrence quantity.
+            // At one occurrence omit their entire lines, including a combined
+            // TYP/spacing line. Other note lines and retained endings stay as
+            // written, without leaving a blank line where the quantity was.
+            string[] parts = Regex.Split(text, @"(\r\n|\r|\n|%RT)");
+            var result = new System.Text.StringBuilder(); int previous = -1; bool removed = false;
+            for (int i = 0; i < parts.Length; i += 2)
+            {
+                const string count = @"(?<count>1|%QC|%\{%QC(?:/[^{}]*)?\})";
+                Match typ = Regex.Match(parts[i], @"^[ \t]*TYP\.?[ \t]*\([ \t]*" + count + @"[ \t]*\).*$", RegexOptions.IgnoreCase);
+                Match spacing = Regex.Match(parts[i], @"^[ \t]*(?:\([ \t]*" + count + @"[ \t]*\)[ \t]*)?PLC['’]S[ \t]+EQ\.?[ \t]*SP\.?(?:[ \t]+AS[ \t]+SHOWN)?[ \t]*\.?[ \t]*$", RegexOptions.IgnoreCase);
+                if ((typ.Success && (typ.Groups["count"].Value == "1" || quantity == 1)) ||
+                    (spacing.Success && (spacing.Groups["count"].Value == "1" || quantity == 1)))
+                { removed = true; continue; }
+                if (previous >= 0) result.Append(parts[previous + 1]);
+                result.Append(parts[i]); previous = i;
+            }
+            return removed ? result.ToString() : text;
+        }
+
         static bool IsPlainDrill(HoleFacts hole)
         {
             return hole.Type == 1 && String.IsNullOrWhiteSpace(hole.Thread) &&

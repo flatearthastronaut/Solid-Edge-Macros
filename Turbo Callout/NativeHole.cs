@@ -18,7 +18,11 @@ namespace TurboCallout
         internal NativeHole(object draft) { this.draft = draft; }
 
         internal HoleFacts Read(object note)
+        { int? quantity; return Read(note, out quantity); }
+
+        internal HoleFacts Read(object note, out int? quantity)
         {
+            quantity = null;
             // A projected edge's owning feature can differ from the hole that
             // Solid Edge evaluates for %HS/%BS/%TS (notably separate SAE port
             // entrances and spotfaces). Probe the native annotation evaluator,
@@ -38,7 +42,9 @@ namespace TurboCallout
                 styles = ((dynamic)draft).DimensionStyles;
                 style = ((dynamic)styles).Add(name, (string)((dynamic)local).Name);
                 Property.Set(style, "PrimaryUnits", 5); Property.Set(style, "RoundOffType", 1); Property.Set(style, "DualDisplay", false);
-                string fields = "%{%HS/NU/@8}|%{%HD/NU/@8}|%{%BS/NU/@8}|%{%BD/NU/@8}|%{%SS/NU/@8}|%{%SA/NU/@8}|%TS|%{%TD/NU/@8}";
+                // Read quantity in the same disposable probe as the geometry;
+                // omission must use native %QC, not a count of visible circles.
+                string fields = "%{%HS/NU/@8}|%{%HD/NU/@8}|%{%BS/NU/@8}|%{%BD/NU/@8}|%{%SS/NU/@8}|%{%SA/NU/@8}|%TS|%{%TD/NU/@8}|%QC";
                 string[] names = { "Simple", "Counterbore", "Countersink", "SimpleThreaded", "CounterboreThreaded", "CountersinkThreaded", "Counterdrill", "CounterdrillThreaded" };
                 for (int i = 0; i < names.Length; i++) Property.Set(style, "HoleCallout" + names[i], (i + 1) + "|" + fields);
                 ((dynamic)local).Name = name; ((dynamic)probe).BalloonText = "%HC";
@@ -48,9 +54,11 @@ namespace TurboCallout
                     throw new InvalidOperationException("Solid Edge cannot resolve the leader to a native hole callout: " + evaluated);
                 string[] types = { "Simple", "Counterbore", "Countersink", "Simple Threaded", "Counterbore Threaded", "Countersink Threaded", "Counterdrill", "Counterdrill Threaded" };
                 string[] values = evaluated.Substring(split + 1).Split('|');
-                if (values.Length != 8) throw new InvalidOperationException("Incomplete native hole fields.");
+                if (values.Length != 9) throw new InvalidOperationException("Incomplete native hole fields.");
                 values[5] = values[5].Replace("°", "").Replace("%DG", "");
-                HoleFacts facts = HoleFacts.Parse(types[code - 1], String.Join("|", values));
+                HoleFacts facts = HoleFacts.Parse(types[code - 1], String.Join("|", values, 0, 8));
+                int count;
+                if (Int32.TryParse(values[8].Trim(), out count) && count > 0) quantity = count;
                 if (facts.Depth.HasValue && Math.Abs(facts.Depth.Value) < RuleBook.Epsilon) facts.Depth = null;
                 if (facts.ThreadDepth.HasValue && Math.Abs(facts.ThreadDepth.Value) < RuleBook.Epsilon) facts.ThreadDepth = null;
                 return facts;

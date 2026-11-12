@@ -99,7 +99,8 @@ internal static class LiveTests
             Check(rolledBack&&TurboCallout.Automation.IsBlank(second)&&(string)((dynamic)otherStyle).Name==originalStyle,"Failed evaluation restores blank text, style and placement");
             using(var reader=new NativeHole(draft))
             {
-                HoleFacts facts=reader.Read(first); Console.WriteLine("facts="+facts.Type+" diameter="+facts.Diameter+" depth="+facts.Depth);
+                int? quantity;HoleFacts facts=reader.Read(first,out quantity); Console.WriteLine("facts="+facts.Type+" diameter="+facts.Diameter+" depth="+facts.Depth);
+                Check(quantity==1,"Native hole probe reads quantity one");
                 Check(rules.Match(facts).IsDowel,"Native attachment resolves to the saved dowel preset");
                 TurboCallout.Automation.Fill(first,Notes.Build(rules,facts,false));
                 firstPlace.Verify(first,0);
@@ -121,7 +122,7 @@ internal static class LiveTests
                 Check(Rendered(second).Contains("6.350")&&Rendered(second).Contains("6.337")&&Rendered(second).Contains("9.7")&&
                     Rendered(second).Contains(".38")&&!Rendered(second).Contains(".380"),"Single dual callout mixes fixed four/three-place limits with linked two/one-place depth");
             }
-            Check(((string)((dynamic)first).BalloonDisplayedText).Contains("TYP(1)")&&((string)((dynamic)second).BalloonDisplayedText).Contains("TYP(1)"),"Native quantity evaluates in inch and dual notes");
+            Check(!Notes.HasTypical((string)((dynamic)first).BalloonText)&&!Notes.HasTypical((string)((dynamic)second).BalloonText),"New inch and dual callouts omit TYP when quantity is one");
             Check((int)((dynamic)notes).Count==2,"Each filled leader remains exactly one native callout");
             object styleCollection=Keep(((dynamic)draft).DimensionStyles),firstStyle=Keep(((dynamic)first).Style);
             string sharedName=(string)((dynamic)firstStyle).Name;
@@ -134,7 +135,8 @@ internal static class LiveTests
             ((dynamic)duplicate).BalloonText=" ";bool reuseFailed=false;
             try{TurboCallout.Automation.Fill(duplicate,new NotePlan{Text="",InchPlaces=4,Dual=false});}catch(InvalidOperationException){reuseFailed=true;}
             Check(reuseFailed&&(int)((dynamic)styleCollection).Count==styleCount&&(string)((dynamic)firstStyle).Name==sharedName,"Failed fill never removes a shared style used by another note");
-            ((dynamic)duplicate).BalloonText=((string)((dynamic)first).BalloonText).Replace("\rTYP(%QC)","");
+            ((dynamic)duplicate).BalloonText=(string)((dynamic)first).BalloonText+"\rTYP(2)\r(%QC)PLC'S EQ. SP. AS SHOWN\rTYP(%QC)\r(FOR X S.H.C.S.)";
+            ((dynamic)duplicate).BalloonTextLower="TYP(1)";
             string legacyName="Turbo Callout "+Guid.NewGuid().ToString("N");Keep(((dynamic)styleCollection).Add(legacyName,sharedName));
             ((dynamic)duplicateStyle).Name=legacyName;Property.Set(duplicateStyle,"Height",(double)Property.Get(duplicateStyle,"Height")*1.1);
             var legacyFormat=new StyleValues(duplicateStyle);var legacyPosition=new Placement(duplicate);string legacyText=(string)((dynamic)duplicate).BalloonText;
@@ -162,7 +164,8 @@ internal static class LiveTests
             Check(repaired.Filled==0&&repaired.AlignedExisting==2&&repaired.Errors==0,"Rerun repairs existing macro notes in both directions");
             Check(repaired.UpdatedExisting==1&&repaired.StylesRemoved==2&&repaired.StylesKept==1,"Rerun consolidates legacy styles and removes only unused styles");
             Check((string)((dynamic)duplicateStyle).Name==sharedName&&legacyFormat.Matches(new StyleValues(duplicateStyle)),"Legacy migration preserves all readable local formatting overrides");
-            legacyPosition.Verify(duplicate);Check((string)((dynamic)duplicate).BalloonText==Notes.EnsureTypical(legacyText),"Legacy note gains only its missing TYP line with placement preserved");
+            legacyPosition.Verify(duplicate);Check((string)((dynamic)duplicate).BalloonText==Notes.OmitSingleTypical(legacyText,1),"Existing TYP(1) and linked spacing lines are removed with placement preserved");
+            Check(String.IsNullOrEmpty((string)((dynamic)duplicate).BalloonTextLower)&&((string)((dynamic)duplicate).BalloonText).Contains("TYP(2)"),"Other text fields omit literal TYP(1) while other fixed quantities remain");
             Check((string)((dynamic)protectedStyle).Name==protectedName&&(string)((dynamic)protectedBalloon).BalloonText=="42","Style used by an unrelated item balloon is protected");
             Check((string)((dynamic)first).BalloonText==firstText&&(string)((dynamic)second).BalloonText==secondText&&
                 (string)((dynamic)otherStyle).Name==secondStyle,"Alignment-only repair preserves note text and unit style");
@@ -177,7 +180,7 @@ internal static class LiveTests
             firstPlace.Verify(first,0);secondPlace.Verify(second,2);Check(true,"Both callout alignments and leader positions survive save/reopen");
             using(var reader=new NativeHole(draft))Check(rules.Match(reader.Read(first)).IsDowel,"Model association survives save/reopen");
             Check(((string)((dynamic)first).BalloonText).Contains("%HS"),"Saved callout retains native linked fields");
-            object savedStyle=Keep(((dynamic)first).Style);Check((string)((dynamic)savedStyle).Name==sharedName&&((string)((dynamic)first).BalloonDisplayedText).Contains("TYP(1)"),"Shared style and evaluated TYP quantity survive save/reopen");
+            object savedStyle=Keep(((dynamic)first).Style);Check((string)((dynamic)savedStyle).Name==sharedName&&!Notes.HasTypical((string)((dynamic)first).BalloonText),"Shared style and omitted TYP line survive save/reopen");
             // Change only this disposable fixture model. The dual limit text
             // must stay fixed as requested, while both notes' depths and the
             // inch-only native diameter continue to follow their model fields.

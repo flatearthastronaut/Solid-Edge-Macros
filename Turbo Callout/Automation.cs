@@ -442,10 +442,10 @@ namespace TurboCallout
                                     continue;
                                 }
                                 report.Blank++; if (progress != null) progress("Checking " + label + "...");
-                                NotePlan plan;
-                                try { plan = Notes.Build(rules, reader.Read(note), dual); }
+                                NotePlan plan; int? quantity;
+                                try { plan = Notes.Build(rules, reader.Read(note, out quantity), dual); }
                                 catch (Exception error) { report.Review++; report.Details.Add(label + " unchanged: " + error.Message); continue; }
-                                Fill(note, plan, catalog);
+                                Fill(note, plan, catalog, quantity);
                                 report.Filled++; report.Details.Add(label + ": " + plan.Category);
                             }
                             catch (Exception error) { report.Errors++; report.Details.Add(label + ": " + error.Message); }
@@ -464,7 +464,12 @@ namespace TurboCallout
         internal static void Fill(object note, NotePlan plan)
         {
             object draft = null;
-            try { draft = ((dynamic)note).Document; using (var catalog = new NoteStyles(draft)) Fill(note, plan, catalog); }
+            try
+            {
+                draft = ((dynamic)note).Document; int? quantity;
+                using (var reader = new NativeHole(draft)) reader.Read(note, out quantity);
+                using (var catalog = new NoteStyles(draft)) Fill(note, plan, catalog, quantity);
+            }
             finally { Com.Release(draft); }
         }
 
@@ -478,7 +483,7 @@ namespace TurboCallout
                 var format = new StyleValues(style); var position = new Placement(note);
                 string[] fields = { "BalloonText", "BalloonTextLower", "BalloonTextPrefix", "BalloonTextSuffix" };
                 var before = fields.ToDictionary(p => p, p => Convert.ToString(Property.Get(note, p)));
-                var updated = new Dictionary<string, string>(before);
+                var updated = before.ToDictionary(p => p.Key, p => Notes.OmitSingleTypical(p.Value, null));
                 bool attached = (bool)((dynamic)note).IsTerminatorAttachedToEntity;
                 bool hasTypical = before.Values.Any(Notes.HasTypical);
                 if (attached && !hasTypical) updated["BalloonText"] = Notes.EnsureTypical(updated["BalloonText"]);
@@ -497,8 +502,9 @@ namespace TurboCallout
                         if ((int)Property.Get(style, "PrimaryUnits") != (dual ? 3 : 5) ||
                             (dual && (int)Property.Get(style, "SecondaryUnits") != 5))
                             throw new InvalidOperationException("Custom unit order needs review.");
-                        HoleFacts hole = reader.Read(note); Decision choice = Notes.Recognize(rules, hole);
-                        foreach (string field in fields) updated[field] = Notes.ApplyPrecision(updated[field], choice, hole, dual);
+                        int? quantity; HoleFacts hole = reader.Read(note, out quantity); Decision choice = Notes.Recognize(rules, hole);
+                        foreach (string field in fields)
+                            updated[field] = Notes.OmitSingleTypical(Notes.ApplyPrecision(updated[field], choice, hole, dual), quantity);
                         plan = new NotePlan { Dual = dual, InchPlaces = 2, PreserveFormat = true };
                         new UnitStyle(style, plan).ApplyToSnapshot(expected);
                     }
@@ -550,7 +556,7 @@ namespace TurboCallout
             if (!(bool)((dynamic)note).IsTerminatorAttachedToEntity) throw new InvalidOperationException("Leader attachment was lost.");
         }
 
-        static void Fill(object note, NotePlan plan, NoteStyles catalog)
+        static void Fill(object note, NotePlan plan, NoteStyles catalog, int? quantity)
         {
             if (!IsBlank(note)) throw new InvalidOperationException("Callout is no longer blank; left unchanged.");
             object style = null; bool created = false; string createdName = null;
@@ -566,9 +572,10 @@ namespace TurboCallout
                 {
                     createdName = catalog.Acquire(style, plan, out created);
                     ((dynamic)style).Name = createdName;
-                    ((dynamic)note).BalloonText = plan.Text;
+                    string text = Notes.OmitSingleTypical(plan.Text, quantity);
+                    ((dynamic)note).BalloonText = text;
                     placement.Restore(note, alignment);
-                    if ((string)((dynamic)note).BalloonText != plan.Text) throw new InvalidOperationException("Callout text was not retained.");
+                    if ((string)((dynamic)note).BalloonText != text) throw new InvalidOperationException("Callout text was not retained.");
                     VerifyEvaluation(note);
                 }
                 catch (Exception error)

@@ -61,6 +61,27 @@ internal static class Tests
                 Check(Notes.EnsureTypical(result)==result,"TYP append is idempotent");
             }
             Check(Notes.EnsureTypical("")=="","Do not turn empty text into a quantity-only note");
+            foreach(string sep in new[]{"\r","\n","\r\n","%RT"})
+            foreach(string typ in new[]{"TYP(1)","TYP(%QC)"," typ. ( 1 ) ","TYP(%{%QC})"})
+            {
+                foreach(var pair in new[]{new{Text="SIZE"+sep+typ,Expected="SIZE"},new{Text=typ+sep+"SIZE",Expected="SIZE"},
+                    new{Text="SIZE"+sep+typ+sep+"FIT",Expected="SIZE"+sep+"FIT"}})
+                {
+                    string result=Notes.OmitSingleTypical(pair.Text,1);
+                    Check(result==pair.Expected,"Omit exactly the single-quantity line without a blank line");
+                    Check(Notes.OmitSingleTypical(result,1)==result,"Single-quantity omission is idempotent");
+                }
+            }
+            Check(Notes.OmitSingleTypical("TYP(1)",null)=="","Explicit TYP(1) needs no model-quantity guess");
+            foreach(int? quantity in new int?[]{null,0,2,10})
+                Check(Notes.OmitSingleTypical("SIZE\rTYP(%QC)",quantity)=="SIZE\rTYP(%QC)","Keep linked quantity unless it resolves to one");
+            foreach(string text in new[]{"SIZE\rTYP(2)","TYP(10)","TYP(11)","SIZE TYP(1)","(2)PLC'S EQ. SP. AS SHOWN","(FOR X S.H.C.S.)"})
+                Check(Notes.OmitSingleTypical(text,1)==text,"Preserve other counts, inline text and manufacturing lines");
+            foreach(string line in new[]{"TYP(1) EACH SIDE","TYP(%QC) PLC'S EQ. SP. AS SHOWN","(%QC)PLC'S EQ. SP. AS SHOWN",
+                "(%QC)PLC'S EQ. SP.","(1)PLC'S EQ. SP. AS SHOWN","PLC'S EQ. SP. AS SHOWN"})
+                Check(Notes.OmitSingleTypical("SIZE\r"+line+"\r(FOR X S.H.C.S.)",1)=="SIZE\r(FOR X S.H.C.S.)","Omit the entire single-occurrence quantity/spacing line");
+            foreach(int? quantity in new int?[]{null,2,3})
+                Check(Notes.OmitSingleTypical("SIZE\r(%QC)PLC'S EQ. SP. AS SHOWN\rTYP(%QC)",quantity)=="SIZE\r(%QC)PLC'S EQ. SP. AS SHOWN\rTYP(%QC)","Retain linked spacing and TYP lines when count exceeds one or is unresolved");
             Check(TurboCallout.Automation.IsEvaluatedText("%DI%{/ST6.350^6.337}[%{/ST.2500^.2495}] DIA 9.7 DP."),"Accept valid fixed numeric stacks in displayed text");
             foreach(string unresolved in new[]{"", "%{%HS/DU}", "%{/ST%HS^%BS}", "%{/ST6.35^?}", "?"})
                 Check(!TurboCallout.Automation.IsEvaluatedText(unresolved),"Unresolved native fields still fail verification");
@@ -87,6 +108,8 @@ internal static class Tests
                 {
                     NotePlan note=Notes.Build(book,facts,dual);
                     Check(note.InchPlaces==2,"All notes share the two-place inch unit style");
+                    Check(Notes.OmitSingleTypical(note.Text,1)==note.Text.Replace("\rTYP(%QC)","").Replace("\r(%QC)PLC'S EQ. SP. AS SHOWN","").Replace("\r(%QC)PLC'S EQ. SP.",""),"Every hole family omits its quantity/spacing lines at quantity one");
+                    Check(Notes.OmitSingleTypical(note.Text,2)==note.Text,"Every hole family retains its linked TYP line above one");
                     Check(Notes.ApplyPrecision(note.Text,decision,facts,dual)==note.Text,"Precision formatting is idempotent without rescaling tolerances");
                     foreach(Match m in Regex.Matches(note.Text,@"%\{%(?<field>HS|HD|BS|BD|TD)(?<options>[^{}]*)\}"))
                     {

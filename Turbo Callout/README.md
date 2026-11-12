@@ -1,15 +1,15 @@
-# Turbo Callout v0.8
+# Turbo Callout v0.9
 
 Fills blank native hole callouts in the active Solid Edge draft. Uses the same recognition source and saved-note library as Turbo Hole Table Callouts, compiled into a standalone x64 .NET Framework executable.
 
 ## Use
 
 1. Activate the drawing in Solid Edge.
-2. Run `Compiled Executables/Turbo Callout v0.8.exe`.
+2. Run `Compiled Executables/Turbo Callout v0.9.exe`.
 3. Choose **Inch only** or **Dual — metric[inch]**. Scanning and filling start immediately.
 4. Review the result counts and any unchanged callouts. Review the drawing and save it normally.
 
-All working sheets are scanned. Background and internal view sheets are excluded. Ordinary item balloons and parts-list balloons are excluded. All four raw text fields must be empty or whitespace for a new fill; an existing note is never replaced just because its displayed text is blank. Running again applies the precision rules below to existing attached Turbo Callout notes, consolidates their styles, adds a missing `TYP(%QC)` line, and corrects their horizontal alignment. Existing unit mode, manufacturing limits, custom wording, other formatting, and leader geometry are preserved. Other existing notes remain unchanged. The macro does not save the drawing.
+All working sheets are scanned. Background and internal view sheets are excluded. Ordinary item balloons and parts-list balloons are excluded. All four raw text fields must be empty or whitespace for a new fill; an existing note is never replaced just because its displayed text is blank. Running again applies the precision and quantity-line rules below to existing attached Turbo Callout notes, consolidates their styles, and corrects their horizontal alignment. Existing unit mode, manufacturing limits, other wording/formatting, and leader geometry are preserved. Other existing notes remain unchanged. The macro does not save the drawing.
 
 The supplied Turbo Callout icon is embedded in the executable and shown in the window. The supplied ICO and PNG are also provided beside the executable for macro managers.
 
@@ -39,9 +39,9 @@ Every note remains a **single native callout**. Inch-only notes use native per-f
 
 For existing macro notes, only their native machining fields and precision settings are updated. Existing literal values and custom wording stay intact; unsupported custom tolerance formatting or unit order is left for review. Fixed occurrence counts and opposite-side wording in saved notes are not assumed for an arbitrary leader.
 
-Counterbore and threaded notes retain their saved quantity lines. `(%QC)PLC'S EQ. SP. AS SHOWN` remains a separate line in both counterbore unit modes and in dual threaded notes; inch threaded notes retain their saved `TYP(%QC)` wording. Counterbore notes also retain the exact separate line `(FOR X S.H.C.S.)` after the quantity line, keeping the literal `X` as saved.
+Counterbore and threaded notes retain their saved quantity lines when the quantity exceeds one. `(%QC)PLC'S EQ. SP. AS SHOWN` remains a separate line in both counterbore unit modes and in dual threaded notes; inch threaded notes retain their saved `TYP(%QC)` wording. Counterbore notes retain the exact separate line `(FOR X S.H.C.S.)`, including when a single occurrence makes the quantity lines unnecessary.
 
-Every generated note receives a separate `TYP(%QC)` line if it has no TYP line already. Existing TYP wording is preserved, including fixed quantities. The separate PLC'S line does not suppress TYP. `%QC` stays native so Solid Edge evaluates the associated quantity. Reruns add missing TYP lines while updating precision; they do not rebuild earlier saved-note wording. TYP detection checks all four callout text fields.
+When the native `%QC` quantity is one, omit the **entire TYP and associated PLC'S EQ. SP. quantity lines**, including a combined TYP/spacing line. Literal `TYP(1)` lines are omitted too. No blank line is left behind. For quantities greater than one, add `TYP(%QC)` if no TYP line exists, retain the saved spacing line, and keep `%QC` model-linked. Other fixed TYP quantities and manufacturing lines remain intact. An unresolved quantity is not assumed to be one. This applies to new fills and all four text fields of existing Turbo Callout notes. Omission is evaluated when the macro runs; rerun it after a quantity change to add or remove the quantity lines as applicable. Reruns do not rebuild other saved-note wording or restore a previously removed spacing line.
 
 ## Placement and failure handling
 
@@ -61,6 +61,8 @@ Writes are checked and placement is verified. A failed fill restores the previou
 - `SampleTest.cmd [saved-draft-path] [--blank]`: make separate inch/dual copies of the active draft or supplied sample under `Inspection`, fill/update and save/reopen each, verify requested precision changes and all other formatting/placements, and verify the original unchanged. `--blank` empties only macro notes in the disposable copies to test initial filling against the sample's real model associations. No changes are saved to the original.
 - `Inspect.cmd`: inspect native fields of blank callouts; diagnostic probes are removed immediately. `Inspect.cmd --alignment` reads direction and justification without adding probes.
 - `Preview.cmd`: render the initial window to `Inspection/window.png`.
+
+v0.9 verified November 12, 2026: 3,642 regression checks and 33 isolated Solid Edge checks passed. New inch and dual notes omit TYP at native quantity one. Existing notes remove the complete TYP(1) and associated spacing lines, retain other fixed TYP quantities and manufacturing text, and preserve precision, leaders, styles, and model attachments through save/reopen. Repeated runs do not reinsert the omitted lines.
 
 v0.8 verified November 11, 2026: 3,158 regression checks and 31 isolated Solid Edge checks passed. Native rendering confirms four-place inch/three-place metric fixed dowel limits beside a two-place inch/one-place metric depth in one callout. Changing the fixture model updates the native depths and inch-only diameter while leaving the dual fixed limits unchanged. The populated sample updated all 15 existing notes without errors, removed its three obsolete shared styles, and retained one shared dual style. Initial-fill copies filled all 15 leaders in each unit mode, including simple drills, pin holes, threads, SAE ports, counterbores, Koenig seats, and a face seal. Placement, model attachments, quantity wording, formatting outside the precision changes, save/reopen, and repeat-run stability were checked. No changes were saved to the source sample.
 

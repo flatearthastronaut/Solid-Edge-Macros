@@ -66,9 +66,10 @@ internal static class SampleTest
             if(!item.Value.Macro||!item.Value.Attached)continue;
             string[] key=item.Key.Split('/');object sheet=Keep(((dynamic)sheets).Item(Int32.Parse(key[0])));
             object notes=Keep(((dynamic)sheet).Balloons),note=Keep(((dynamic)notes).Item(Int32.Parse(key[1]))),style=Keep(((dynamic)note).Style);
-            bool dual=(bool)Property.Get(style,"DualDisplay");HoleFacts hole=reader.Read(note);Decision choice=Notes.Recognize(rules,hole);
+            bool dual=(bool)Property.Get(style,"DualDisplay");int? quantity;HoleFacts hole=reader.Read(note,out quantity);Decision choice=Notes.Recognize(rules,hole);
             item.Value.ExpectedText=item.Value.Text.Select(t=>Notes.ApplyPrecision(t,choice,hole,dual)).ToArray();
             if(!item.Value.Text.Any(Notes.HasTypical))item.Value.ExpectedText[0]=Notes.EnsureTypical(item.Value.ExpectedText[0]);
+            item.Value.ExpectedText=item.Value.ExpectedText.Select(t=>Notes.OmitSingleTypical(t,quantity)).ToArray();
             item.Value.ExpectedFormat=new StyleValues(style);
             new UnitStyle(style,new NotePlan{Dual=dual,InchPlaces=2}).ApplyToSnapshot(item.Value.ExpectedFormat);
         }
