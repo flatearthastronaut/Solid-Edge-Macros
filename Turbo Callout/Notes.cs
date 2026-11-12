@@ -182,13 +182,17 @@ namespace TurboCallout
         internal static string ApplyWordSpacing(string text)
         {
             // Saved machining lines have one separating space. Add one on
-            // each side of DRILL and two after DIA by enforcing totals of
-            // two/three spaces. Minimums make reruns stable and preserve any
+            // each side of DRILL, one after THR'D/SPOTFACE and two after DIA
+            // by enforcing totals of two/three spaces. Minimums preserve any
             // wider custom gaps. Treat native field/stack codes as opaque so
             // neither property names nor fixed manufacturing values change.
             // Separate one-sided passes also handle adjacent keywords sharing
             // a gap: DIA DRILL must settle at three spaces, not grow on reruns.
-            return RewriteLines(text, line => PadWord(PadWord(PadWord(line, "DRILL", 2, true), "DRILL", 2, false), "DIA", 3, false));
+            return RewriteLines(text, line =>
+            {
+                string spaced = PadWord(PadWord(PadWord(line, "DRILL", 2, true), "DRILL", 2, false), "DIA", 3, false);
+                return PadWord(PadWord(spaced, "THR'D", 2, false), "SPOTFACE", 2, false);
+            });
         }
 
         static string PadWord(string line, string word, int minimum, bool before)

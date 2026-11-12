@@ -69,11 +69,17 @@ internal static class Tests
                 new{Before=".25    DRILL     1.50 DP. DIA    THRU",After=".25    DRILL     1.50 DP. DIA    THRU"},
                 new{Before=".25 drill THRU DIA %ZH",After=".25  drill  THRU DIA   %ZH"},
                 new{Before="DIA DRILL DRILL DIA",After="DIA   DRILL  DRILL  DIA   "},
+                new{Before="%TS THR'D %ZT",After="%TS THR'D  %ZT"},
+                new{Before="%DI%{%BS/DU/@1} SPOTFACE %{%BD/DU/@1} DP.",After="%DI%{%BS/DU/@1} SPOTFACE  %{%BD/DU/@1} DP."},
+                new{Before="#4 STRAIGHT THR'D O-RING PORT",After="#4 STRAIGHT THR'D  O-RING PORT"},
+                new{Before="THR'D SPOTFACE DRILL DIA THR'D",After="THR'D  SPOTFACE  DRILL  DIA   THR'D  "},
+                new{Before="M4 thr'd %ZT SPOTFACE    .13 DP.",After="M4 thr'd  %ZT SPOTFACE    .13 DP."},
+                new{Before="SPOTFACES %{THR'D|SPOTFACE} %SPOTFACE",After="SPOTFACES %{THR'D|SPOTFACE} %SPOTFACE"},
                 new{Before="DRILLING DIAMETER RADIAL %DIA %DRILL %{DRILL|DIA} %{%HS/LT+.001^-.001/@4}",After="DRILLING DIAMETER RADIAL %DIA %DRILL %{DRILL|DIA} %{%HS/LT+.001^-.001/@4}"}})
             {
                 string input=pair.Before+sep+"(DO NOT CHAMFER HOLE)"+sep+"TYP(%QC)",expected=pair.After+sep+"(DO NOT CHAMFER HOLE)"+sep+"TYP(%QC)";
                 string spaced=Notes.ApplyWordSpacing(input);
-                Check(spaced==expected,"DRILL gets two surrounding spaces and DIA three following spaces, with other text/fields preserved");
+                Check(spaced==expected,"Machining words get the requested spacing while other text/fields are preserved");
                 Check(Notes.ApplyWordSpacing(spaced)==spaced,"Rerunning does not accumulate word spacing");
                 Check(spaced.Replace(" ","")==input.Replace(" ",""),"Spacing changes only ordinary space characters");
             }
@@ -176,6 +182,8 @@ internal static class Tests
                         Check(word.Groups["before"].Length==2&&word.Groups["after"].Length==2,"Every template has exactly two spaces around DRILL");
                     foreach(Match word in Regex.Matches(note.Text,@"\bDIA\b(?<after> *)"))
                         Check(word.Groups["after"].Length==3,"Every template has exactly three spaces after DIA");
+                    foreach(Match word in Regex.Matches(note.Text,@"\b(?:THR'D|SPOTFACE)\b(?<after> *)"))
+                        Check(word.Groups["after"].Length>=2,"Thread and spotface templates have two following spaces");
                     foreach(Match m in Regex.Matches(note.Text,@"%\{%(?<field>HS|HD|BS|BD|TD)(?<options>[^{}]*)\}"))
                     {
                         int digits=Notes.InchPlaces(decision,facts,m.Groups["field"].Value);
