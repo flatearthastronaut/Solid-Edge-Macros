@@ -98,7 +98,7 @@ namespace TurboCallout
             ((dynamic)note).GetFreeSpacePoint(out x, out y, out z);
             int count = (int)((dynamic)note).VertexCount;
             for (int i = 0; i < count; i++)
-            { double vx, vy, vz; ((dynamic)note).GetVertex(i, out vx, out vy, out vz); vertices.Add(new[] { vx, vy, vz }); }
+            { double vx = 0, vy = 0, vz = 0; ((dynamic)note).GetVertex(i, out vx, out vy, out vz); vertices.Add(new[] { vx, vy, vz }); }
         }
         internal void Restore(object note, int? horizontalAlignment = null)
         {
@@ -112,8 +112,12 @@ namespace TurboCallout
             if ((int)((dynamic)note).VertexCount != vertices.Count) throw new InvalidOperationException("Leader vertex count changed.");
             for (int i = 0; i < vertices.Count; i++)
             {
-                ((dynamic)note).GetVertex(i, out ax, out ay, out az); double[] v = vertices[i];
-                if (!Property.Equal(v[0], ax) || !Property.Equal(v[1], ay) || !Property.Equal(v[2], az)) ((dynamic)note).SetVertex(i, v[0], v[1], v[2]);
+                // An unattached template note can report one vertex while
+                // GetVertex leaves its ByRef outputs untouched. Match capture's
+                // fresh buffers; never reuse the free-space point as a vertex.
+                double vx = 0, vy = 0, vz = 0;
+                ((dynamic)note).GetVertex(i, out vx, out vy, out vz); double[] v = vertices[i];
+                if (!Property.Equal(v[0], vx) || !Property.Equal(v[1], vy) || !Property.Equal(v[2], vz)) ((dynamic)note).SetVertex(i, v[0], v[1], v[2]);
             }
             Verify(note, horizontalAlignment);
         }
@@ -129,8 +133,12 @@ namespace TurboCallout
             if ((int)((dynamic)note).VertexCount != vertices.Count) throw new InvalidOperationException("Leader vertex count changed.");
             for (int i = 0; i < vertices.Count; i++)
             {
-                ((dynamic)note).GetVertex(i, out ax, out ay, out az); double[] v = vertices[i];
-                if (!Property.Equal(v[0], ax) || !Property.Equal(v[1], ay) || !Property.Equal(v[2], az)) throw new InvalidOperationException("Leader position changed.");
+                // Use the same initialized buffers as capture/restore. The
+                // separate free-space-point check above still detects movement
+                // when an unattached callout exposes no individual vertex.
+                double vx = 0, vy = 0, vz = 0;
+                ((dynamic)note).GetVertex(i, out vx, out vy, out vz); double[] v = vertices[i];
+                if (!Property.Equal(v[0], vx) || !Property.Equal(v[1], vy) || !Property.Equal(v[2], vz)) throw new InvalidOperationException("Leader position changed.");
             }
         }
     }

@@ -169,6 +169,18 @@ internal static class LiveTests
             object allSheets=Keep(((dynamic)draft).Sheets), extraSheet=Keep(((dynamic)allSheets).Add("Other working sheet"));
             object extraNotes=Keep(((dynamic)extraSheet).Balloons),unattached=Keep(((dynamic)extraNotes).Add(.03,.03,0.0));
             ((dynamic)unattached).Callout=1;((dynamic)unattached).BalloonText="";
+            // Parked template notes can have one vertex without a terminator.
+            // Exercise geometry reads so an unchanged note is not reported
+            // as moved, while a real movement is still detected and restorable.
+            ((dynamic)unattached).Leader=true;
+            var unattachedPlace=new Placement(unattached);unattachedPlace.Verify(unattached);
+            Check(true,"Unattached callout geometry verifies without stale single-vertex output");
+            double ux,uy,uz;((dynamic)unattached).GetFreeSpacePoint(out ux,out uy,out uz);
+            ((dynamic)unattached).SetFreeSpacePoint(ux+.01,uy,uz);
+            bool movementDetected=false;try{unattachedPlace.Verify(unattached);}catch(InvalidOperationException){movementDetected=true;}
+            Check(movementDetected,"Placement verification still detects a real unattached-note movement");
+            unattachedPlace.Restore(unattached);unattachedPlace.Verify(unattached);
+            Check(true,"Unattached note placement restores exactly");
             object custom=Keep(((dynamic)notes).Add(.07,.07,0.0));
             ((dynamic)custom).Callout=1;((dynamic)custom).BalloonText="EXISTING CUSTOM NOTE";
             object customStyle=Keep(((dynamic)custom).Style);((dynamic)customStyle).Name=originalStyle;

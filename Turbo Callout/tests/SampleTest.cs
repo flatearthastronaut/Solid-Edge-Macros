@@ -45,7 +45,8 @@ internal static class SampleTest
             string[] key=item.Key.Split('/');object sheet=Keep(((dynamic)sheets).Item(Int32.Parse(key[0])));
             object notes=Keep(((dynamic)sheet).Balloons),note=Keep(((dynamic)notes).Item(Int32.Parse(key[1])));
             int? alignment = !unchanged && !TurboCallout.Automation.IsBlank(note) && NoteAlignment.IsExistingMacroNote(note) ? NoteAlignment.Target(note) : null;
-            item.Value.Position.Verify(note,alignment);
+            try{item.Value.Position.Verify(note,alignment);}
+            catch(InvalidOperationException error){throw new Exception("Placement check failed for "+item.Key+": "+error.Message,error);}
             string[] names={"BalloonText","BalloonTextLower","BalloonTextPrefix","BalloonTextSuffix"};
             for(int i=0;i<4;i++)if(unchanged||i>0||!String.IsNullOrWhiteSpace(item.Value.Text[i]))
             {

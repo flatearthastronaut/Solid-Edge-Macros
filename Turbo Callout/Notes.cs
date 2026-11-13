@@ -123,7 +123,9 @@ namespace TurboCallout
             // The table rules deliberately reject unspecified hole families.
             // Supply Greg's drill-note fallback only after special matching,
             // never for a conflicting pin match or another review condition.
-            Decision choice = rules.Match(hole);
+            // A counterbore's two saved diameters identify the screw clearance;
+            // its actual recess depth remains a native field in the saved note.
+            Decision choice = rules.Match(hole, variableShcsDepth: true);
             if (choice.Slot == 0 && choice.Reason == "No verified standard-hole match. Leave unchanged." && IsPlainDrill(hole))
                 choice = new Decision { Category = "Simple drilled hole", Family = "Simple drill", Slot = 1 };
             if (choice.Slot == 0) throw new InvalidOperationException(choice.Reason);

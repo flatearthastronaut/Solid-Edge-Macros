@@ -28,7 +28,7 @@ internal static class Inspect
         continue;
        }
        if(!TurboCallout.Automation.IsBlank(n))continue;
-       var f=reader.Read(n); var d=rules.Match(f);
+       var f=reader.Read(n); var d=rules.Match(f,variableShcsDepth:true);
        Console.WriteLine("Blank "+j+": type="+f.Type+" dia="+f.Diameter+" depth="+f.Depth+" bore="+f.Bore+" bd="+f.BoreDepth+" thread="+f.Thread+" => "+d.Category+" / "+d.Reason);
       }catch(Exception ex){Console.WriteLine("Callout "+j+": "+ex.Message);}
       finally {Com.Release(n);}

@@ -158,7 +158,7 @@ namespace HoleTableFormatter
             return value;
         }
 
-        internal Decision Match(HoleFacts hole)
+        internal Decision Match(HoleFacts hole, bool variableShcsDepth = false)
         {
             bool possibleFaceSeal=(hole.Type==2 || hole.Type==5) && Near(hole.BoreDepth,.052) && PortThread(hole.Thread)==0;
             var hits = new List<Preset>();
@@ -195,7 +195,14 @@ namespace HoleTableFormatter
                         match = PortThread(hole.Thread) == preset.Port && Near(hole.Bore,preset.Bore) && Positive(hole.BoreDepth);
                 }
                 else if (preset.Family == "SHCS counterbore" && !threaded && hole.Type == 2)
-                    match = Near(hole.Diameter,preset.Diameter) && Near(hole.Bore,preset.Bore) && Near(hole.BoreDepth,preset.BoreDepth);
+                    // Standalone callouts can describe a saved screw-clearance
+                    // pair at a part-specific recess depth. Keep exact diameter
+                    // matching and include this candidate in the normal conflict
+                    // checks; never turn an unidentified .052 face seal into an
+                    // SHCS note. The table caller retains its existing policy.
+                    match = Near(hole.Diameter,preset.Diameter) && Near(hole.Bore,preset.Bore) &&
+                        (Near(hole.BoreDepth,preset.BoreDepth) || (variableShcsDepth && !possibleFaceSeal &&
+                            Positive(hole.BoreDepth) && !Double.IsInfinity(hole.BoreDepth.Value)));
                 else if(preset.Family=="Spring pin"&&!threaded&&hole.Type==1&&preset.Kind=="Simple")
                     match=Near(hole.Diameter,preset.Diameter)&&Near(hole.Depth,preset.Depth);
                 if (match) hits.Add(preset);

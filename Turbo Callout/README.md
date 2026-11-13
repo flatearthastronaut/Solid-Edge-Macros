@@ -1,17 +1,17 @@
-# Turbo Callout v1.0
+# Turbo Callout v1.1
 
 Fills blank native hole callouts in the active Solid Edge draft. Uses the same recognition source and saved-note library as Turbo Hole Table Callouts, compiled into a standalone x64 .NET Framework executable.
 
 ## Use
 
 1. Activate the drawing in Solid Edge.
-2. Run `Compiled Executables/Turbo Callout v1.0.exe`.
+2. Run `Compiled Executables/Turbo Callout v1.1.exe`.
 3. Choose **Inch only** or **Dual — metric[inch]**. Scanning and filling start immediately.
 4. Review the result counts and any unchanged callouts. Review the drawing and save it normally.
 
 All working sheets are scanned. Background and internal view sheets are excluded. Ordinary item balloons and parts-list balloons are excluded. All four raw text fields must be empty or whitespace for a new fill; an existing note is never replaced just because its displayed text is blank. Running again applies the precision, stacked-text height, and quantity-line rules below to existing attached Turbo Callout notes, consolidates their styles, and corrects their horizontal alignment. Existing unit mode, manufacturing limits, other wording/formatting, and leader geometry are preserved. Other existing notes remain unchanged. The macro does not save the drawing.
 
-The selected option B icon (white note lines and hole leader, yellow lightning bolt, navy tile) matches the Turbo Hole Table Callouts theme. It is embedded in the v1.0 executable and shown in the window. The ICO includes 16–256 pixel sizes; the ICO and PNG are also provided beside the executable for macro managers. See `Assets/README.md` for the selected artwork and packaging instructions.
+The selected option B icon (white note lines and hole leader, yellow lightning bolt, navy tile) matches the Turbo Hole Table Callouts theme. It is embedded in the executable and shown in the window. The ICO includes 16–256 pixel sizes; the ICO and PNG are also provided beside the executable for macro managers. See `Assets/README.md` for the selected artwork and packaging instructions.
 
 ## Recognition and notes
 
@@ -20,6 +20,8 @@ The selected option B icon (white note lines and hole leader, yellow lightning b
 The native callout evaluator provides the associated hole type, diameter, depths, recess geometry, and thread data. This matters for multi-feature ports: the parent of a projected edge can be the threaded entrance while the callout's fields evaluate the spotface. A temporary duplicate receives the original leader's exact attachment, a private diagnostic style, and a numeric probe. The probe and style are deleted immediately. The original blank callout is filled in place; it is not replaced or rebound. Diagnostic probing can mark a drawing modified even if no standard matches, but does not save it.
 
 Supported special families follow the shared rules: chart/saved dowel pin seats, 3/8-inch press-fit spring pin, Koenig/CV plug seats, saved face-seal recesses, SAE ports #2/#4/#6/#8, saved SHCS counterbores, and standard threaded holes. After special-family recognition, an otherwise unmatched native simple drilled hole uses the complete saved `HC -DRILL` note for inch-only or `HC -DRILL M[I]` for dual dimensions, including its linked quantity wording. Both blind and through holes retain native Smart Depth. Conflicting special-family matches, inconsistent geometry, unsupported non-simple holes, and unresolved attachments remain blank for review. This fallback is specific to standalone callouts; the hole-table recognition rules are unchanged.
+
+For standalone SHCS counterbores, both the drill and recess diameters must match a saved size, but a positive finite recess depth may differ from the preset. The note retains the actual model-linked depth. For example, the M8 pair .34/.53 is recognized at .35 depth as well as the saved .34 depth. Unknown diameter pairs, conflicting families, and unidentified .052-inch face-seal recesses still require review. The hole-table caller retains its existing depth-matching policy.
 
 Notes retain native drilling/depth fields and Smart Depth behavior, dowel fit limits and P.F./S.F. lines, face-seal depth limits, and the separate Koenig `(DO NOT CHAMFER HOLE)` line. The fixed higher-precision dual values are described below. The saved 12 mm Koenig entry supplies its bracketed inch limits when only a dual entry exists. Threaded holes include the native drilling/minor diameter. Spotface-only SAE features use the size-specific saved thread designation/depth; modeled threaded entrances use their native thread fields. #8 uses the shared rule's saved thread-depth standard. Review the saved standard note if the separate thread feature is later changed.
 
@@ -65,6 +67,8 @@ Writes are checked and placement is verified. A failed fill restores the previou
 - `SampleTest.cmd [saved-draft-path] [--blank]`: make separate inch/dual copies of the active draft or supplied sample under `Inspection`, fill/update and save/reopen each, verify requested precision changes and all other formatting/placements, and verify the original unchanged. `--blank` empties only macro notes in the disposable copies to test initial filling against the sample's real model associations. No changes are saved to the original.
 - `Inspect.cmd`: inspect native fields of blank callouts; diagnostic probes are removed immediately. `Inspect.cmd --alignment` reads direction and justification without adding probes.
 - `Preview.cmd`: render the initial window to `Inspection/window.png`.
+
+v1.1 verified November 13, 2026: 5,245 regression checks and 38 isolated Solid Edge checks passed. SHCS counterbores allow a part-specific recess depth when both saved diameters match. The reported .34 drill / .53 counterbore / .35 depth now uses the complete linked M8-size counterbore note. Invalid depths, unknown diameter pairs, unidentified .052 face-seal recesses, and family conflicts remain for review; the hole-table caller is unchanged. Placement verification also initializes vertex output buffers consistently for unattached template notes, avoiding false movement reports. Inch and dual copies of the new sample each filled the reported counterbore, left four unmatched holes blank for review, and passed save/reopen, repeat-run, original-text, and leader-placement checks with zero errors. The source draft was not saved. Executable and assembly versions are 1.1 and 1.1.0.0.
 
 v1.0 released November 12, 2026: 5,162 regression checks passed. The final spacing rule adds one extra space after C'BORE/CBORE, preserving spelling, wider custom gaps, and stable reruns. Populated sample copies updated only the counterbore note, with zero errors or review cases. Save/reopen and repeat-run checks passed; values, precision, text height, styles, model links, and leader placement were retained. The source sample remained unchanged. Executable and assembly versions are 1.0 and 1.0.0.0 respectively.
 

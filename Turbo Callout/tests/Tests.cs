@@ -247,6 +247,49 @@ internal static class Tests
                 Check(note.Text.EndsWith(equalSpacing+"\r(FOR X S.H.C.S.)",StringComparison.Ordinal),"Counterbore keeps screw-size line after its only quantity line");
                 Check(note.InchPlaces==2&&note.Dual==dual,"Counterbore precision and unit mode retained");
             }
+            // The new sample uses the saved M8 .34/.53 diameter pair with a
+            // .35 recess, rather than the preset's .34. Depth is part-specific;
+            // the exact diameter pair and native unthreaded type identify it.
+            var changedCounterbore=new HoleFacts{Type=2,Diameter=.34000001,Depth=2.00000001,Bore=.53000001,BoreDepth=.35000001};
+            Check(book.Match(changedCounterbore).Slot==0,"Hole-table default still requires its original depth match");
+            foreach(bool dual in new[]{false,true})
+            {
+                var note=Notes.Build(book,changedCounterbore,dual);
+                Check(note.Category=="SHCS counterbore","Sample M8 counterbore recognized at .35 depth");
+                Check(note.Text.Contains(dual?"%{%BD/DU/@1}":"%{%BD/@2}"),"Changed counterbore depth remains parametric in both unit modes");
+                Check(note.Text.Contains("%HS")&&note.Text.Contains("%BS")&&note.Text.Contains("%ZH"),"All other counterbore machining values remain linked");
+                Check(note.Text.Contains(equalSpacing)&&!Notes.HasTypical(note.Text)&&note.Text.Contains("(FOR X S.H.C.S.)"),"Variable-depth note keeps the approved quantity and purpose lines");
+            }
+            foreach(Preset p in book.Presets.Where(p=>p.Family=="SHCS counterbore"))
+            foreach(double depthFactor in new[]{.75,1.5})
+            {
+                var hole=Facts(p);hole.BoreDepth=p.BoreDepth*depthFactor;
+                Check(book.Match(hole).Slot==0,"Changed SHCS depths do not alter table behavior");
+                Check(Notes.Recognize(book,hole).Family=="SHCS counterbore","Saved SHCS diameter pairs allow shallower and deeper recesses");
+            }
+            foreach(double? depth in new double?[]{null,0,-.35,Double.NaN,Double.PositiveInfinity,Double.NegativeInfinity,.052})
+            {
+                var hole=new HoleFacts{Type=2,Diameter=.34,Bore=.53,BoreDepth=depth};
+                bool blocked=false;try{Notes.Build(book,hole,false);}catch(InvalidOperationException){blocked=true;}
+                Check(blocked,"Missing/invalid depths and unidentified face-seal recesses remain for review");
+            }
+            foreach(var hole in new[]{new HoleFacts{Type=2,Diameter=.3401,Bore=.53,BoreDepth=.35},
+                new HoleFacts{Type=2,Diameter=.34,Bore=.5301,BoreDepth=.35},
+                new HoleFacts{Type=5,Diameter=.34,Bore=.53,BoreDepth=.35,Thread="M8"},
+                new HoleFacts{Type=2,Diameter=.34,Bore=.53,BoreDepth=.35,Thread="M8"},
+                new HoleFacts{Type=7,Diameter=.34,Bore=.53,BoreDepth=.35}})
+            {
+                Check(book.Match(hole,true).Family!="SHCS counterbore","Variable depth never relaxes diameter, thread or native-type evidence");
+            }
+            var counterboreCollision=new Preset{Family="SAE port",Kind="CounterBore",Bore=.53,Port=2,Slot=2};
+            book.Presets.Add(counterboreCollision);
+            try
+            {
+                Check(book.Match(changedCounterbore,true).Reason=="Conflicting saved preset matches.","Variable-depth SHCS candidates participate in family conflict checks");
+                bool blocked=false;try{Notes.Build(book,changedCounterbore,false);}catch(InvalidOperationException){blocked=true;}
+                Check(blocked,"A conflicting counterbore is never assigned a generic saved note");
+            }
+            finally{book.Presets.Remove(counterboreCollision);}
             foreach(double? threadDepth in new double?[]{.88,null})
             foreach(bool dual in new[]{false,true})
             {
