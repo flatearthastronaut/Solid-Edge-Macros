@@ -383,11 +383,13 @@ namespace TurboCallout
     {
         internal int Blank, Filled, AlignedExisting, UpdatedExisting, StylesRemoved, StylesKept, Review, Errors;
         internal int BoltCirclesCreated, BoltCirclesExisting, BoltCirclesSkipped, BoltCirclesReview;
+        internal int ProjectionMarksCreated, ProjectionMarksUpdated;
         internal readonly List<string> Details = new List<string>();
         public override string ToString()
         {
             return String.Format("{0} blank callouts found.\r\n{1} filled; {4} existing notes aligned; {5} existing notes updated; {6} old styles removed; {2} need review; {3} errors.\r\n\r\nReview the drawing, then save it in Solid Edge.\r\n", Blank, Filled, Review, Errors, AlignedExisting, UpdatedExisting, StylesRemoved) +
                 String.Format("Bolt circles: {0} created; {1} already present; {2} need review.\r\n",BoltCirclesCreated,BoltCirclesExisting,BoltCirclesReview)+
+                String.Format("Projection marks: {0} added; {1} restored.\r\n",ProjectionMarksCreated,ProjectionMarksUpdated)+
                 String.Join("\r\n", Details);
         }
     }
@@ -511,7 +513,7 @@ namespace TurboCallout
                     finally{Com.Release(notes);Com.Release(sheet);}
                 }
             }
-            finally{Com.Release(sheets);}
+            finally{report.ProjectionMarksCreated=circles.ProjectionMarksCreated;report.ProjectionMarksUpdated=circles.ProjectionMarksUpdated;Com.Release(sheets);}
         }
 
         internal static void Fill(object note, NotePlan plan)

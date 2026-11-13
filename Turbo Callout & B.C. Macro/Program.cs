@@ -4,7 +4,7 @@ using System.Windows.Forms;
 using HoleTableFormatter;
 
 [assembly: System.Reflection.AssemblyTitle("Turbo Callout & B.C. Macro")]
-[assembly: System.Reflection.AssemblyVersion("0.1.0.0")]
+[assembly: System.Reflection.AssemblyVersion("0.2.0.0")]
 
 namespace TurboCallout
 {
@@ -16,7 +16,7 @@ namespace TurboCallout
         bool running;
         internal MainForm()
         {
-            Text = "Turbo Callout & B.C. Macro v0.1"; StartPosition = FormStartPosition.CenterScreen;
+            Text = "Turbo Callout & B.C. Macro v0.2"; StartPosition = FormStartPosition.CenterScreen;
             Font = new Font("Segoe UI", 10); ClientSize = new Size(414, 164);
             FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false;
             using (var stream = typeof(MainForm).Assembly.GetManifestResourceStream("TurboCallout.Icon")) Icon = new Icon(stream);

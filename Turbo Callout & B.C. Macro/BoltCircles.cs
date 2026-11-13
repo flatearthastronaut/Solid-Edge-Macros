@@ -26,6 +26,12 @@ namespace TurboCallout
     [ComImport,Guid("61f55450-5269-11ce-9cfe-08003637fb01"),InterfaceType(ComInterfaceType.InterfaceIsIDispatch)]
     internal interface IBcView
     { [DispId(24724)] void ViewOrientation(out double vx,out double vy,out double vz,out double xx,out double xy,out double xz,out int orientation); }
+    [ComImport,Guid("7d915053-f4a6-11ce-a941-080036373002"),InterfaceType(ComInterfaceType.InterfaceIsIDispatch)]
+    internal interface IBcCenterMark
+    {
+        [DispId(6)] void GetCenter([MarshalAs(UnmanagedType.IDispatch)]out object reference,out double x,out double y,out double z,out bool keyPoint);
+        [DispId(8303)] void GetArcCenter([MarshalAs(UnmanagedType.IDispatch)]out object reference,out double x,out double y,out double z,out bool keyPoint);
+    }
 
     internal enum BoltCircleResult { Created, Existing, Skipped, Review }
 
@@ -36,6 +42,9 @@ namespace TurboCallout
         readonly List<object> held=new List<object>();
         readonly Dictionary<long,List<HoleGroup>> groups=new Dictionary<long,List<HoleGroup>>();
         readonly Dictionary<string,List<CircleGraphic>> graphics=new Dictionary<string,List<CircleGraphic>>();
+        internal int ProjectionMarksCreated { get; private set; }
+        internal int ProjectionMarksUpdated { get; private set; }
+        sealed class ProjectionConflict : Exception { internal ProjectionConflict(string message):base(message){} }
         sealed class HoleGroup
         {
             internal readonly HashSet<long> Owners=new HashSet<long>();
@@ -189,6 +198,11 @@ namespace TurboCallout
                 if(same)
                 {
                     bool linked=refs.All(p=>(bool)((dynamic)existing).IsMember[p,0]);
+                    if(linked)
+                    {
+                        try{EnsureProjectionMarks(sheet,view,existing,selected,refs,sx,sy);}
+                        catch(ProjectionConflict conflict){detail=conflict.Message;return BoltCircleResult.Review;}
+                    }
                     detail=linked?"B.C. already exists ("+selected.Count+" linked holes).":"B.C. needs review: an existing circle occupies this location with different hole references.";
                     return linked?BoltCircleResult.Existing:BoltCircleResult.Review;
                 }
@@ -204,14 +218,101 @@ namespace TurboCallout
                 if(Math.Abs(x-sx)>1e-8||Math.Abs(y-sy)>1e-8||Math.Abs(radiusAfter-sheetRadius)>1e-8||
                     (int)((dynamic)created).Count!=refs.Count||!refs.All(p=>(bool)((dynamic)created).IsMember[p,0]))
                     throw new InvalidOperationException("Native bolt-circle geometry or hole references did not verify.");
+                EnsureProjectionMarks(sheet,view,created,selected,refs,sx,sy);
                 detail="Created native B.C. centerline through "+refs.Count+" pattern holes.";return BoltCircleResult.Created;
             }
             catch(Exception error)
             {
                 try{if(created!=null)((dynamic)created).Delete();if((int)((dynamic)collection).Count!=before)throw new Exception("Annotation count did not restore.");}
                 catch(Exception rollback){throw new InvalidOperationException("B.C. creation failed: "+error.Message+" Cleanup needs review: "+rollback.Message,error);}
+                if(error is ProjectionConflict){detail=error.Message;return BoltCircleResult.Review;}
                 throw new InvalidOperationException("B.C. creation rolled back: "+error.Message,error);
             }
+        }
+        void EnsureProjectionMarks(object sheet,object view,object circle,List<CircleGraphic> selected,List<object> refs,double cx,double cy)
+        {
+            // SE's BoltHoleCircle API only creates the circular chain line.
+            // Greg's manually corrected example uses one native two-point
+            // CenterMark per hole: the hole is Object1, the BHC center Object2.
+            // Both remain associative; rotating loose sketch lines would not.
+            object collection=Keep(((dynamic)sheet).CenterMarks);
+            var matches=new List<object>[selected.Count];
+            for(int i=0;i<matches.Length;i++)matches[i]=new List<object>();
+            for(int i=1;i<=(int)((dynamic)collection).Count;i++)
+            {
+                object mark=Keep(((dynamic)collection).Item(i)),reference=null;double x,y,z;bool key;
+                ((IBcCenterMark)mark).GetCenter(out reference,out x,out y,out z,out key);Keep(reference);
+                if(reference==null)continue;
+                object graphic;
+                try{graphic=Keep(((dynamic)reference).Object);}
+                catch(COMException){continue;} // Free-space/non-view center marks.
+                catch(Microsoft.CSharp.RuntimeBinder.RuntimeBinderException){continue;}
+                if(graphic==null||(int)((dynamic)graphic).Type!=CircleType)continue;
+                object markView=Keep(((dynamic)graphic).DrawingView);
+                if(Identity(markView)!=Identity(view))continue;
+                ((dynamic)graphic).GetCenterPoint(out x,out y);
+                for(int j=0;j<selected.Count;j++)
+                    if(BoltCircleGeometry.Distance(selected[j].Center,new CirclePoint(x,y))<=BoltCircleGeometry.Tolerance)matches[j].Add(mark);
+            }
+            // Check every occupied hole before making changes. Reuse the user's
+            // matching radial marks; do not overlay or rotate unrelated marks.
+            for(int i=0;i<matches.Length;i++)
+            {
+                if(matches[i].Count==0)continue;
+                if(matches[i].Count!=1||!(bool)((dynamic)matches[i][0]).TwoPoint)
+                    throw new ProjectionConflict("B.C. needs review: a hole already has a different or duplicate center mark.");
+                object arc=null;double x,y,z;bool key;
+                ((IBcCenterMark)matches[i][0]).GetArcCenter(out arc,out x,out y,out z,out key);Keep(arc);
+                if(arc==null||Identity(arc)!=Identity(circle)||!key)
+                    throw new ProjectionConflict("B.C. needs review: an existing hole center mark uses a different radial reference.");
+            }
+            var added=new List<object>();var changed=new List<Tuple<object,bool,int>>();
+            int before=(int)((dynamic)collection).Count;
+            try
+            {
+                for(int i=0;i<selected.Count;i++)
+                {
+                    object mark;
+                    if(matches[i].Count==1)
+                    {
+                        mark=matches[i][0];object style=Keep(((dynamic)mark).Style);
+                        bool auto=(bool)((dynamic)style).AutoCenterProjectionLine;int display=(int)((dynamic)style).ProjectionLineDisplay;
+                        if(!auto||display!=3)
+                        {
+                            changed.Add(Tuple.Create(style,auto,display));
+                            ((dynamic)style).AutoCenterProjectionLine=true;((dynamic)style).ProjectionLineDisplay=3;
+                        }
+                    }
+                    else
+                    {
+                        double x,y;((dynamic)view).ViewToSheet(selected[i].Center.X,selected[i].Center.Y,out x,out y);
+                        mark=Keep(((dynamic)collection).Add2PointCenterMark(refs[i],x,y,0.0,true,circle,cx,cy,0.0,true,true));
+                        added.Add(mark);ApplyStyle(mark);
+                    }
+                    VerifyProjectionMark(mark,circle,view,selected[i].Center);
+                }
+                ProjectionMarksCreated+=added.Count;ProjectionMarksUpdated+=changed.Count;
+            }
+            catch(Exception error)
+            {
+                var failures=new List<string>();
+                for(int i=added.Count-1;i>=0;i--)try{((dynamic)added[i]).Delete();}catch(Exception e){failures.Add(e.Message);}
+                foreach(var saved in changed)try{((dynamic)saved.Item1).AutoCenterProjectionLine=saved.Item2;((dynamic)saved.Item1).ProjectionLineDisplay=saved.Item3;}catch(Exception e){failures.Add(e.Message);}
+                if((int)((dynamic)collection).Count!=before)failures.Add("Center-mark count did not restore.");
+                throw new InvalidOperationException("Projection marks failed: "+error.Message+(failures.Count>0?" Cleanup needs review: "+String.Join("; ",failures):" Changes rolled back."),error);
+            }
+        }
+        void VerifyProjectionMark(object mark,object circle,object view,CirclePoint center)
+        {
+            object reference=null,arc=null;double x,y,z,ax,ay,az;bool key,arcKey;
+            ((IBcCenterMark)mark).GetCenter(out reference,out x,out y,out z,out key);Keep(reference);
+            ((IBcCenterMark)mark).GetArcCenter(out arc,out ax,out ay,out az,out arcKey);Keep(arc);
+            object graphic=Keep(((dynamic)reference).Object),markView=Keep(((dynamic)graphic).DrawingView),style=Keep(((dynamic)mark).Style);
+            ((dynamic)graphic).GetCenterPoint(out x,out y);
+            if(!(bool)((dynamic)mark).TwoPoint||!key||!arcKey||arc==null||Identity(arc)!=Identity(circle)||
+                Identity(markView)!=Identity(view)||BoltCircleGeometry.Distance(center,new CirclePoint(x,y))>BoltCircleGeometry.Tolerance||
+                !(bool)((dynamic)style).AutoCenterProjectionLine||(int)((dynamic)style).ProjectionLineDisplay!=3)
+                throw new InvalidOperationException("Native projection-mark attachments or display did not verify.");
         }
         void ApplyStyle(object circle)
         {
@@ -220,7 +321,7 @@ namespace TurboCallout
             {
                 if(stream==null)throw new InvalidOperationException("The packaged centerline standard is missing.");
                 var category=XDocument.Load(stream).Root.Elements("Category").Single(c=>(string)c.Attribute("name")=="CenterLine");
-                string[] wanted={"LineWidth","DrivenColor","CenterLineType","CenterMarkSize","CenterMarkExtension","AutoCenterProjectionLine"};
+                string[] wanted={"LineWidth","DrivenColor","CenterLineType","CenterMarkSize","CenterMarkExtension","AutoCenterProjectionLine","ProjectionLineDisplay"};
                 foreach(string name in wanted)
                 {
                     XElement item=category.Element("Style").Elements("Property").Single(p=>(string)p.Attribute("name")==name);
