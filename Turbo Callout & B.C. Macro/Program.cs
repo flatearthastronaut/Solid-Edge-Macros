@@ -4,7 +4,7 @@ using System.Windows.Forms;
 using HoleTableFormatter;
 
 [assembly: System.Reflection.AssemblyTitle("Turbo Callout & B.C. Macro")]
-[assembly: System.Reflection.AssemblyVersion("0.3.0.0")]
+[assembly: System.Reflection.AssemblyVersion("0.4.0.0")]
 
 namespace TurboCallout
 {
@@ -16,11 +16,11 @@ namespace TurboCallout
         bool running;
         internal MainForm()
         {
-            Text = "Turbo Callout & B.C. Macro v0.3"; StartPosition = FormStartPosition.CenterScreen;
+            Text = "Turbo Callout & B.C. Macro v0.4"; StartPosition = FormStartPosition.CenterScreen;
             Font = new Font("Segoe UI", 10); ClientSize = new Size(414, 164);
             FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false;
             using (var stream = typeof(MainForm).Assembly.GetManifestResourceStream("TurboCallout.Icon")) Icon = new Icon(stream);
-            var title = new Label { Text = "Fill callouts and add bolt-circle centerlines:", AutoSize = true, Location = new Point(20, 19) };
+            var title = new Label { Text = "Fill callouts and dimension bolt circles:", AutoSize = true, Location = new Point(20, 19) };
             inch.Text = "Inch only"; inch.SetBounds(20, 53, 178, 42);
             dual.Text = "Dual — metric[inch]"; dual.SetBounds(214, 53, 180, 42);
             status.Text = "Bolt circles use face-on orthographic views."; status.SetBounds(20, 111, 376, 44);
@@ -38,7 +38,7 @@ namespace TurboCallout
                 using (new BusyFilter())
                 {
                     RunReport report = Automation.Run(useDual, text => { status.Text = text; status.Refresh(); });
-                    status.Text = report.Filled + " callouts filled; " + report.BoltCirclesCreated + " bolt circles added; " + report.Errors + " errors.";
+                    status.Text = report.Filled + " callouts filled; " + report.BoltCirclesCreated + " bolt circles and " + report.BcDimensionsCreated + " B.C dimensions added; " + report.Errors + " errors.";
                     results.Text = report.ToString();
                 }
             }

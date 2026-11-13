@@ -53,6 +53,19 @@ internal static class Tests
     {
         try
         {
+            foreach(var item in new[]{new{Family="Simple drill",Places=2},new{Family="SHCS counterbore",Places=2},
+                new{Family="Spring pin",Places=3},new{Family="O-ring face seal",Places=3},new{Family="Koenig plug",Places=3},
+                new{Family="SAE port",Places=3},new{Family="Dowel",Places=4}})
+                Check(BoltCircleDimensions.InchPlaces(new Decision{Family=item.Family,Slot=1})==item.Places,"B.C inch precision: "+item.Family);
+            Check(BoltCircleDimensions.InchPlaces(new Decision{Category="Threaded hole",Slot=1})==3,"Thread B.C uses three inch places");
+            foreach(var choice in new[]{Decision.Review("ambiguous"),new Decision{Slot=1,Family="unknown"}})
+            {bool failed=false;try{BoltCircleDimensions.InchPlaces(choice);}catch(InvalidOperationException){failed=true;}Check(failed,"Unknown/conflicting B.C families require review");}
+            Check(BoltCircleDimensions.CommonPlaces(new[]{3,3})==3,"Duplicate associated callouts agree on precision");
+            bool conflictPrecision=false;try{BoltCircleDimensions.CommonPlaces(new[]{2,4});}catch(InvalidOperationException){conflictPrecision=true;}
+            Check(conflictPrecision,"Shared circle with conflicting precision remains for review");
+            foreach(string suffix in new[]{"", "B.C", " B.C.", "CUSTOM", "CUSTOM B.C"})
+            {string applied=BoltCircleDimensions.WithSuffix(suffix);Check(applied==BoltCircleDimensions.WithSuffix(applied),"B.C suffix is idempotent");
+                Check(!suffix.Contains("CUSTOM")||applied.Contains("CUSTOM"),"Custom suffix words preserved");}
             foreach(int count in new[]{3,4,6,8,12,24})
             foreach(double radius in new[]{.002,.04699,.3})
             foreach(double offset in new[]{0.0,123.456})

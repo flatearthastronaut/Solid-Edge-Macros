@@ -384,12 +384,14 @@ namespace TurboCallout
         internal int Blank, Filled, AlignedExisting, UpdatedExisting, StylesRemoved, StylesKept, Review, Errors;
         internal int BoltCirclesCreated, BoltCirclesExisting, BoltCirclesSkipped, BoltCirclesReview;
         internal int ProjectionMarksCreated, ProjectionMarksUpdated;
+        internal int BcDimensionsCreated, BcDimensionsUpdated, BcDimensionsExisting, BcDimensionsReview;
         internal readonly List<string> Details = new List<string>();
         public override string ToString()
         {
             return String.Format("{0} blank callouts found.\r\n{1} filled; {4} existing notes aligned; {5} existing notes updated; {6} old styles removed; {2} need review; {3} errors.\r\n\r\nReview the drawing, then save it in Solid Edge.\r\n", Blank, Filled, Review, Errors, AlignedExisting, UpdatedExisting, StylesRemoved) +
                 String.Format("Bolt circles: {0} created; {1} already present; {2} need review.\r\n",BoltCirclesCreated,BoltCirclesExisting,BoltCirclesReview)+
                 String.Format("Projection marks: {0} added; {1} restored.\r\n",ProjectionMarksCreated,ProjectionMarksUpdated)+
+                String.Format("B.C dimensions: {0} added; {1} updated; {2} already correct; {3} need review.\r\n",BcDimensionsCreated,BcDimensionsUpdated,BcDimensionsExisting,BcDimensionsReview)+
                 String.Join("\r\n", Details);
         }
     }
@@ -478,11 +480,11 @@ namespace TurboCallout
                 catalog.Cleanup(report);
             }
             finally { Com.Release(sheets); }
-            AddBoltCircles(draft,report,progress);
+            AddBoltCircles(draft,rules,dual,report,progress);
             return report;
         }
 
-        static void AddBoltCircles(object draft,RunReport report,Action<string> progress)
+        static void AddBoltCircles(object draft,RuleBook rules,bool dual,RunReport report,Action<string> progress)
         {
             object sheets=null;
             using(var circles=new BoltCircles(draft))try
@@ -517,7 +519,11 @@ namespace TurboCallout
                     finally{Com.Release(notes);Com.Release(sheet);}
                 }
             }
-            finally{report.ProjectionMarksCreated=circles.ProjectionMarksCreated;report.ProjectionMarksUpdated=circles.ProjectionMarksUpdated;Com.Release(sheets);}
+            finally
+            {
+                try { BoltCircleDimensions.Process(draft,circles.DimensionTargets,rules,dual,report,progress); }
+                finally { report.ProjectionMarksCreated=circles.ProjectionMarksCreated;report.ProjectionMarksUpdated=circles.ProjectionMarksUpdated;Com.Release(sheets); }
+            }
         }
 
         internal static void Fill(object note, NotePlan plan)

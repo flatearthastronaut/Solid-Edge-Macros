@@ -1,4 +1,4 @@
-# Turbo Callout & B.C. Macro v0.3
+# Turbo Callout & B.C. Macro v0.4
 
 This macro extends Turbo Callout v1.1 (commit `eecf9e9`) with native, model-linked bolt-hole-circle centerlines for the hole patterns referenced by callouts. It has its own executable and version sequence and retains the established callout formatting and icon.
 
@@ -9,8 +9,8 @@ Fills blank native hole callouts in the active Solid Edge draft. Uses the same r
 ## Use
 
 1. Activate the drawing in Solid Edge.
-2. Run `Compiled Executables/Turbo Callout & B.C. Macro v0.3.exe`.
-3. Choose **Inch only** or **Dual — metric[inch]**. Callout filling and bolt-circle creation start immediately.
+2. Run `Compiled Executables/Turbo Callout & B.C. Macro v0.4.exe`.
+3. Choose **Inch only** or **Dual — metric[inch]**. Callout filling, bolt-circle creation, and Smart Dimensions start immediately.
 4. Review the result counts and any unchanged callouts. Review the drawing and save it normally.
 
 All working sheets are scanned. Background and internal view sheets are excluded. Ordinary item balloons and parts-list balloons are excluded. All four raw text fields must be empty or whitespace for a new fill; an existing note is never replaced just because its displayed text is blank. Running again applies the precision, stacked-text height, and quantity-line rules below to existing attached Turbo Callout notes, consolidates their styles, and corrects their horizontal alignment. Existing unit mode, manufacturing limits, other wording/formatting, and leader geometry are preserved. Other existing notes remain unchanged. The macro does not save the drawing.
@@ -30,6 +30,24 @@ Repeated runs reuse an existing circle with the same geometry and complete membe
 Each hole also receives a native two-point center mark with projection lines, matching Greg's manually corrected sample. The mark attaches to the hole center and uses the bolt-circle center as its radial reference. These marks follow the model and view without loose sketch lines. Reruns add missing marks to v0.1 circles, restore disabled projection display, and reuse matching manual marks without duplicating them. Existing marks with different radial references or orientations are left for review. The result window reports projection marks added and restored.
 
 New circles and projection marks use the CenterLine settings from `DraftingStandards/annotation-presentation-standard.xml`, embedded in the executable: Chain line type, reference line width, teal Driven color, and reference center-mark settings. These are local annotation overrides; no per-circle dimension styles are added. Native references make the annotations follow view scale/position changes. If projection creation fails, newly added marks are deleted and changed display flags are restored; a newly created circle is also removed. Existing circles and unrelated marks are retained, and cleanup failures are reported. The drawing is never saved automatically.
+
+## Bolt-circle Smart Dimensions (v0.4)
+
+Each verified circle receives one native radial diameter Smart Dimension with `B.C` in its suffix. It references the native bolt circle directly and uses automatic view scale; its value is never typed or overridden. Dimensions remain associative after view movement, scale changes, and save/reopen.
+
+Inch precision comes from the same model-based hole recognition as the callout:
+
+| Hole type | Inch decimal places |
+| --- | --- |
+| Plain drilled hole or SHCS counterbore | 2 |
+| Thread, spring pin, O-ring face seal, CV/Koenig plug, SAE port | 3 |
+| Dowel pin | 4 |
+
+New dimensions use the selected inch/dual mode, with one fewer metric place in dual mode, and the embedded reference dimension presentation (.125-inch Arial text, teal Driven color). No extra named styles are created. The native bent leader matches Greg's manually positioned Smart Dimension. New text is placed just above or below its associated callout's range on the same side of the view. If the same circle has multiple callouts, the first one determines the initial position. Review crowded drawings and adjust positions as needed.
+
+Existing native diameter dimensions on the circle are reused. Their positions, leader settings, units, metric precision, and tolerances stay intact; the macro applies the requested inch decimal places and adds the suffix without deleting custom suffix wording. Reruns do not reposition dimensions. An overridden diameter, duplicate dimensions, conflicting precision requirements, an unknown hole family, or an unusable nearby placement is left for review. No unassociated circle receives a guessed dimension. Existing pattern-recognition reviews remain unchanged.
+
+`BoltCircleDimensionTest.cmd` tests disposable copies of an open sample with a manual B.C diameter: inch/dual precision, suffix, native attachment, nearby placement on both sides, manual placement preservation, reruns, view scaling/movement, save/reopen, and protection of overridden values. `Test.cmd` covers all family rules and conflicting matches; `SampleTest.cmd` retains the full callout/projection regression checks. Tests restore the original active drawing and do not save it.
 
 ## Recognition and notes
 

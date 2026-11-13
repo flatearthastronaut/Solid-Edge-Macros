@@ -35,6 +35,13 @@ namespace TurboCallout
 
     internal enum BoltCircleResult { Created, Existing, Skipped, Review }
 
+    internal sealed class BoltCircleTarget
+    {
+        internal string SheetName;
+        internal int NoteIndex;
+        internal object Circle, View;
+    }
+
     internal sealed class BoltCircles : IDisposable
     {
         const int HoleType=462094722, CircleType=-2074243498;
@@ -44,6 +51,7 @@ namespace TurboCallout
         readonly Dictionary<string,List<CircleGraphic>> graphics=new Dictionary<string,List<CircleGraphic>>();
         internal int ProjectionMarksCreated { get; private set; }
         internal int ProjectionMarksUpdated { get; private set; }
+        internal readonly List<BoltCircleTarget> DimensionTargets=new List<BoltCircleTarget>();
         sealed class ProjectionConflict : Exception { internal ProjectionConflict(string message):base(message){} }
         sealed class HoleGroup
         {
@@ -59,6 +67,13 @@ namespace TurboCallout
         }
         internal BoltCircles(object draft) { this.draft=draft; }
         object Keep(object value) { held.Add(value);return value; }
+        void DimensionTarget(object note,object sheet,object circle,object view)
+        {
+            // Circle/view RCWs are owned by this engine. Reacquire notes by
+            // index later: the caller releases its note and sheet each loop.
+            DimensionTargets.Add(new BoltCircleTarget { SheetName=(string)((dynamic)sheet).Name,
+                NoteIndex=(int)((dynamic)note).Index,Circle=circle,View=view });
+        }
         static long Identity(object value)
         {IntPtr pointer=Marshal.GetIUnknownForObject(value);try{return pointer.ToInt64();}finally{Marshal.Release(pointer);}}
         void AddOwners(HoleGroup group,Array features)
@@ -204,6 +219,7 @@ namespace TurboCallout
                         catch(ProjectionConflict conflict){detail=conflict.Message;return BoltCircleResult.Review;}
                     }
                     detail=linked?"B.C. already exists ("+selected.Count+" linked holes).":"B.C. needs review: an existing circle occupies this location with different hole references.";
+                    if(linked)DimensionTarget(note,sheet,existing,view);
                     return linked?BoltCircleResult.Existing:BoltCircleResult.Review;
                 }
             }
@@ -219,6 +235,7 @@ namespace TurboCallout
                     (int)((dynamic)created).Count!=refs.Count||!refs.All(p=>(bool)((dynamic)created).IsMember[p,0]))
                     throw new InvalidOperationException("Native bolt-circle geometry or hole references did not verify.");
                 EnsureProjectionMarks(sheet,view,created,selected,refs,sx,sy);
+                DimensionTarget(note,sheet,created,view);
                 detail="Created native B.C. centerline through "+refs.Count+" pattern holes.";return BoltCircleResult.Created;
             }
             catch(Exception error)
