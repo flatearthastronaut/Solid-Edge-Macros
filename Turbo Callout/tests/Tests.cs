@@ -53,6 +53,48 @@ internal static class Tests
     {
         try
         {
+            foreach(double length in new[]{.003175,-.0047625})
+            foreach(double dx in new[]{-.004, .004})
+                Check(Math.Abs(BoltCircleDimensions.DirectedLength(length,dx,0)-Math.Sign(dx)*Math.Abs(length))<1e-12,
+                    "B.C horizontal direction matches the callout while retaining break length");
+            foreach(var delta in new[]{new[]{0.0,.004},new[]{.004,.004},new[]{Double.NaN,0.0}})
+            {bool failed=false;try{BoltCircleDimensions.DirectedLength(.004,delta[0],delta[1]);}catch(InvalidOperationException){failed=true;}
+                Check(failed,"Unusable or vertical callout breaks require review");}
+            foreach(var item in new[]{new{Family="Simple drill",Places=2},new{Family="SHCS counterbore",Places=2},
+                new{Family="Spring pin",Places=3},new{Family="O-ring face seal",Places=3},new{Family="Koenig plug",Places=3},
+                new{Family="SAE port",Places=3},new{Family="Dowel",Places=4}})
+                Check(BoltCircleDimensions.InchPlaces(new Decision{Family=item.Family,Slot=1})==item.Places,"B.C inch precision: "+item.Family);
+            Check(BoltCircleDimensions.InchPlaces(new Decision{Category="Threaded hole",Slot=1})==3,"Thread B.C uses three inch places");
+            foreach(var choice in new[]{Decision.Review("ambiguous"),new Decision{Slot=1,Family="unknown"}})
+            {bool failed=false;try{BoltCircleDimensions.InchPlaces(choice);}catch(InvalidOperationException){failed=true;}Check(failed,"Unknown/conflicting B.C families require review");}
+            Check(BoltCircleDimensions.CommonPlaces(new[]{3,3})==3,"Duplicate associated callouts agree on precision");
+            bool conflictPrecision=false;try{BoltCircleDimensions.CommonPlaces(new[]{2,4});}catch(InvalidOperationException){conflictPrecision=true;}
+            Check(conflictPrecision,"Shared circle with conflicting precision remains for review");
+            foreach(string suffix in new[]{"", "B.C", " B.C.", "CUSTOM", "CUSTOM B.C"})
+            {string applied=BoltCircleDimensions.WithSuffix(suffix);Check(applied==BoltCircleDimensions.WithSuffix(applied),"B.C suffix is idempotent");
+                Check(!suffix.Contains("CUSTOM")||applied.Contains("CUSTOM"),"Custom suffix words preserved");}
+            foreach(int count in new[]{3,4,6,8,12,24})
+            foreach(double radius in new[]{.002,.04699,.3})
+            foreach(double offset in new[]{0.0,123.456})
+            {
+                var points=Enumerable.Range(0,count).Select(i=>new CirclePoint(offset+radius*Math.Cos(.17+i*2*Math.PI/count),
+                    -offset+radius*Math.Sin(.17+i*2*Math.PI/count))).ToList();
+                var fit=BoltCircleGeometry.Fit(points,false);
+                Check(fit!=null&&Math.Abs(fit.X-offset)<1e-8&&Math.Abs(fit.Y+offset)<1e-8&&Math.Abs(fit.Radius-radius)<1e-8,"Bolt-circle fit retains exact pattern center/radius under translation and scale");
+                Check(BoltCircleGeometry.EquallySpaced(points,fit),"Native multi-profile hole groups recognize complete regular layouts");
+                points[0].X+=radius*.03;
+                if(count>3)Check(BoltCircleGeometry.Fit(points,false)==null,"One out-of-pattern hole cannot be forced onto a bolt circle");
+            }
+            var boltPair=new[]{new CirclePoint(1,2),new CirclePoint(5,2)};
+            Check(BoltCircleGeometry.Fit(boltPair,false)==null,"Two arbitrary holes need native diameter-pair evidence");
+            var diameterPair=BoltCircleGeometry.Fit(boltPair,true);
+            Check(diameterPair!=null&&diameterPair.X==3&&diameterPair.Y==2&&diameterPair.Radius==2,"Verified opposite holes define the native two-point bolt circle");
+            foreach(var bad in new[]{new[]{new CirclePoint(0,0)},new[]{new CirclePoint(0,0),new CirclePoint(1,0),new CirclePoint(2,0)},
+                new[]{new CirclePoint(0,0),new CirclePoint(0,0),new CirclePoint(1,1)},new[]{new CirclePoint(Double.NaN,0),new CirclePoint(1,1),new CirclePoint(2,2)}})
+                Check(BoltCircleGeometry.Fit(bad,false)==null,"Missing, collinear, duplicated and invalid hole centers stay unresolved");
+            var unequal=new[]{new CirclePoint(1,0),new CirclePoint(0,1),new CirclePoint(-1,0)};
+            var partial=BoltCircleGeometry.Fit(unequal,false);
+            Check(partial!=null&&!BoltCircleGeometry.EquallySpaced(unequal,partial),"Explicit circular patterns may be partial; arbitrary Hole groups require complete regular spacing");
             foreach(string sep in new[]{"\r","\n","\r\n","%RT"})
             {
                 string body="%DI%{%HS/DU/@1}  DRILL  %ZH"+sep+"TYP(%QC)";
@@ -321,9 +363,9 @@ internal static class Tests
                 var hole=new HoleFacts{Type=4,Diameter=.4219,Depth=threadDepth.HasValue?(double?)1.08:null,Thread="1/2-13 UNC",ThreadDepth=threadDepth};
                 var note=Notes.Build(book,hole,dual);Check(!Notes.HasTypical(note.Text),"Thread has no TYP line in either mode");
                 string saved=LinkedCallouts.ReadSaved(dual?"HC -THR'D M[I]":"HC -THR'D");
-                Check(note.Text==Notes.ApplyWordSpacing(Notes.ApplyPrecision(Notes.FormatFields("%DI%HS DRILL %ZH%RT"+saved.Replace("TYP(%QC)",equalSpacing),dual),Notes.Recognize(book,hole),hole,dual).Replace("%RT","\r")),"Thread retains saved machining fields with the requested spacing wording");
+                Check(note.Text==Notes.ApplyWordSpacing(Notes.ApplyPrecision(Notes.FormatFields(saved.Replace("TYP(%QC)",equalSpacing),dual),Notes.Recognize(book,hole),hole,dual).Replace("%RT","\r")),"Thread retains saved thread fields and spacing wording without a tap-drill line");
                 Check(note.Text.Split('\r').Count(line=>line==equalSpacing)==1,"Thread uses exactly one linked spacing line in either mode");
-                Check(note.Text.Contains("%HS")&&note.Text.Contains("%TS")&&note.Text.Contains("%ZT")&&note.Text.Contains("%ZH"),"Blind and through thread fields stay native");
+                Check(!note.Text.Contains("%HS")&&!note.Text.Contains("DRILL")&&note.Text.Contains("%TS")&&note.Text.Contains("%ZT"),"Blind and through threads show linked designation/depth without the tap drill");
                 Check(note.InchPlaces==2&&note.Dual==dual,"Thread depth uses two-place inch precision");
             }
             foreach(var simple in new[]{new HoleFacts{Type=1,Diameter=.3125,Depth=1},new HoleFacts{Type=1,Diameter=.4375,Depth=.75},
@@ -355,7 +397,23 @@ internal static class Tests
             var conflict=new HoleFacts {Type=5,Diameter=.25,Bore=.979,BoreDepth=.13,Thread="7/16-20 UNF"};
             rejected=false;try{Notes.Build(book,conflict,false);}catch(InvalidOperationException){rejected=true;}Check(rejected,"Conflicting port evidence rejected");
             var threadNote=Notes.Build(book,new HoleFacts{Type=4,Diameter=.4219,Depth=1.08,Thread="1/2-13 UNC",ThreadDepth=.88},true);
-            Check(threadNote.Text.Contains("%HS")&&threadNote.Text.Contains("%TS")&&threadNote.Text.Contains("%ZT"),"Thread drill size, designation and smart depth retained");
+            Check(!threadNote.Text.Contains("%HS")&&threadNote.Text.Contains("%TS")&&threadNote.Text.Contains("%ZT"),"Thread designation and smart depth retained without tap drill");
+            foreach(string sep in new[]{"\r","\n","\r\n","%RT"})
+            foreach(string drill in new[]{"%DI%HS DRILL %ZH","%DI%{%HS/@2}  DRILL  %ZH","%DI%{%HS/DU/@1}  DRILL  %{%HD/DU/@1} DP.","%DI%HS DRILL THRU"})
+            foreach(int field in new[]{0,1,2,3})
+            {
+                var input=new[]{"FROM OPP. SIDE"+sep+"%TS THR'D  %ZT"+sep+"TYP(%QC)","","",""};
+                input[field]=drill+sep+input[field];var choice=new Decision{Category="Threaded hole"};
+                var migrated=Notes.ApplyThreadRule(input,choice);
+                Check(!migrated.Any(t=>t.Contains("DRILL")),"Legacy tap drill removed across native fields and line endings");
+                Check(migrated[0].Contains("%TS THR'D  %ZT")&&migrated[0].Contains("FROM OPP. SIDE"),"Migration retains thread fields and opposite-side header");
+                Check(migrated.SequenceEqual(Notes.ApplyThreadRule(migrated,choice)),"Tap-drill migration is idempotent");
+                foreach(int count in new[]{1,6})
+                {var result=Notes.ApplyQuantity(migrated,choice,count);Check(!result.Any(Notes.HasTypical)&&result.Sum(t=>t.Split(new[]{sep},StringSplitOptions.None).Count(l=>l==equalSpacing))==(count==1?0:1),"Migrated thread has only one linked spacing line, omitted at one");}
+                Check(Notes.ApplyThreadRule(input,new Decision{Family="SAE port"}).SequenceEqual(input),"Special port machining instructions retained");
+            }
+            var customThread=new[]{"%TS THR'D %ZT\rDO NOT DRILL THROUGH CROSS HOLE"};
+            Check(Notes.ApplyThreadRule(customThread,new Decision{Category="Threaded hole"}).SequenceEqual(customThread),"Custom drill instructions are not mistaken for a tap-drill size line");
             var fake=new FakeNote{Callout=1};Check(TurboCallout.Automation.IsBlank(fake),"All-empty note eligible");
             foreach(string name in new[]{"BalloonText","BalloonTextLower","BalloonTextPrefix","BalloonTextSuffix"})
             {Property.Set(fake,name,"existing");Check(!TurboCallout.Automation.IsBlank(fake),"Protect existing "+name);Property.Set(fake,name,"");}

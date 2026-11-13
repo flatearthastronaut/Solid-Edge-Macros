@@ -382,10 +382,17 @@ namespace TurboCallout
     internal sealed class RunReport
     {
         internal int Blank, Filled, AlignedExisting, UpdatedExisting, StylesRemoved, StylesKept, Review, Errors;
+        internal int BoltCirclesCreated, BoltCirclesExisting, BoltCirclesSkipped, BoltCirclesReview;
+        internal int ProjectionMarksCreated, ProjectionMarksUpdated;
+        internal bool BoltCirclesEnabled;
+        internal int BcDimensionsCreated, BcDimensionsUpdated, BcDimensionsExisting, BcDimensionsReview;
         internal readonly List<string> Details = new List<string>();
         public override string ToString()
         {
             return String.Format("{0} blank callouts found.\r\n{1} filled; {4} existing notes aligned; {5} existing notes updated; {6} old styles removed; {2} need review; {3} errors.\r\n\r\nReview the drawing, then save it in Solid Edge.\r\n", Blank, Filled, Review, Errors, AlignedExisting, UpdatedExisting, StylesRemoved) +
+                (BoltCirclesEnabled?String.Format("Bolt circles: {0} created; {1} already present; {2} need review.\r\n",BoltCirclesCreated,BoltCirclesExisting,BoltCirclesReview)+
+                String.Format("Projection marks: {0} added; {1} restored.\r\n",ProjectionMarksCreated,ProjectionMarksUpdated)+
+                String.Format("B.C dimensions: {0} added; {1} updated; {2} already correct; {3} need review.\r\n",BcDimensionsCreated,BcDimensionsUpdated,BcDimensionsExisting,BcDimensionsReview):"Mode: Without bolt circles.\r\n")+
                 String.Join("\r\n", Details);
         }
     }
@@ -401,7 +408,7 @@ namespace TurboCallout
                     .All(name => String.IsNullOrWhiteSpace(Convert.ToString(Property.Get(note, name))));
         }
 
-        internal static RunReport Run(bool dual, Action<string> progress)
+        internal static RunReport Run(bool dual, Action<string> progress, bool includeBoltCircles=true)
         {
             object app = null, draft = null;
             try
@@ -413,15 +420,15 @@ namespace TurboCallout
                 object setting; ((dynamic)app).GetGlobalParameter(63, out setting);
                 string path = Convert.ToString(setting);
                 if (String.IsNullOrWhiteSpace(path)) throw new InvalidOperationException("Configure Solid Edge's Custom Settings File first.");
-                return FillDocument(draft, RuleBook.Load(path), dual, progress);
+                return FillDocument(draft, RuleBook.Load(path), dual, progress, includeBoltCircles);
             }
             finally { Com.Release(draft); Com.Release(app); }
         }
 
-        internal static RunReport FillDocument(object draft, RuleBook rules, bool dual, Action<string> progress)
+        internal static RunReport FillDocument(object draft, RuleBook rules, bool dual, Action<string> progress, bool includeBoltCircles=true)
         {
             if (draft == null || (int)((dynamic)draft).Type != 2) throw new InvalidOperationException("Activate a Solid Edge draft (.dft).");
-            var report = new RunReport(); object sheets = null;
+            var report = new RunReport { BoltCirclesEnabled=includeBoltCircles }; object sheets = null;
             using (var catalog = new NoteStyles(draft))
             try
             {
@@ -474,7 +481,53 @@ namespace TurboCallout
                 catalog.Cleanup(report);
             }
             finally { Com.Release(sheets); }
+            // The callout rules are identical in both modes. Turning B.C off
+            // skips the entire circle/mark/dimension pass, including maintenance
+            // of existing B.C annotations; it never removes them from the draft.
+            if(includeBoltCircles)AddBoltCircles(draft,rules,dual,report,progress);
             return report;
+        }
+
+        static void AddBoltCircles(object draft,RuleBook rules,bool dual,RunReport report,Action<string> progress)
+        {
+            object sheets=null;
+            using(var circles=new BoltCircles(draft))try
+            {
+                sheets=((dynamic)draft).Sheets;
+                for(int si=1;si<=(int)((dynamic)sheets).Count;si++)
+                {
+                    object sheet=null,notes=null;
+                    try
+                    {
+                        sheet=((dynamic)sheets).Item(si);if((int)((dynamic)sheet).SectionType!=0)continue;
+                        notes=((dynamic)sheet).Balloons;
+                        for(int ni=1;ni<=(int)((dynamic)notes).Count;ni++)
+                        {
+                            object note=null;string label=(string)((dynamic)sheet).Name+", callout "+ni;
+                            try
+                            {
+                                note=((dynamic)notes).Item(ni);if(!IsCallout(note)||!(bool)((dynamic)note).IsTerminatorAttachedToEntity)continue;
+                                if(progress!=null)progress("Checking bolt circle: "+label+"...");
+                                string detail;BoltCircleResult result=circles.Ensure(note,sheet,out detail);
+                                if(result==BoltCircleResult.Created)report.BoltCirclesCreated++;
+                                else if(result==BoltCircleResult.Existing)report.BoltCirclesExisting++;
+                                else if(result==BoltCircleResult.Review){report.BoltCirclesReview++;report.Review++;}
+                                else report.BoltCirclesSkipped++;
+                                if(detail!=null)report.Details.Add(label+": "+detail);
+                            }
+                            catch(Exception error){report.Errors++;report.Details.Add(label+": bolt circle unchanged; "+error.Message);}
+                            finally{Com.Release(note);}
+                        }
+                    }
+                    catch(Exception error){report.Errors++;report.Details.Add("Bolt-circle sheet "+si+": "+error.Message);}
+                    finally{Com.Release(notes);Com.Release(sheet);}
+                }
+            }
+            finally
+            {
+                try { BoltCircleDimensions.Process(draft,circles.DimensionTargets,rules,dual,report,progress); }
+                finally { report.ProjectionMarksCreated=circles.ProjectionMarksCreated;report.ProjectionMarksUpdated=circles.ProjectionMarksUpdated;Com.Release(sheets); }
+            }
         }
 
         internal static void Fill(object note, NotePlan plan)
@@ -485,8 +538,8 @@ namespace TurboCallout
                 draft = ((dynamic)note).Document; int? quantity;
                 using (var reader = new NativeHole(draft)) reader.Read(note, out quantity);
                 if (String.IsNullOrWhiteSpace(plan.Text)) throw new InvalidOperationException("Callout note text is empty.");
-                // Clone the plan: a caller may reuse it on visible and hidden
-                // edges. The header belongs to this attachment, not the template.
+                // A caller may reuse a plan on visible and hidden edges. Clone
+                // it so this attachment's header never changes the template.
                 plan = new NotePlan { Text = Notes.ApplyOppositeSide(new[] { plan.Text }, LeaderSide.IsHidden(note))[0],
                     Category = plan.Category, InchPlaces = plan.InchPlaces, Dual = plan.Dual,
                     PreserveFormat = plan.PreserveFormat, FullSizeStacks = plan.FullSizeStacks };
@@ -523,7 +576,8 @@ namespace TurboCallout
                             (dual && (int)Property.Get(style, "SecondaryUnits") != 5))
                             throw new InvalidOperationException("Custom unit order needs review.");
                         int? quantity; HoleFacts hole = reader.Read(note, out quantity); Decision choice = Notes.Recognize(rules, hole);
-                        string[] text = Notes.ApplyQuantity(fields.Select(field => Notes.ApplyPrecision(before[field], choice, hole, dual)).ToArray(), choice, quantity);
+                        string[] text = Notes.ApplyThreadRule(fields.Select(field=>before[field]).ToArray(),choice);
+                        text = Notes.ApplyQuantity(text.Select(t=>Notes.ApplyPrecision(t,choice,hole,dual)).ToArray(), choice, quantity);
                         text = Notes.ApplyOppositeSide(text, LeaderSide.IsHidden(note));
                         for (int i = 0; i < fields.Length; i++) updated[fields[i]] = Notes.ApplyWordSpacing(text[i]);
                         plan = new NotePlan { Dual = dual, InchPlaces = 2, PreserveFormat = true, FullSizeStacks = updated.Values.Any(Notes.HasFixedStacks) };

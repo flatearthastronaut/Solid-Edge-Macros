@@ -91,9 +91,9 @@ namespace TurboCallout
                 }
             }
             else if (choice.Category == "Threaded hole")
-                // Retain the saved thread fields; the family quantity policy
-                // below gives both unit modes the same linked spacing line.
-                text = "%DI%HS DRILL %ZH%RT" + LinkedCallouts.ReadSaved(dual ? "HC -THR'D M[I]" : "HC -THR'D");
+                // Standard threads show the saved thread designation and smart
+                // thread depth only. Do not prepend a tap-drill operation.
+                text = LinkedCallouts.ReadSaved(dual ? "HC -THR'D M[I]" : "HC -THR'D");
             else if (choice.Family == "Simple drill")
                 // Use the complete requested note, including its model-linked
                 // quantity and Smart Depth. The inch and dual entries have
@@ -213,6 +213,22 @@ namespace TurboCallout
 
         internal static bool UsesSpacingQuantity(Decision choice)
         { return choice.Category == "Threaded hole" || choice.Family == "SHCS counterbore"; }
+
+        internal static string[] ApplyThreadRule(string[] texts, Decision choice)
+        {
+            // Migrate only the complete native tap-drill line emitted by older
+            // Turbo Callout versions. Keep thread fields, tolerances, headers,
+            // and custom manufacturing wording. SAE ports are a separate family
+            // whose verified machining/entrance instructions remain intact.
+            if(choice.Category!="Threaded hole")return (string[])texts.Clone();
+            const string size=@"(?:%HS|%\{%HS(?:/[^{}]*)?\})";
+            const string depth=@"(?:%ZH|%\{%HD(?:/[^{}]*)?\}[ \t]*DP\.?|THRU)";
+            string drill=@"^[ \t]*%DI[ \t]*"+size+@"[ \t]+DRILL[ \t]+"+depth+@"[ \t]*$";
+            if(texts.Any(t=>Regex.Split(t??"",@"\r\n|\r|\n|%RT").Any(line=>Regex.IsMatch(line,drill,RegexOptions.IgnoreCase)))&&
+                !texts.Any(t=>Regex.IsMatch(t??"",@"%TS\b|%\{%TS(?:/[^{}]*)?\}",RegexOptions.IgnoreCase)))
+                throw new InvalidOperationException("Thread designation is not linked; review before removing the tap-drill line.");
+            return texts.Select(t=>RewriteLines(t,line=>Regex.IsMatch(line,drill,RegexOptions.IgnoreCase)?null:line)).ToArray();
+        }
 
         const string SpacingQuantity = "(%QC)PLC'S EQ. SP. AS SHOWN";
         const string QuantityCount = @"(?:\d+|%QC|%\{%QC(?:/[^{}]*)?\})";

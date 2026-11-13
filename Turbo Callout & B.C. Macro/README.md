@@ -1,3 +1,9 @@
+# Consolidated into Turbo Callout v1.3
+
+Use [Turbo Callout](../Turbo%20Callout/README.md) for both callouts-only and bolt-circle operation. Its approved menu selects the mode and inch/dual formatting in one executable. This folder preserves the earlier B.C development history; `Build.cmd` forwards to the maintained `Turbo Callout` project and does not produce a separate B.C release.
+
+---
+
 # Turbo Callout & B.C. Macro v0.5
 
 This macro extends Turbo Callout v1.1 (commit `eecf9e9`) with native, model-linked bolt-hole-circle centerlines for the hole patterns referenced by callouts. It has its own executable and version sequence and retains the established callout formatting and icon.
