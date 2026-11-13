@@ -1,0 +1,195 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Runtime.InteropServices;
+using HoleTableFormatter;
+using TurboCallout;
+
+internal static class SampleTest
+{
+    static readonly List<object> held=new List<object>();
+    static object Keep(object obj){held.Add(obj);return obj;}
+    sealed class Snapshot
+    {
+        internal string[] Text;
+        internal Placement Position;
+        internal StyleValues Format;
+        internal string[] ExpectedText;
+        internal StyleValues ExpectedFormat;
+        internal bool Macro, Attached;
+    }
+    static Dictionary<string,Snapshot> Capture(object doc)
+    {
+        var result=new Dictionary<string,Snapshot>();object sheets=Keep(((dynamic)doc).Sheets);
+        for(int s=1;s<=(int)((dynamic)sheets).Count;s++)
+        {
+            object sheet=Keep(((dynamic)sheets).Item(s));if((int)((dynamic)sheet).SectionType!=0)continue;
+            object notes=Keep(((dynamic)sheet).Balloons);
+            for(int n=1;n<=(int)((dynamic)notes).Count;n++)
+            {
+                object note=Keep(((dynamic)notes).Item(n));if((int)((dynamic)note).Callout==0)continue;
+                object style=Keep(((dynamic)note).Style);
+                result.Add(s+"/"+n,new Snapshot{Text=new[]{(string)((dynamic)note).BalloonText,(string)((dynamic)note).BalloonTextLower,
+                    (string)((dynamic)note).BalloonTextPrefix,(string)((dynamic)note).BalloonTextSuffix},Position=new Placement(note),
+                    Format=new StyleValues(style),Macro=NoteAlignment.IsExistingMacroNote(note),Attached=(bool)((dynamic)note).IsTerminatorAttachedToEntity});
+            }
+        }
+        return result;
+    }
+    static void Verify(object doc,Dictionary<string,Snapshot> before,bool unchanged)
+    {
+        object sheets=Keep(((dynamic)doc).Sheets);
+        foreach(var item in before)
+        {
+            string[] key=item.Key.Split('/');object sheet=Keep(((dynamic)sheets).Item(Int32.Parse(key[0])));
+            object notes=Keep(((dynamic)sheet).Balloons),note=Keep(((dynamic)notes).Item(Int32.Parse(key[1])));
+            int? alignment = !unchanged && !TurboCallout.Automation.IsBlank(note) && NoteAlignment.IsExistingMacroNote(note) ? NoteAlignment.Target(note) : null;
+            try{item.Value.Position.Verify(note,alignment);}
+            catch(InvalidOperationException error){throw new Exception("Placement check failed for "+item.Key+": "+error.Message,error);}
+            string[] names={"BalloonText","BalloonTextLower","BalloonTextPrefix","BalloonTextSuffix"};
+            for(int i=0;i<4;i++)if(unchanged||i>0||!String.IsNullOrWhiteSpace(item.Value.Text[i]))
+            {
+                string expected=(!unchanged&&item.Value.ExpectedText!=null?item.Value.ExpectedText[i]:item.Value.Text[i])??"";
+                if(Convert.ToString(Property.Get(note,names[i]))!=expected)throw new Exception("Preserved text changed: "+item.Key+"/"+names[i]);
+            }
+            if(unchanged||!String.IsNullOrWhiteSpace(item.Value.Text[0]))
+            {object style=Keep(((dynamic)note).Style);var expected=!unchanged&&item.Value.ExpectedFormat!=null?item.Value.ExpectedFormat:item.Value.Format;
+                if(!expected.Matches(new StyleValues(style)))throw new Exception("Existing formatting changed outside the requested precision: "+item.Key);}
+            if(!unchanged&&String.IsNullOrWhiteSpace(item.Value.Text[0]))Console.WriteLine(item.Key+": "+((dynamic)note).BalloonDisplayedText);
+        }
+    }
+    static void PrepareExpected(object doc,Dictionary<string,Snapshot> before,RuleBook rules)
+    {
+        object sheets=Keep(((dynamic)doc).Sheets);
+        using(var reader=new NativeHole(doc))foreach(var item in before)
+        {
+            if(!item.Value.Macro||!item.Value.Attached)continue;
+            string[] key=item.Key.Split('/');object sheet=Keep(((dynamic)sheets).Item(Int32.Parse(key[0])));
+            object notes=Keep(((dynamic)sheet).Balloons),note=Keep(((dynamic)notes).Item(Int32.Parse(key[1]))),style=Keep(((dynamic)note).Style);
+            bool dual=(bool)Property.Get(style,"DualDisplay");int? quantity;HoleFacts hole=reader.Read(note,out quantity);Decision choice=Notes.Recognize(rules,hole);
+            item.Value.ExpectedText=item.Value.Text.Select(t=>Notes.ApplyPrecision(t,choice,hole,dual)).ToArray();
+            item.Value.ExpectedText=Notes.ApplyQuantity(item.Value.ExpectedText,choice,quantity).Select(Notes.ApplyWordSpacing).ToArray();
+            item.Value.ExpectedFormat=new StyleValues(style);
+            new UnitStyle(style,new NotePlan{Dual=dual,InchPlaces=2,FullSizeStacks=item.Value.ExpectedText.Any(Notes.HasFixedStacks)}).ApplyToSnapshot(item.Value.ExpectedFormat);
+        }
+    }
+    static void VerifyQuantities(object doc,RuleBook rules)
+    {
+        var snapshots=Capture(doc);object sheets=Keep(((dynamic)doc).Sheets);
+        using(var reader=new NativeHole(doc))foreach(var item in snapshots)
+        {
+            if(!item.Value.Macro||!item.Value.Attached)continue;
+            string[] key=item.Key.Split('/');object sheet=Keep(((dynamic)sheets).Item(Int32.Parse(key[0])));
+            object notes=Keep(((dynamic)sheet).Balloons),note=Keep(((dynamic)notes).Item(Int32.Parse(key[1])));
+            int? quantity;Decision choice=Notes.Recognize(rules,reader.Read(note,out quantity));
+            if(item.Value.Text.Any(Notes.HasFixedStacks))
+            {
+                object style=Keep(((dynamic)note).Style);
+                if(!Property.Equal(Property.Get(style,"ToleranceHeightRatio"),1.0))throw new Exception("Typed stack is smaller than the surrounding text: "+item.Key);
+                if(!Property.Equal(Property.Get(style,"Height"),.125*.0254))throw new Exception("Sample note height is not .125 inch: "+item.Key);
+            }
+            if(choice.Category!="Threaded hole"&&choice.Family!="SHCS counterbore")continue;
+            string[] text=item.Value.Text;
+            if(text.Any(Notes.HasTypical))throw new Exception("Thread/counterbore still has a TYP line: "+item.Key);
+            int count=text.Sum(t=>(t??"").Split('\r').Count(line=>line=="(%QC)PLC'S EQ. SP. AS SHOWN"));
+            if(count!=(quantity==1?0:1))throw new Exception("Wrong thread/counterbore spacing quantity: "+item.Key);
+            if(choice.Family=="SHCS counterbore"&&!text.Any(t=>(t??"").Contains("(FOR X S.H.C.S.)")))throw new Exception("Counterbore lost its purpose line.");
+        }
+    }
+    static void BlankMacroNotes(object doc)
+    {
+        // Exercise initial fills on a disposable copy of the same real-model
+        // leaders. Never erase text in the source sample or in custom notes.
+        object sheets=Keep(((dynamic)doc).Sheets);
+        for(int s=1;s<=(int)((dynamic)sheets).Count;s++)
+        {
+            object sheet=Keep(((dynamic)sheets).Item(s));if((int)((dynamic)sheet).SectionType!=0)continue;
+            object notes=Keep(((dynamic)sheet).Balloons);
+            for(int n=1;n<=(int)((dynamic)notes).Count;n++)
+            {
+                object note=Keep(((dynamic)notes).Item(n));if(!NoteAlignment.IsExistingMacroNote(note))continue;
+                foreach(string field in new[]{"BalloonText","BalloonTextLower","BalloonTextPrefix","BalloonTextSuffix"})Property.Set(note,field,"");
+            }
+        }
+    }
+    static Dictionary<string,string> CaptureBoltCircles(object doc)
+    {
+        var result=new Dictionary<string,string>();object sheets=Keep(((dynamic)doc).Sheets);
+        for(int si=1;si<=(int)((dynamic)sheets).Count;si++)
+        {
+            object sheet=Keep(((dynamic)sheets).Item(si));if((int)((dynamic)sheet).SectionType!=0)continue;
+            object circles=Keep(((dynamic)sheet).BoltHoleCircles);
+            for(int i=1;i<=(int)((dynamic)circles).Count;i++)
+            {
+                object circle=Keep(((dynamic)circles).Item(i)),style=Keep(((dynamic)circle).Style);
+                double x,y,r;((dynamic)circle).Circle2d(out x,out y,out r);
+                // Stable displayed precision is much tighter than drawing scale;
+                // actual model-reference persistence is checked by the rerun's
+                // IsMember checks, not by trusting this coordinate snapshot.
+                result.Add(si+"/"+i,String.Format(System.Globalization.CultureInfo.InvariantCulture,
+                    "{0:F9}|{1:F9}|{2:F9}|{3}|{4}|{5}|{6}",x,y,r,((dynamic)circle).Count,
+                    ((dynamic)style).CenterLineType,((dynamic)style).LineWidth,((dynamic)style).DrivenColor));
+            }
+        }
+        return result;
+    }
+    static void VerifyBoltCircles(object doc,Dictionary<string,string> expected)
+    {
+        var actual=CaptureBoltCircles(doc);
+        if(actual.Count!=expected.Count||expected.Any(p=>!actual.ContainsKey(p.Key)||actual[p.Key]!=p.Value))
+            throw new Exception("Bolt-circle geometry, membership count or presentation changed.");
+    }
+    [STAThread] static int Main(string[] args)
+    {
+        object source=null,copy=null,previous=null;bool openedSource=false;
+        using(new BusyFilter())try
+        {
+            object app=Keep(Marshal.GetActiveObject("SolidEdge.Application")),docs=Keep(((dynamic)app).Documents);
+            try{previous=Keep(((dynamic)app).ActiveDocument);}catch(COMException){}
+            string sourcePath=args.Skip(1).FirstOrDefault(a=>!a.StartsWith("--",StringComparison.Ordinal));
+            source=sourcePath!=null?Keep(((dynamic)docs).Open(Path.GetFullPath(sourcePath))):previous;openedSource=sourcePath!=null;
+            if((int)((dynamic)source).Type!=2)throw new Exception("Activate a sample draft or supply its path.");
+            var original=Capture(source);var originalCircles=CaptureBoltCircles(source);
+            var rules=RuleBook.Load(Path.GetFullPath("..\\Turbo Hole Table Callouts\\Custom.xml"));
+            string root=Path.GetFullPath(args[0]);Directory.CreateDirectory(root);
+            foreach(bool dual in new[]{false,true})
+            {
+                string path=Path.Combine(root,dual?"Sample-dual.dft":"Sample-inch.dft");
+                ((dynamic)source).SaveCopyAs(path);copy=Keep(((dynamic)docs).Open(path));
+                if(args.Contains("--blank"))BlankMacroNotes(copy);
+                var before=Capture(copy);var beforeCircles=CaptureBoltCircles(copy);
+                PrepareExpected(copy,before,rules);
+                RunReport report=TurboCallout.Automation.FillDocument(copy,rules,dual,Console.WriteLine);Console.WriteLine(report);
+                if(report.Filled+report.AlignedExisting+report.UpdatedExisting+report.StylesRemoved==0||report.Errors!=0)throw new Exception("No successful changes or apply errors in sample copy.");
+                if(args.Contains("--require-bc")&&report.BoltCirclesCreated+report.BoltCirclesExisting==0)
+                    throw new Exception("The sample's expected bolt circle was not recognized.");
+                object styles=Keep(((dynamic)copy).DimensionStyles);Console.WriteLine("Remaining macro styles:");
+                for(int i=1;i<=(int)((dynamic)styles).Count;i++){object style=Keep(((dynamic)styles).Item(i));string name=(string)((dynamic)style).Name;if(NoteStyles.IsManaged(name))Console.WriteLine(name);}
+                Verify(copy,before,false);VerifyQuantities(copy,rules);var filled=Capture(copy);
+                var filledCircles=CaptureBoltCircles(copy);
+                if(filledCircles.Count!=beforeCircles.Count+report.BoltCirclesCreated||beforeCircles.Any(p=>filledCircles[p.Key]!=p.Value))
+                    throw new Exception("Bolt-circle creation changed pre-existing annotations.");
+                if(filled.Count!=before.Count)throw new Exception("Macro changed the number of callouts.");
+                ((dynamic)copy).Save();((dynamic)copy).Close(false);copy=null;
+                copy=Keep(((dynamic)docs).Open(path));Verify(copy,filled,true);VerifyQuantities(copy,rules);VerifyBoltCircles(copy,filledCircles);
+                RunReport repeat=TurboCallout.Automation.FillDocument(copy,rules,dual,null);
+                if(repeat.Filled!=0||repeat.AlignedExisting!=0||repeat.UpdatedExisting!=0||repeat.StylesRemoved!=0||repeat.Errors!=0)throw new Exception("Repeat run changed filled callouts or failed.");
+                if(repeat.BoltCirclesCreated!=0||repeat.BoltCirclesReview!=report.BoltCirclesReview||
+                    repeat.BoltCirclesExisting<report.BoltCirclesCreated+report.BoltCirclesExisting)
+                    throw new Exception("Bolt circles duplicated or lost their model-linked members after reopening.");
+                VerifyBoltCircles(copy,filledCircles);
+                ((dynamic)copy).Close(false);copy=null;Console.WriteLine("PASS "+path);
+            }
+            Verify(source,original,true);VerifyBoltCircles(source,originalCircles);Console.WriteLine("PASS Original sample text, callout placements and bolt circles unchanged.");return 0;
+        }
+        catch(Exception error){Console.WriteLine(error);return 1;}
+        finally
+        {
+            if(copy!=null)try{((dynamic)copy).Close(false);}catch{}
+            if(openedSource&&source!=null)try{((dynamic)source).Close(false);}catch{}
+            if(previous!=null)try{((dynamic)previous).Activate();}catch{}
+            for(int i=held.Count-1;i>=0;i--)Com.Release(held[i]);
+        }
+    }
+}
