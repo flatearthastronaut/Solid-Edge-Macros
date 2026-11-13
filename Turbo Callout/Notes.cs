@@ -34,7 +34,7 @@ namespace TurboCallout
             return 2;
         }
 
-        internal static NotePlan Build(RuleBook rules, HoleFacts hole, bool dual)
+        internal static NotePlan Build(RuleBook rules, HoleFacts hole, bool dual, bool includeBoltCircles=false)
         {
             Decision choice = Recognize(rules, hole);
             string text;
@@ -95,9 +95,8 @@ namespace TurboCallout
                 // thread depth only. Do not prepend a tap-drill operation.
                 text = LinkedCallouts.ReadSaved(dual ? "HC -THR'D M[I]" : "HC -THR'D");
             else if (choice.Family == "Simple drill")
-                // Use the complete requested note, including its model-linked
-                // quantity and Smart Depth. The inch and dual entries have
-                // different quantity wording, so select the actual saved entry.
+                // Use the requested saved unit variant and native Smart Depth.
+                // Its quantity wording is converted to the selected mode below.
                 text = LinkedCallouts.ReadSaved(dual ? "HC -DRILL M[I]" : "HC -DRILL");
             else if (choice.Family == "SHCS counterbore")
                 // Keep the complete saved note, including the linked quantity
@@ -115,7 +114,7 @@ namespace TurboCallout
                 text = Regex.Replace(text, @"(?<=DRILL )(?:(?:%\{%HD[^{}]*\} DP\.)|THRU)", "%ZH");
             text = ApplyWordSpacing(ApplyPrecision(FormatFields(text, dual), choice, hole, dual));
             // Native BalloonText uses carriage returns, not the table's %RT.
-            return new NotePlan { Text = ApplyQuantity(new[] { text.Replace("%RT", "\r") }, choice, null)[0], Category = choice.Category, InchPlaces = 2, Dual = dual, FullSizeStacks = HasFixedStacks(text) };
+            return new NotePlan { Text = ApplyQuantity(new[] { text.Replace("%RT", "\r") }, includeBoltCircles, null)[0], Category = choice.Category, InchPlaces = 2, Dual = dual, FullSizeStacks = HasFixedStacks(text) };
         }
 
         internal static Decision Recognize(RuleBook rules, HoleFacts hole)
@@ -211,9 +210,6 @@ namespace TurboCallout
             }, RegexOptions.IgnoreCase);
         }
 
-        internal static bool UsesSpacingQuantity(Decision choice)
-        { return choice.Category == "Threaded hole" || choice.Family == "SHCS counterbore"; }
-
         internal static string[] ApplyThreadRule(string[] texts, Decision choice)
         {
             // Migrate only the complete native tap-drill line emitted by older
@@ -235,54 +231,38 @@ namespace TurboCallout
         const string SpacingWords = @"PLC['’]S[ \t]+EQ\.?[ \t]*SP\.?(?:[ \t]+AS[ \t]+SHOWN)?[ \t]*\.?";
         static bool IsSpacingLine(string line)
         { return Regex.IsMatch(line, @"^[ \t]*(?:\([ \t]*" + QuantityCount + @"[ \t]*\)[ \t]*)?" + SpacingWords + @"[ \t]*$", RegexOptions.IgnoreCase); }
-        static bool IsCountedSpacingLine(string line)
-        { return Regex.IsMatch(line, @"^[ \t]*\([ \t]*" + QuantityCount + @"[ \t]*\)[ \t]*" + SpacingWords + @"[ \t]*$", RegexOptions.IgnoreCase); }
         static bool IsTypicalQuantityLine(string line)
         { return Regex.IsMatch(line, @"^[ \t]*TYP\.?[ \t]*\([ \t]*" + QuantityCount + @"[ \t]*\)[ \t]*(?:" + SpacingWords + @")?[ \t]*$", RegexOptions.IgnoreCase); }
 
-        internal static string[] ApplyQuantity(string[] texts, Decision choice, int? quantity)
+        internal static string[] ApplyQuantity(string[] texts, bool includeBoltCircles, int? quantity)
         {
-            // Work across all four native text fields so a lower/prefix/suffix
-            // TYP cannot cause a duplicate quantity line in the main text.
-            string[] result = (string[])texts.Clone();
-            if (!UsesSpacingQuantity(choice))
-            {
-                // A saved PLC'S line that already carries the quantity also
-                // satisfies the quantity requirement for plain/special holes.
-                // Preserve that line verbatim and remove only redundant whole
-                // TYP lines, even when they occupy another native text field.
-                // Uncounted spacing wording still needs its associated TYP.
-                if (texts.Any(t => Regex.Split(t ?? "", @"\r\n|\r|\n|%RT").Any(IsCountedSpacingLine)))
-                {
-                    result = result.Select(t => RewriteLines(t, line => IsTypicalQuantityLine(line) ? null : line)).ToArray();
-                    if (result.Any(HasTypical))
-                        throw new InvalidOperationException("Custom TYP wording needs review before removing its duplicate quantity.");
-                }
-                else if (!texts.Any(HasTypical)) result[0] = EnsureTypical(result[0]);
-                return result.Select(t => OmitSingleTypical(t, quantity)).ToArray();
-            }
-
+            // Quantity wording follows the selected operation for every family,
+            // including on reruns that switch modes. Rewrite recognized whole
+            // lines across all four fields, keeping one native %QC link and the
+            // existing quantity position (e.g. above the SHCS purpose line).
+            string desired = includeBoltCircles ? SpacingQuantity : "TYP(%QC)";
             bool hadQuantity = texts.Any(t => Regex.Split(t ?? "", @"\r\n|\r|\n|%RT").Any(line => IsSpacingLine(line) || IsTypicalQuantityLine(line)));
             // Explicit quantity-one text is still omitted when the model count
             // cannot be read. Never infer a new count from a literal number.
-            result = result.Select(t => OmitSingleTypical(t, quantity)).ToArray();
-            bool hasSpacing = result.Any(t => Regex.Split(t ?? "", @"\r\n|\r|\n|%RT").Any(IsSpacingLine));
+            string[] result = texts.Select(t => OmitSingleTypical(t, quantity)).ToArray();
+            if (result.Any(t => Regex.Split(t ?? "", @"\r\n|\r|\n|%RT").Any(line => HasTypical(line) && !IsTypicalQuantityLine(line))))
+                throw new InvalidOperationException("Custom TYP wording needs review before replacing its quantity line.");
+            bool hasCanonical = result.Any(t => Regex.Split(t ?? "", @"\r\n|\r|\n|%RT").Any(line => String.Equals(line.Trim(),desired,StringComparison.OrdinalIgnoreCase)));
+            Func<string,bool> preferred = line => hasCanonical ? String.Equals(line.Trim(),desired,StringComparison.OrdinalIgnoreCase) :
+                (includeBoltCircles ? IsSpacingLine(line) : IsTypicalQuantityLine(line));
+            bool hasPreferred = result.Any(t => Regex.Split(t ?? "", @"\r\n|\r|\n|%RT").Any(preferred));
             bool inserted = false;
             for (int field = 0; field < result.Length; field++)
                 result[field] = RewriteLines(result[field], line =>
                 {
                     bool spacing = IsSpacingLine(line), typical = IsTypicalQuantityLine(line);
                     if (!spacing && !typical) return line;
-                    // Prefer the existing spacing-line position, especially
-                    // above the counterbore's (FOR X S.H.C.S.) purpose line.
-                    if (quantity != 1 && !inserted && (spacing || !hasSpacing))
-                    { inserted = true; return SpacingQuantity; }
+                    if (quantity != 1 && !inserted && (preferred(line) || !hasPreferred))
+                    { inserted = true; return desired; }
                     return null;
                 });
-            if (result.Any(HasTypical))
-                throw new InvalidOperationException("Custom TYP wording needs review before replacing its quantity line.");
             if (!inserted && quantity != 1 && (quantity.HasValue || !hadQuantity) && !String.IsNullOrWhiteSpace(result[0]))
-                result[0] += (result[0].EndsWith("\r", StringComparison.Ordinal) || result[0].EndsWith("\n", StringComparison.Ordinal) ? "" : "\r") + SpacingQuantity;
+                result[0] += (result[0].EndsWith("\r", StringComparison.Ordinal) || result[0].EndsWith("\n", StringComparison.Ordinal) ? "" : "\r") + desired;
             return result;
         }
 
@@ -318,15 +298,6 @@ namespace TurboCallout
                 result[0] = OppositeSideLine + (String.IsNullOrEmpty(body) ? "" : (separator.Success ? separator.Value : "\r") + body);
             }
             return result;
-        }
-
-        internal static string EnsureTypical(string text)
-        {
-            // Keep an existing TYP line verbatim, including its quantity or
-            // punctuation. Used for families other than standard threaded holes
-            // and SHCS counterbores, whose quantity policy uses spacing only.
-            if (String.IsNullOrWhiteSpace(text) || HasTypical(text)) return text;
-            return text + (text.EndsWith("\r", StringComparison.Ordinal) || text.EndsWith("\n", StringComparison.Ordinal) ? "" : "\r") + "TYP(%QC)";
         }
 
         internal static string OmitSingleTypical(string text, int? quantity)

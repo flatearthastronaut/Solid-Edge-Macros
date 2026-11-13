@@ -1,7 +1,7 @@
 using System;
 using System.Windows.Forms;
 [assembly: System.Reflection.AssemblyTitle("Turbo Callout")]
-[assembly: System.Reflection.AssemblyVersion("1.4.0.0")]
+[assembly: System.Reflection.AssemblyVersion("1.5.0.0")]
 namespace TurboCallout
 {
     internal static class Program

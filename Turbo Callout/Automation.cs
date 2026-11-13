@@ -454,7 +454,7 @@ namespace TurboCallout
                                     if (NoteAlignment.IsExistingMacroNote(note))
                                     {
                                         string review;
-                                        if (Maintain(note, catalog, rules, reader, out review)) { report.UpdatedExisting++; report.Details.Add(label + ": updated existing Turbo Callout note."); }
+                                        if (Maintain(note, catalog, rules, reader, includeBoltCircles, out review)) { report.UpdatedExisting++; report.Details.Add(label + ": updated existing Turbo Callout note."); }
                                         if (review != null) { report.Review++; report.Details.Add(label + ": note text unchanged; " + review); }
                                         if (NoteAlignment.Apply(note)) { report.AlignedExisting++; report.Details.Add(label + ": aligned existing Turbo Callout note."); }
                                     }
@@ -464,7 +464,7 @@ namespace TurboCallout
                                 NotePlan plan; int? quantity;
                                 try
                                 {
-                                    plan = Notes.Build(rules, reader.Read(note, out quantity), dual);
+                                    plan = Notes.Build(rules, reader.Read(note, out quantity), dual, includeBoltCircles);
                                     plan.Text = Notes.ApplyOppositeSide(new[] { plan.Text }, LeaderSide.IsHidden(note))[0];
                                 }
                                 catch (Exception error) { report.Review++; report.Details.Add(label + " unchanged: " + error.Message); continue; }
@@ -481,8 +481,9 @@ namespace TurboCallout
                 catalog.Cleanup(report);
             }
             finally { Com.Release(sheets); }
-            // The callout rules are identical in both modes. Turning B.C off
-            // skips the entire circle/mark/dimension pass, including maintenance
+            // Both modes share recognition and machining formatting; the chosen
+            // mode supplies their quantity wording. Turning B.C off skips the
+            // entire circle/mark/dimension pass, including maintenance
             // of existing B.C annotations; it never removes them from the draft.
             if(includeBoltCircles)AddBoltCircles(draft,rules,dual,report,progress);
             return report;
@@ -548,7 +549,7 @@ namespace TurboCallout
             finally { Com.Release(draft); }
         }
 
-        static bool Maintain(object note, NoteStyles catalog, RuleBook rules, NativeHole reader, out string review)
+        static bool Maintain(object note, NoteStyles catalog, RuleBook rules, NativeHole reader, bool includeBoltCircles, out string review)
         {
             review = null;
             object style = null; string name = null; bool created = false;
@@ -577,7 +578,7 @@ namespace TurboCallout
                             throw new InvalidOperationException("Custom unit order needs review.");
                         int? quantity; HoleFacts hole = reader.Read(note, out quantity); Decision choice = Notes.Recognize(rules, hole);
                         string[] text = Notes.ApplyThreadRule(fields.Select(field=>before[field]).ToArray(),choice);
-                        text = Notes.ApplyQuantity(text.Select(t=>Notes.ApplyPrecision(t,choice,hole,dual)).ToArray(), choice, quantity);
+                        text = Notes.ApplyQuantity(text.Select(t=>Notes.ApplyPrecision(t,choice,hole,dual)).ToArray(), includeBoltCircles, quantity);
                         text = Notes.ApplyOppositeSide(text, LeaderSide.IsHidden(note));
                         for (int i = 0; i < fields.Length; i++) updated[fields[i]] = Notes.ApplyWordSpacing(text[i]);
                         plan = new NotePlan { Dual = dual, InchPlaces = 2, PreserveFormat = true, FullSizeStacks = updated.Values.Any(Notes.HasFixedStacks) };

@@ -60,7 +60,7 @@ internal static class SampleTest
             if(!unchanged&&String.IsNullOrWhiteSpace(item.Value.Text[0]))Console.WriteLine(item.Key+": "+((dynamic)note).BalloonDisplayedText);
         }
     }
-    static void PrepareExpected(object doc,Dictionary<string,Snapshot> before,RuleBook rules)
+    static void PrepareExpected(object doc,Dictionary<string,Snapshot> before,RuleBook rules,bool circles)
     {
         object sheets=Keep(((dynamic)doc).Sheets);
         using(var reader=new NativeHole(doc))foreach(var item in before)
@@ -70,13 +70,13 @@ internal static class SampleTest
             object notes=Keep(((dynamic)sheet).Balloons),note=Keep(((dynamic)notes).Item(Int32.Parse(key[1]))),style=Keep(((dynamic)note).Style);
             bool dual=(bool)Property.Get(style,"DualDisplay");int? quantity;HoleFacts hole=reader.Read(note,out quantity);Decision choice=Notes.Recognize(rules,hole);
             item.Value.ExpectedText=Notes.ApplyThreadRule(item.Value.Text,choice).Select(t=>Notes.ApplyPrecision(t,choice,hole,dual)).ToArray();
-            item.Value.ExpectedText=Notes.ApplyQuantity(item.Value.ExpectedText,choice,quantity).Select(Notes.ApplyWordSpacing).ToArray();
+            item.Value.ExpectedText=Notes.ApplyQuantity(item.Value.ExpectedText,circles,quantity).Select(Notes.ApplyWordSpacing).ToArray();
             item.Value.ExpectedText=Notes.ApplyOppositeSide(item.Value.ExpectedText,LeaderSide.IsHidden(note));
             item.Value.ExpectedFormat=new StyleValues(style);
             new UnitStyle(style,new NotePlan{Dual=dual,InchPlaces=2,FullSizeStacks=item.Value.ExpectedText.Any(Notes.HasFixedStacks)}).ApplyToSnapshot(item.Value.ExpectedFormat);
         }
     }
-    static void VerifyQuantities(object doc,RuleBook rules)
+    static void VerifyQuantities(object doc,RuleBook rules,bool circles)
     {
         var snapshots=Capture(doc);object sheets=Keep(((dynamic)doc).Sheets);
         using(var reader=new NativeHole(doc))foreach(var item in snapshots)
@@ -96,15 +96,35 @@ internal static class SampleTest
                 if(!Property.Equal(Property.Get(style,"Height"),.125*.0254))throw new Exception("Sample note height is not .125 inch: "+item.Key);
             }
             string[] text=item.Value.Text;
-            bool countedSpacing=text.Any(t=>System.Text.RegularExpressions.Regex.IsMatch(t??"",@"\((?:\d+|%QC|%\{%QC[^{}]*\})\)\s*PLC['’]S",System.Text.RegularExpressions.RegexOptions.IgnoreCase));
-            if(countedSpacing&&text.Any(Notes.HasTypical))throw new Exception("Note still contains both counted PLC'S and TYP quantities: "+item.Key);
-            if(choice.Category!="Threaded hole"&&choice.Family!="SHCS counterbore")continue;
+            string desired=circles?"(%QC)PLC'S EQ. SP. AS SHOWN":"TYP(%QC)";
+            int count=text.Sum(t=>(t??"").Split('\r').Count(line=>line==desired));
+            if(count!=(quantity==1?0:1))throw new Exception("Quantity wording does not follow the selected mode: "+item.Key);
+            if(circles?text.Any(Notes.HasTypical):text.Any(t=>(t??"").Contains("PLC'S")))
+                throw new Exception("Quantity wording from the other mode remains: "+item.Key);
             if(choice.Category=="Threaded hole"&&text.Any(t=>(t??"").Contains("%HS")))throw new Exception("Thread still includes its tap-drill size: "+item.Key);
-            if(text.Any(Notes.HasTypical))throw new Exception("Thread/counterbore still has a TYP line: "+item.Key);
-            int count=text.Sum(t=>(t??"").Split('\r').Count(line=>line=="(%QC)PLC'S EQ. SP. AS SHOWN"));
-            if(count!=(quantity==1?0:1))throw new Exception("Wrong thread/counterbore spacing quantity: "+item.Key);
             if(choice.Family=="SHCS counterbore"&&!text.Any(t=>(t??"").Contains("(FOR X S.H.C.S.)")))throw new Exception("Counterbore lost its purpose line.");
         }
+    }
+    static void VerifyModeSwitch(object doc,RuleBook rules,bool dual)
+    {
+        // Start with a completed B.C run. Switching off must change quantities
+        // without removing/repositioning circles, marks, dimensions, or notes.
+        // Switching back must restore the exact canonical text, even if the
+        // user chooses the other unit option (existing note units are retained).
+        var canonical=Capture(doc);var circles=CaptureBoltCircles(doc);
+        var marks=CaptureProjectionMarks(doc);var dimensions=CaptureDimensions(doc);
+        var expected=Capture(doc);PrepareExpected(doc,expected,rules,false);
+        RunReport off=TurboCallout.Automation.FillDocument(doc,rules,!dual,null,false);
+        if(off.Errors!=0||off.UpdatedExisting==0||off.BoltCirclesEnabled)throw new Exception("B.C to TYP mode switch failed.");
+        Verify(doc,expected,false);VerifyQuantities(doc,rules,false);
+        VerifyBoltCircles(doc,circles);VerifyProjectionMarks(doc,marks);VerifyDimensions(doc,dimensions);
+        RunReport repeat=TurboCallout.Automation.FillDocument(doc,rules,!dual,null,false);
+        if(repeat.Errors!=0||repeat.UpdatedExisting!=0)throw new Exception("TYP mode rerun is not stable.");
+        RunReport on=TurboCallout.Automation.FillDocument(doc,rules,!dual,null,true);
+        if(on.Errors!=0||on.UpdatedExisting==0||on.BoltCirclesCreated!=0||on.BcDimensionsCreated!=0)throw new Exception("TYP to B.C mode switch failed.");
+        Verify(doc,canonical,true);VerifyQuantities(doc,rules,true);
+        VerifyBoltCircles(doc,circles);VerifyProjectionMarks(doc,marks);VerifyDimensions(doc,dimensions);
+        Console.WriteLine("PASS B.C -> TYP -> B.C mode switches preserve note units, machining text, placement and existing B.C annotations.");
     }
     static void BlankMacroNotes(object doc)
     {
@@ -138,7 +158,7 @@ internal static class SampleTest
                 object note=Keep(((dynamic)notes).Item(i));
                 if(!NoteAlignment.IsExistingMacroNote(note)||!(bool)((dynamic)note).IsTerminatorAttachedToEntity)continue;
                 int? quantity;Decision choice=Notes.Recognize(rules,reader.Read(note,out quantity));
-                if(!Notes.UsesSpacingQuantity(choice))continue;
+                if(choice.Category!="Threaded hole"&&choice.Family!="SHCS counterbore")continue;
                 bool blank=choice.Category=="Threaded hole"?++threads==1:dual;
                 if(blank)
                 {foreach(string name in new[]{"BalloonText","BalloonTextLower","BalloonTextPrefix","BalloonTextSuffix"})Property.Set(note,name,"");continue;}
@@ -261,7 +281,7 @@ internal static class SampleTest
         }
         RunReport repair=TurboCallout.Automation.FillDocument(doc,rules,false,null,includeBoltCircles);
         if(repair.UpdatedExisting!=changed||repair.Errors!=0)throw new Exception("Existing-note hidden header repair failed.");
-        Verify(doc,canonical,true);VerifyQuantities(doc,rules);
+        Verify(doc,canonical,true);VerifyQuantities(doc,rules,includeBoltCircles);
         Console.WriteLine("PASS Existing-note hidden header placement, duplicate removal, and visible-edge omission.");
     }
     static void VerifyMixedVisibility(object doc)
@@ -299,7 +319,7 @@ internal static class SampleTest
                 if(args.Contains("--mixed-rules"))SeedMixedRules(copy,rules,dual);
                 if(args.Contains("--duplicate-quantities"))SeedDuplicateQuantities(copy,rules,dual);
                 var before=Capture(copy);var beforeCircles=CaptureBoltCircles(copy);var beforeMarks=CaptureProjectionMarks(copy);
-                PrepareExpected(copy,before,rules);
+                PrepareExpected(copy,before,rules,includeBoltCircles);
                 RunReport report=TurboCallout.Automation.FillDocument(copy,rules,dual,Console.WriteLine,includeBoltCircles);Console.WriteLine(report);
                 if(report.Filled+report.AlignedExisting+report.UpdatedExisting+report.StylesRemoved==0||report.Errors!=0)throw new Exception("No successful changes or apply errors in sample copy.");
                 if(args.Contains("--require-bc")&&report.BoltCirclesCreated+report.BoltCirclesExisting==0)
@@ -312,7 +332,7 @@ internal static class SampleTest
                 }
                 object styles=Keep(((dynamic)copy).DimensionStyles);Console.WriteLine("Remaining macro styles:");
                 for(int i=1;i<=(int)((dynamic)styles).Count;i++){object style=Keep(((dynamic)styles).Item(i));string name=(string)((dynamic)style).Name;if(NoteStyles.IsManaged(name))Console.WriteLine(name);}
-                Verify(copy,before,false);VerifyQuantities(copy,rules);var filled=Capture(copy);
+                Verify(copy,before,false);VerifyQuantities(copy,rules,includeBoltCircles);var filled=Capture(copy);
                 if(args.Contains("--require-hidden"))VerifyMixedVisibility(copy);
                 var filledCircles=CaptureBoltCircles(copy);
                 var filledMarks=CaptureProjectionMarks(copy);
@@ -324,7 +344,7 @@ internal static class SampleTest
                 VerifySideMaintenance(copy,rules,filled);
                 VerifyBoltCircles(copy,filledCircles);VerifyProjectionMarks(copy,filledMarks);
                 ((dynamic)copy).Save();((dynamic)copy).Close(false);copy=null;
-                copy=Keep(((dynamic)docs).Open(path));Verify(copy,filled,true);VerifyQuantities(copy,rules);VerifyBoltCircles(copy,filledCircles);VerifyProjectionMarks(copy,filledMarks);
+                copy=Keep(((dynamic)docs).Open(path));Verify(copy,filled,true);VerifyQuantities(copy,rules,includeBoltCircles);VerifyBoltCircles(copy,filledCircles);VerifyProjectionMarks(copy,filledMarks);
                 RunReport repeat=TurboCallout.Automation.FillDocument(copy,rules,dual,null,includeBoltCircles);
                 if(repeat.Filled!=0||repeat.AlignedExisting!=0||repeat.UpdatedExisting!=0||repeat.StylesRemoved!=0||repeat.Errors!=0)throw new Exception("Repeat run changed filled callouts or failed.");
                 if(repeat.BoltCirclesCreated!=0||repeat.ProjectionMarksCreated!=0||repeat.ProjectionMarksUpdated!=0||repeat.BoltCirclesReview!=report.BoltCirclesReview||
@@ -333,6 +353,7 @@ internal static class SampleTest
                 VerifyBoltCircles(copy,filledCircles);
                 VerifyProjectionMarks(copy,filledMarks);
                 if(!includeBoltCircles)VerifyDimensions(copy,originalDimensions);
+                if(includeBoltCircles)VerifyModeSwitch(copy,rules,dual);
                 object window=Keep(((dynamic)app).ActiveWindow);((dynamic)window).SaveAsImage(Path.ChangeExtension(path,".jpg"),1800,1400,1.0,24,1,false);
                 ((dynamic)copy).Close(false);copy=null;Console.WriteLine("PASS "+path);
             }

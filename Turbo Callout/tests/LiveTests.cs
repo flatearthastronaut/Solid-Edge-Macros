@@ -196,8 +196,8 @@ internal static class LiveTests
             Check(repaired.Filled==0&&repaired.AlignedExisting==2&&repaired.Errors==0,"Rerun repairs existing macro notes in both directions");
             Check(repaired.UpdatedExisting==1&&repaired.StylesRemoved==2&&repaired.StylesKept==1,"Rerun consolidates legacy styles and removes only unused styles");
             Check((string)((dynamic)duplicateStyle).Name==sharedName&&legacyFormat.Matches(new StyleValues(duplicateStyle)),"Legacy migration preserves all readable local formatting overrides");
-            legacyPosition.Verify(duplicate);Check((string)((dynamic)duplicate).BalloonText==Notes.OmitSingleTypical(legacyText,1),"Existing TYP(1) and linked spacing lines are removed with placement preserved");
-            Check(String.IsNullOrEmpty((string)((dynamic)duplicate).BalloonTextLower)&&((string)((dynamic)duplicate).BalloonText).Contains("TYP(2)"),"Other text fields omit literal TYP(1) while other fixed quantities remain");
+            legacyPosition.Verify(duplicate);Check((string)((dynamic)duplicate).BalloonText==Notes.ApplyQuantity(new[]{legacyText},true,1)[0],"All quantity lines are removed at native quantity one with placement preserved");
+            Check(String.IsNullOrEmpty((string)((dynamic)duplicate).BalloonTextLower)&&!Notes.HasTypical((string)((dynamic)duplicate).BalloonText),"All text fields follow the selected quantity policy and omit quantity one");
             Check((string)((dynamic)protectedStyle).Name==protectedName&&(string)((dynamic)protectedBalloon).BalloonText=="42","Style used by an unrelated item balloon is protected");
             Check((string)((dynamic)first).BalloonText==firstText&&(string)((dynamic)second).BalloonText==secondText&&
                 (string)((dynamic)otherStyle).Name==secondStyle,"Alignment-only repair preserves note text and unit style");

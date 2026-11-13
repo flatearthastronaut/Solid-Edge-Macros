@@ -55,8 +55,8 @@ namespace TurboCallout
         }
         void Diagram(Graphics g)
         {
-            // Both drawings depict the same six-hole part. The right card adds
-            // the actual differentiators: pitch circle, radial marks, diameter.
+            // The rectangular plate distinguishes callouts-only work from the
+            // circular pattern. Each illustration shows its quantity wording.
             var state=g.Save();g.TranslateTransform(14,52);
             const float cx=70,cy=67,r=33;
             using(var outline=new Pen(Color.FromArgb(115,136,154),1.35f))
@@ -65,10 +65,15 @@ namespace TurboCallout
             using(var leader=new Pen(Palette.Teal,1.6f))
             using(var white=new SolidBrush(Color.White))
             {
-                g.FillEllipse(white,cx-49,cy-49,98,98);g.DrawEllipse(outline,cx-49,cy-49,98,98);
+                if(WithCircles)
+                {g.FillEllipse(white,cx-49,cy-49,98,98);g.DrawEllipse(outline,cx-49,cy-49,98,98);}
+                else
+                {g.FillRectangle(white,cx-49,cy-37,98,74);g.DrawRectangle(outline,cx-49,cy-37,98,74);}
                 for(int i=0;i<6;i++)
                 {
-                    double a=(i*60-30)*Math.PI/180;float x=cx+r*(float)Math.Cos(a),y=cy+r*(float)Math.Sin(a);
+                    double a=(i*60-30)*Math.PI/180;
+                    float x=WithCircles?cx+r*(float)Math.Cos(a):cx+(i%3-1)*26;
+                    float y=WithCircles?cy+r*(float)Math.Sin(a):cy+(i/3==0?-18:18);
                     g.DrawEllipse(hole,x-5.5f,y-5.5f,11,11);
                     if(WithCircles)
                     {
@@ -81,13 +86,13 @@ namespace TurboCallout
                     center.DashPattern=new float[]{8,3,1,3};g.DrawEllipse(center,cx-r,cy-r,2*r,2*r);
                     center.DashStyle=DashStyle.Solid;g.DrawLine(center,cx-4,cy,cx+4,cy);g.DrawLine(center,cx,cy-4,cx,cy+4);
                 }
-                Arrow(g,leader,new PointF(102,47),new PointF(136,16),new PointF(236,16));
+                Arrow(g,leader,WithCircles?new PointF(102,47):new PointF(100,45),new PointF(136,16),new PointF(236,16));
                 Palette.Text(g,Dual?"Ø6.4 [.25] DRILL":"Ø.25 DRILL",9.3f,FontStyle.Regular,Palette.Teal,138,-2);
-                Palette.Text(g,"TYP(6)",8.5f,FontStyle.Regular,Palette.Muted,138,20);
+                Palette.Text(g,WithCircles?"(6)PLC'S EQ. SP. AS SHOWN":"TYP(6)",8.5f,FontStyle.Regular,Palette.Teal,6,112);
                 if(WithCircles)
                 {
-                    Arrow(g,leader,new PointF(98,85),new PointF(139,108),new PointF(151,108));
-                    Palette.Text(g,Dual?"Ø63.5 [2.50] B.C":"Ø2.50 B.C",9.3f,FontStyle.Regular,Palette.Teal,153,99);
+                    Arrow(g,leader,new PointF(98,85),new PointF(139,94),new PointF(151,94));
+                    Palette.Text(g,Dual?"Ø63.5 [2.50] B.C":"Ø2.50 B.C",9.3f,FontStyle.Regular,Palette.Teal,153,85);
                 }
             }
             g.Restore(state);
@@ -118,7 +123,7 @@ namespace TurboCallout
         {
             runner=runAction;reportViewer=showReport;
             AutoScaleMode=AutoScaleMode.None;ClientSize=new Size(624,552);BackColor=Color.FromArgb(249,251,253);
-            Font=new Font("Segoe UI",10);Text="Turbo Callout v1.4";
+            Font=new Font("Segoe UI",10);Text="Turbo Callout v1.5";
             FormBorderStyle=FormBorderStyle.FixedDialog;MaximizeBox=false;MinimizeBox=false;StartPosition=FormStartPosition.CenterScreen;
             using(var s=typeof(MainForm).Assembly.GetManifestResourceStream("TurboCallout.Icon"))Icon=new Icon(s);
             using(var s=typeof(MainForm).Assembly.GetManifestResourceStream("TurboCallout.Image"))using(var loaded=Image.FromStream(s))logo=new Bitmap(loaded);
