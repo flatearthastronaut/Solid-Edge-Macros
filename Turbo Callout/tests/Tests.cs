@@ -53,6 +53,31 @@ internal static class Tests
     {
         try
         {
+            foreach(string sep in new[]{"\r","\n","\r\n","%RT"})
+            {
+                string body="%DI%{%HS/DU/@1}  DRILL  %ZH"+sep+"TYP(%QC)";
+                foreach(string text in new[]{body,Notes.OppositeSideLine+sep+body,body+sep+Notes.OppositeSideLine,
+                    " from opp. side "+sep+body+sep+Notes.OppositeSideLine})
+                {
+                    var input=new[]{text,"LOWER"+sep+Notes.OppositeSideLine,"PREFIX","SUFFIX"};
+                    var hidden=Notes.ApplyOppositeSide(input,true);
+                    Check(hidden.SequenceEqual(new[]{Notes.OppositeSideLine+sep+body,"LOWER","PREFIX","SUFFIX"}),"Hidden attachment gets one exact header first, preserving all other fields");
+                    Check(hidden.SequenceEqual(Notes.ApplyOppositeSide(hidden,true)),"Hidden header is idempotent");
+                    Check(Notes.ApplyOppositeSide(hidden,false).SequenceEqual(new[]{body,"LOWER","PREFIX","SUFFIX"}),"Visible reattachment removes only the exact standalone header");
+                    Check(input[0]==text,"Header formatting does not mutate its input");
+                }
+                string custom="MACHINE FROM OPP. SIDE"+sep+"FROM OPP. SIDE AS SHOWN";
+                Check(Notes.ApplyOppositeSide(new[]{custom},false)[0]==custom,"Longer custom manufacturing instructions are preserved");
+            }
+            Check(Notes.ApplyOppositeSide(new[]{Notes.OppositeSideLine},false)[0]=="","Removing a lone managed header leaves no blank line");
+            var lineSegments=new[]{new EdgeSegment{X1=0,Y1=0,X2=1,Y2=0,Hidden=false},new EdgeSegment{X1=1,Y1=0,X2=2,Y2=0,Hidden=true}};
+            Check(LeaderSide.OnLine(lineSegments,.5,0)==false&&LeaderSide.OnLine(lineSegments,1.5,0)==true,"Select hidden status at the attached line segment");
+            Check(LeaderSide.OnLine(lineSegments,1,0)==null&&LeaderSide.OnLine(lineSegments,1.5,.1)==null,"Visibility boundary and off-edge points require review");
+            var circleSegments=new[]{new EdgeSegment{X1=1,Y1=0,X2=-1,Y2=0,Hidden=true},new EdgeSegment{X1=-1,Y1=0,X2=1,Y2=0,Hidden=false}};
+            Check(LeaderSide.OnEllipse(circleSegments,0,1,0,0,1,0,1,1)==true&&LeaderSide.OnEllipse(circleSegments,0,-1,0,0,1,0,1,1)==false,"Select the attached half of a mixed circle");
+            Check(LeaderSide.OnEllipse(circleSegments,1,0,0,0,1,0,1,1)==null&&LeaderSide.OnEllipse(circleSegments,0,0,0,0,1,0,1,1)==null,"Circle boundary and center attachments are ambiguous");
+            var ellipseSegments=new[]{new EdgeSegment{X1=3,Y1=6,X2=3,Y2=2,Hidden=true},new EdgeSegment{X1=3,Y1=2,X2=3,Y2=6,Hidden=false}};
+            Check(LeaderSide.OnEllipse(ellipseSegments,2,4,3,4,0,1,2,1)==true&&LeaderSide.OnEllipse(ellipseSegments,4,4,3,4,0,1,2,1)==false,"Rotated ellipse uses its own center, major axis and radii");
             foreach(string text in new[]{"TYP(%QC)","SIZE\rTYP(2)","SIZE\r typ. (3) ","SIZE\nTYP (%QC)","SIZE%RTTYP(%QC)"})
                 Check(Notes.EnsureTypical(text)==text,"Preserve existing TYP line verbatim");
             foreach(string text in new[]{"SIZE","SIZE\r(%QC)PLC'S EQ. SP. AS SHOWN","SIZE\r(FOR X S.H.C.S.)"})

@@ -448,14 +448,18 @@ namespace TurboCallout
                                     {
                                         string review;
                                         if (Maintain(note, catalog, rules, reader, out review)) { report.UpdatedExisting++; report.Details.Add(label + ": updated existing Turbo Callout note."); }
-                                        if (review != null) { report.Review++; report.Details.Add(label + ": precision unchanged; " + review); }
+                                        if (review != null) { report.Review++; report.Details.Add(label + ": note text unchanged; " + review); }
                                         if (NoteAlignment.Apply(note)) { report.AlignedExisting++; report.Details.Add(label + ": aligned existing Turbo Callout note."); }
                                     }
                                     continue;
                                 }
                                 report.Blank++; if (progress != null) progress("Checking " + label + "...");
                                 NotePlan plan; int? quantity;
-                                try { plan = Notes.Build(rules, reader.Read(note, out quantity), dual); }
+                                try
+                                {
+                                    plan = Notes.Build(rules, reader.Read(note, out quantity), dual);
+                                    plan.Text = Notes.ApplyOppositeSide(new[] { plan.Text }, LeaderSide.IsHidden(note))[0];
+                                }
                                 catch (Exception error) { report.Review++; report.Details.Add(label + " unchanged: " + error.Message); continue; }
                                 Fill(note, plan, catalog, quantity);
                                 report.Filled++; report.Details.Add(label + ": " + plan.Category);
@@ -480,6 +484,12 @@ namespace TurboCallout
             {
                 draft = ((dynamic)note).Document; int? quantity;
                 using (var reader = new NativeHole(draft)) reader.Read(note, out quantity);
+                if (String.IsNullOrWhiteSpace(plan.Text)) throw new InvalidOperationException("Callout note text is empty.");
+                // Clone the plan: a caller may reuse it on visible and hidden
+                // edges. The header belongs to this attachment, not the template.
+                plan = new NotePlan { Text = Notes.ApplyOppositeSide(new[] { plan.Text }, LeaderSide.IsHidden(note))[0],
+                    Category = plan.Category, InchPlaces = plan.InchPlaces, Dual = plan.Dual,
+                    PreserveFormat = plan.PreserveFormat, FullSizeStacks = plan.FullSizeStacks };
                 using (var catalog = new NoteStyles(draft)) Fill(note, plan, catalog, quantity);
             }
             finally { Com.Release(draft); }
@@ -514,6 +524,7 @@ namespace TurboCallout
                             throw new InvalidOperationException("Custom unit order needs review.");
                         int? quantity; HoleFacts hole = reader.Read(note, out quantity); Decision choice = Notes.Recognize(rules, hole);
                         string[] text = Notes.ApplyQuantity(fields.Select(field => Notes.ApplyPrecision(before[field], choice, hole, dual)).ToArray(), choice, quantity);
+                        text = Notes.ApplyOppositeSide(text, LeaderSide.IsHidden(note));
                         for (int i = 0; i < fields.Length; i++) updated[fields[i]] = Notes.ApplyWordSpacing(text[i]);
                         plan = new NotePlan { Dual = dual, InchPlaces = 2, PreserveFormat = true, FullSizeStacks = updated.Values.Any(Notes.HasFixedStacks) };
                         new UnitStyle(style, plan).ApplyToSnapshot(expected);

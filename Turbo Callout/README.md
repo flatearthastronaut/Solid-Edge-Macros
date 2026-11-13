@@ -1,11 +1,11 @@
-# Turbo Callout v1.1
+# Turbo Callout v1.2
 
 Fills blank native hole callouts in the active Solid Edge draft. Uses the same recognition source and saved-note library as Turbo Hole Table Callouts, compiled into a standalone x64 .NET Framework executable.
 
 ## Use
 
 1. Activate the drawing in Solid Edge.
-2. Run `Compiled Executables/Turbo Callout v1.1.exe`.
+2. Run `Compiled Executables/Turbo Callout v1.2.exe`.
 3. Choose **Inch only** or **Dual — metric[inch]**. Scanning and filling start immediately.
 4. Review the result counts and any unchanged callouts. Review the drawing and save it normally.
 
@@ -49,6 +49,10 @@ Typed stacked tolerance values use **100% of the surrounding note height**, givi
 
 Machining text uses two spaces before and after `DRILL`, two spaces after `THR'D`, `SPOTFACE`, and `C'BORE`/`CBORE`, and three spaces after `DIA` (one extra around `DRILL` and after the thread/spotface/counterbore labels, two extra after `DIA`). New fills and existing macro notes receive the spacing in all four text fields. Reruns do not accumulate more spaces; wider custom gaps, label spelling, and native property/stack codes are preserved. Values, precision, text height, and leader geometry are unchanged.
 
+A leader attached to a hidden drawing-view edge receives `FROM OPP. SIDE` as the first line, in both unit modes. The same rule updates existing Turbo Callout notes. Reruns consolidate duplicate standalone headers, move the header to the top for hidden attachments, and remove that exact standalone line for visible attachments. Other manufacturing instructions and field codes remain unchanged; unattached notes retain their wording for review.
+
+Hidden status comes from the actual attached projected edge's [segment style](https://support.industrysoftware.automation.siemens.com/trainings/se/107/api/SolidEdgeDraft~DVCircle2d~GetSegmentedStyle.html), compared with its model member's configured hidden-edge style. A generic dashed pattern is not sufficient. Mixed line/circular/elliptical edges use the leader point in [drawing-view coordinates](https://support.industrysoftware.automation.siemens.com/trainings/se/107/api/SolidEdgeDraft~DrawingView~SheetToView.html). Ambiguous visibility boundaries, unresolved mixed splines, and indistinguishable hidden/visible style assignments are left for review. The macro does not change edge display, leader geometry, note height, units, or model attachments.
+
 ## Placement and failure handling
 
 A break line extending left (West) produces left-aligned text; a break line extending right (East) produces right-aligned text. Notes without a horizontal break line keep their original justification. The macro reads the native four-direction `CalloutBalloonBreaklineDirection` property because the older Boolean can be stale in current drafts. The existing callout keeps its leader/text connection, breakline direction and distance, rotation, scale, leader vertices, and free-space point. Fixed text widths are retained; fit-to-content widths grow to accommodate new text.
@@ -65,8 +69,10 @@ Writes are checked and placement is verified. A failed fill restores the previou
 - `Test.cmd`: pure recognition/note and existing-text protection tests.
 - `LiveTest.cmd`: create an isolated part/draft fixture under ignored `Inspection`; verify rendered mixed precision, fixed versus parametric model-update behavior, TYP quantities, one-callout preservation, style reuse, legacy cleanup, local override preservation, protected styles, rollback, multiple sheets, and save/reopen. Returns to the original document if one was active.
 - `SampleTest.cmd [saved-draft-path] [--blank]`: make separate inch/dual copies of the active draft or supplied sample under `Inspection`, fill/update and save/reopen each, verify requested precision changes and all other formatting/placements, and verify the original unchanged. `--blank` empties only macro notes in the disposable copies to test initial filling against the sample's real model associations. No changes are saved to the original.
-- `Inspect.cmd`: inspect native fields of blank callouts; diagnostic probes are removed immediately. `Inspect.cmd --alignment` reads direction and justification without adding probes.
+- `Inspect.cmd`: inspect native fields of blank callouts; diagnostic probes are removed immediately. `Inspect.cmd --alignment` reads direction and justification without adding probes; `Inspect.cmd --side` reports attached-edge hidden status without diagnostic notes.
 - `Preview.cmd`: render the initial window to `Inspection/window.png`.
+
+v1.2 verified November 13, 2026: 5,319 regression checks and 38 isolated Solid Edge checks passed. Both inch and dual copies of the four-note sample filled all four notes with zero errors or review cases. Only the hidden-edge M6 note received FROM OPP. SIDE as its first line. Existing-note tests repaired misplaced/duplicate headers and removed headers from visible-edge notes. Save/reopen, repeated runs, complete formatting, text, leader placement, and the unchanged source sample were verified. Executable and assembly versions are 1.2 and 1.2.0.0.
 
 v1.1 verified November 13, 2026: 5,245 regression checks and 38 isolated Solid Edge checks passed. SHCS counterbores allow a part-specific recess depth when both saved diameters match. The reported .34 drill / .53 counterbore / .35 depth now uses the complete linked M8-size counterbore note. Invalid depths, unknown diameter pairs, unidentified .052 face-seal recesses, and family conflicts remain for review; the hole-table caller is unchanged. Placement verification also initializes vertex output buffers consistently for unattached template notes, avoiding false movement reports. Inch and dual copies of the new sample each filled the reported counterbore, left four unmatched holes blank for review, and passed save/reopen, repeat-run, original-text, and leader-placement checks with zero errors. The source draft was not saved. Executable and assembly versions are 1.1 and 1.1.0.0.
 

@@ -20,6 +20,10 @@ internal static class Inspect
      for(int j=1;j<=(int)((dynamic)notes).Count;j++) {
       object n=null;
       try {n=((dynamic)notes).Item(j);
+       if(args.Length>0&&args[0]=="--side") {
+        if(!Automation.IsCallout(n)||(bool)((dynamic)n).IsTerminatorAttachedToEntity==false)continue;
+        Console.WriteLine("Callout "+j+": hidden="+LeaderSide.IsHidden(n));continue;
+       }
        if(args.Length>0&&args[0]=="--alignment") {
         if((int)((dynamic)n).Callout==0)continue;
         double x,y,z;((dynamic)n).GetFreeSpacePoint(out x,out y,out z);
