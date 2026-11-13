@@ -53,6 +53,13 @@ internal static class Tests
     {
         try
         {
+            foreach(double length in new[]{.003175,-.0047625})
+            foreach(double dx in new[]{-.004, .004})
+                Check(Math.Abs(BoltCircleDimensions.DirectedLength(length,dx,0)-Math.Sign(dx)*Math.Abs(length))<1e-12,
+                    "B.C horizontal direction matches the callout while retaining break length");
+            foreach(var delta in new[]{new[]{0.0,.004},new[]{.004,.004},new[]{Double.NaN,0.0}})
+            {bool failed=false;try{BoltCircleDimensions.DirectedLength(.004,delta[0],delta[1]);}catch(InvalidOperationException){failed=true;}
+                Check(failed,"Unusable or vertical callout breaks require review");}
             foreach(var item in new[]{new{Family="Simple drill",Places=2},new{Family="SHCS counterbore",Places=2},
                 new{Family="Spring pin",Places=3},new{Family="O-ring face seal",Places=3},new{Family="Koenig plug",Places=3},
                 new{Family="SAE port",Places=3},new{Family="Dowel",Places=4}})

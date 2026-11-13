@@ -1,4 +1,4 @@
-# Turbo Callout & B.C. Macro v0.4
+# Turbo Callout & B.C. Macro v0.5
 
 This macro extends Turbo Callout v1.1 (commit `eecf9e9`) with native, model-linked bolt-hole-circle centerlines for the hole patterns referenced by callouts. It has its own executable and version sequence and retains the established callout formatting and icon.
 
@@ -9,7 +9,7 @@ Fills blank native hole callouts in the active Solid Edge draft. Uses the same r
 ## Use
 
 1. Activate the drawing in Solid Edge.
-2. Run `Compiled Executables/Turbo Callout & B.C. Macro v0.4.exe`.
+2. Run `Compiled Executables/Turbo Callout & B.C. Macro v0.5.exe`.
 3. Choose **Inch only** or **Dual — metric[inch]**. Callout filling, bolt-circle creation, and Smart Dimensions start immediately.
 4. Review the result counts and any unchanged callouts. Review the drawing and save it normally.
 
@@ -45,9 +45,9 @@ Inch precision comes from the same model-based hole recognition as the callout:
 
 New dimensions use the selected inch/dual mode, with one fewer metric place in dual mode, and the embedded reference dimension presentation (.125-inch Arial text, teal Driven color). No extra named styles are created. The native bent leader matches Greg's manually positioned Smart Dimension. New text is placed just above or below its associated callout's range on the same side of the view. If the same circle has multiple callouts, the first one determines the initial position. Review crowded drawings and adjust positions as needed.
 
-Existing native diameter dimensions on the circle are reused. Their positions, leader settings, units, metric precision, and tolerances stay intact; the macro applies the requested inch decimal places and adds the suffix without deleting custom suffix wording. Reruns do not reposition dimensions. An overridden diameter, duplicate dimensions, conflicting precision requirements, an unknown hole family, or an unusable nearby placement is left for review. No unassociated circle receives a guessed dimension. Existing pattern-recognition reviews remain unchanged.
+Existing native diameter dimensions on the circle are reused. The macro retains their units, metric precision, tolerances, and custom suffix wording while applying the requested inch decimal places and B.C suffix. In v0.5, each horizontal break segment points in the same direction as the associated callout. Reruns repair backward v0.4 dimensions by reversing only the signed horizontal leader length; the radial attachment, elbow, break-length magnitude, unit settings, and tolerances remain intact. The text moves to the correct side of the elbow. Correctly directed dimensions retain their positions. An overridden diameter, duplicate dimensions, conflicting precision requirements, an unknown hole family, or an unusable nearby placement is left for review. No unassociated circle receives a guessed dimension. Existing pattern-recognition reviews remain unchanged.
 
-`BoltCircleDimensionTest.cmd` tests disposable copies of an open sample with a manual B.C diameter: inch/dual precision, suffix, native attachment, nearby placement on both sides, manual placement preservation, reruns, view scaling/movement, save/reopen, and protection of overridden values. `Test.cmd` covers all family rules and conflicting matches; `SampleTest.cmd` retains the full callout/projection regression checks. Tests restore the original active drawing and do not save it.
+`BoltCircleDimensionTest.cmd` tests disposable copies of an open sample with a manual B.C diameter: inch/dual precision, suffix, native attachment, nearby placement on both sides, manual placement preservation, correction of the two backward v0.4 dimensions, matching break directions on both sides, reruns, view scaling/movement, save/reopen, and protection of overridden values. `Test.cmd` covers all family rules and conflicting matches; `SampleTest.cmd` retains the full callout/projection regression checks. Tests restore the original active drawing and do not save it.
 
 ## Recognition and notes
 

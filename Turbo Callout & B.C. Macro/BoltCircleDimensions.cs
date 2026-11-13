@@ -53,6 +53,40 @@ namespace TurboCallout
                 String.IsNullOrWhiteSpace(suffix)?"B.C":suffix.TrimEnd()+" B.C";
         }
 
+        internal static double DirectedLength(double length,double dx,double dy)
+        {
+            if(!BoltCircleGeometry.Finite(length)||Math.Abs(length)<1e-12||
+                !BoltCircleGeometry.Finite(dx)||!BoltCircleGeometry.Finite(dy)||Math.Abs(dx)<1e-9||Math.Abs(dy)>1e-7)
+                throw new InvalidOperationException("Callout has no usable horizontal break line to match.");
+            return Math.Sign(dx)*Math.Abs(length);
+        }
+
+        static double MatchLength(object note,double length)
+        {
+            // Compare the physical elbow and text connection, rather than the
+            // callout's direction enum (which describes the connection side).
+            if(!(bool)((dynamic)note).Leader||!(bool)((dynamic)note).BreakLine||(int)((dynamic)note).KeyPointCount<5)
+                throw new InvalidOperationException("Callout has no usable horizontal break line to match.");
+            double ex,ey,ez,tx,ty,tz;int type,handle;
+            ((IBcNotePosition)note).GetKeyPoint(1,out ex,out ey,out ez,out type,out handle);
+            ((IBcNotePosition)note).GetKeyPoint(4,out tx,out ty,out tz,out type,out handle);
+            return DirectedLength(length,tx-ex,ty-ey);
+        }
+
+        static bool MatchBreakDirection(object dimension,object note)
+        {
+            if((int)((dynamic)dimension).DimensionType!=4||!(bool)((dynamic)dimension).Leader)
+                throw new InvalidOperationException("Existing diameter has no radial break leader; retained for review.");
+            double before=(double)((dynamic)dimension).LeaderDistance,wanted=MatchLength(note,before);
+            if(Math.Abs(wanted-before)<1e-10)return false;
+            // A signed LeaderDistance controls only the horizontal text side.
+            // Changing BreakPosition instead moves the elbow across the circle.
+            ((dynamic)dimension).LeaderDistance=wanted;
+            if(Math.Abs((double)((dynamic)dimension).LeaderDistance-wanted)>1e-8)
+                throw new InvalidOperationException("B.C break-line direction did not persist.");
+            return true;
+        }
+
         internal static void Process(object draft,IEnumerable<BoltCircleTarget> targets,RuleBook rules,bool dual,RunReport report,Action<string> progress)
         {
             object sheets=null;
@@ -64,6 +98,7 @@ namespace TurboCallout
                 {
                     var held=new List<object>();object created=null,dimension=null,style=null;
                     Dictionary<string,object> before=null;string oldSuffix=null;
+                    double? oldLeaderLength=null;bool directionChanged=false;
                     BoltCircleTarget target=group.First();
                     string label=target.SheetName+", B.C for callout "+target.NoteIndex;
                     try
@@ -104,8 +139,9 @@ namespace TurboCallout
                         {
                             dimension=existing[0];style=((dynamic)dimension).Style;held.Add(style);
                             // Existing user dimensions retain their unit mode, metric
-                            // precision, tolerances, leader geometry, and text position.
-                            // Only the requested inch precision and suffix are changed.
+                            // precision, tolerances, radial attachment, and elbow.
+                            // Flip only the horizontal segment when it disagrees
+                            // with the associated callout's actual break direction.
                             if(!String.IsNullOrEmpty((string)((dynamic)dimension).OverrideString))
                                 throw new InvalidOperationException("Existing diameter has overridden text; left unchanged.");
                             before=new Dictionary<string,object>();oldSuffix=(string)((dynamic)dimension).SuffixString;
@@ -119,14 +155,17 @@ namespace TurboCallout
                             foreach(var p in wanted)if(!Property.Equal(Property.Get(style,p.Key),p.Value))
                                 throw new InvalidOperationException("Existing dimension precision did not persist.");
                             ((dynamic)dimension).SuffixString=WithSuffix(oldSuffix);
+                            oldLeaderLength=(double)((dynamic)dimension).LeaderDistance;
+                            directionChanged=MatchBreakDirection(dimension,associated[0]);
                         }
                         if(!RelatedTo(dimension,target.Circle)||Math.Abs((double)((dynamic)dimension).Value-expected)>1e-7)
                             throw new InvalidOperationException("Native B.C attachment or model diameter did not verify.");
                         if(created!=null)report.BcDimensionsCreated++;
-                        else if(before.Any(p=>!Property.Equal(p.Value,Property.Get(style,p.Key)))||oldSuffix!=(string)((dynamic)dimension).SuffixString)
+                        else if(directionChanged||before.Any(p=>!Property.Equal(p.Value,Property.Get(style,p.Key)))||oldSuffix!=(string)((dynamic)dimension).SuffixString)
                             report.BcDimensionsUpdated++;
                         else report.BcDimensionsExisting++;
-                        report.Details.Add(label+": "+places+"-place inch smart diameter"+(created!=null?" placed near the note.":"; existing placement retained."));
+                        report.Details.Add(label+": "+places+"-place inch smart diameter"+(created!=null?" placed near the note.":
+                            directionChanged?"; break direction matched to callout, elbow retained.":"; existing placement retained."));
                     }
                     catch(Exception error)
                     {
@@ -134,7 +173,8 @@ namespace TurboCallout
                         {
                             if(created!=null)((dynamic)created).Delete();
                             else if(before!=null)
-                            {foreach(var p in before)Property.Set(style,p.Key,p.Value);((dynamic)dimension).SuffixString=oldSuffix;}
+                            {foreach(var p in before)Property.Set(style,p.Key,p.Value);((dynamic)dimension).SuffixString=oldSuffix;
+                                if(oldLeaderLength.HasValue)((dynamic)dimension).LeaderDistance=oldLeaderLength.Value;}
                         }
                         catch(Exception cleanup){report.Errors++;report.Details.Add(label+": dimension restoration needs review: "+cleanup.Message);}
                         report.Review++;report.BcDimensionsReview++;
@@ -199,15 +239,15 @@ namespace TurboCallout
             ((dynamic)dimension).TrackDistance=angle;
             // This is the radial-dimension break mode, not the side of the
             // drawing. Switching it to Left reverses the radial extension.
-            // Right matches the manually positioned Smart Dimension on both
-            // sides; TrackDistance alone selects the leader's radial direction.
+            // TrackDistance selects the radial direction; signed LeaderDistance
+            // below selects the horizontal break direction independently.
             ((dynamic)dimension).BreakPosition=1;
             ((dynamic)dimension).BreakDistance=distance-radius;
             ((dynamic)dimension).TerminatorPosition=true;
             // Applying the style alone leaves SE's initial cached break length
             // until save/reopen. Set it after the leader exists so the first
             // display and reopened drawing both use the reference 1.5 heights.
-            ((dynamic)dimension).LeaderDistance=height*(double)((dynamic)style).LeaderLineLength;
+            ((dynamic)dimension).LeaderDistance=MatchLength(note,height*(double)((dynamic)style).LeaderLineLength);
             if(!(bool)((dynamic)dimension).Leader||Math.Abs((double)((dynamic)dimension).TrackDistance-angle)>1e-6||
                 Math.Abs((double)((dynamic)dimension).BreakDistance-(distance-radius))>1e-6)
                 throw new InvalidOperationException("Native dimension leader placement did not persist.");
