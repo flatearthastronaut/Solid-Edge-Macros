@@ -70,6 +70,7 @@ internal static class SampleTest
             bool dual=(bool)Property.Get(style,"DualDisplay");int? quantity;HoleFacts hole=reader.Read(note,out quantity);Decision choice=Notes.Recognize(rules,hole);
             item.Value.ExpectedText=item.Value.Text.Select(t=>Notes.ApplyPrecision(t,choice,hole,dual)).ToArray();
             item.Value.ExpectedText=Notes.ApplyQuantity(item.Value.ExpectedText,choice,quantity).Select(Notes.ApplyWordSpacing).ToArray();
+            item.Value.ExpectedText=Notes.ApplyOppositeSide(item.Value.ExpectedText,LeaderSide.IsHidden(note));
             item.Value.ExpectedFormat=new StyleValues(style);
             new UnitStyle(style,new NotePlan{Dual=dual,InchPlaces=2,FullSizeStacks=item.Value.ExpectedText.Any(Notes.HasFixedStacks)}).ApplyToSnapshot(item.Value.ExpectedFormat);
         }
@@ -83,6 +84,10 @@ internal static class SampleTest
             string[] key=item.Key.Split('/');object sheet=Keep(((dynamic)sheets).Item(Int32.Parse(key[0])));
             object notes=Keep(((dynamic)sheet).Balloons),note=Keep(((dynamic)notes).Item(Int32.Parse(key[1])));
             int? quantity;Decision choice=Notes.Recognize(rules,reader.Read(note,out quantity));
+            bool hidden=LeaderSide.IsHidden(note);
+            int headerCount=item.Value.Text.Sum(t=>(t??"").Split('\r').Count(line=>line==Notes.OppositeSideLine));
+            if(headerCount!=(hidden?1:0)||(hidden&&!item.Value.Text[0].StartsWith(Notes.OppositeSideLine+"\r",StringComparison.Ordinal)))
+                throw new Exception("Hidden-edge header is missing, duplicated or on the wrong side: "+item.Key);
             if(item.Value.Text.Any(Notes.HasFixedStacks))
             {
                 object style=Keep(((dynamic)note).Style);
@@ -167,6 +172,38 @@ internal static class SampleTest
         if(actual.Count!=expected.Count||expected.Any(p=>!actual.ContainsKey(p.Key)||actual[p.Key]!=p.Value))
             throw new Exception("Center-mark geometry, radial attachments or presentation changed.");
     }
+    static void VerifySideMaintenance(object doc,RuleBook rules,Dictionary<string,Snapshot> canonical)
+    {
+        // Deliberately misplace/duplicate the managed header in disposable notes
+        // to test the existing-note path, independently of initial generation.
+        object sheets=Keep(((dynamic)doc).Sheets);int changed=0;
+        foreach(var item in canonical)
+        {
+            if(!item.Value.Macro||!item.Value.Attached)continue;
+            string[] key=item.Key.Split('/');object sheet=Keep(((dynamic)sheets).Item(Int32.Parse(key[0])));
+            object notes=Keep(((dynamic)sheet).Balloons),note=Keep(((dynamic)notes).Item(Int32.Parse(key[1])));
+            string body=Notes.ApplyOppositeSide(new[]{item.Value.Text[0]},false)[0];
+            ((dynamic)note).BalloonText=body+"\r"+Notes.OppositeSideLine+"\r"+Notes.OppositeSideLine;
+            item.Value.Position.Restore(note);changed++;
+        }
+        RunReport repair=TurboCallout.Automation.FillDocument(doc,rules,false,null);
+        if(repair.UpdatedExisting!=changed||repair.Errors!=0)throw new Exception("Existing-note hidden header repair failed.");
+        Verify(doc,canonical,true);VerifyQuantities(doc,rules);
+        Console.WriteLine("PASS Existing-note hidden header placement, duplicate removal, and visible-edge omission.");
+    }
+    static void VerifyMixedVisibility(object doc)
+    {
+        int hidden=0,visible=0;object sheets=Keep(((dynamic)doc).Sheets);
+        foreach(var item in Capture(doc))
+        {
+            if(!item.Value.Macro||!item.Value.Attached)continue;
+            string[] key=item.Key.Split('/');object sheet=Keep(((dynamic)sheets).Item(Int32.Parse(key[0])));
+            object notes=Keep(((dynamic)sheet).Balloons),note=Keep(((dynamic)notes).Item(Int32.Parse(key[1])));
+            if(LeaderSide.IsHidden(note))hidden++;else visible++;
+        }
+        if(hidden==0||visible==0)throw new Exception("This regression sample must exercise both hidden and visible attachments.");
+        Console.WriteLine("PASS Native visibility: "+hidden+" hidden-edge notes; "+visible+" visible-edge notes.");
+    }
     [STAThread] static int Main(string[] args)
     {
         object source=null,copy=null,previous=null;bool openedSource=false;
@@ -194,6 +231,7 @@ internal static class SampleTest
                 object styles=Keep(((dynamic)copy).DimensionStyles);Console.WriteLine("Remaining macro styles:");
                 for(int i=1;i<=(int)((dynamic)styles).Count;i++){object style=Keep(((dynamic)styles).Item(i));string name=(string)((dynamic)style).Name;if(NoteStyles.IsManaged(name))Console.WriteLine(name);}
                 Verify(copy,before,false);VerifyQuantities(copy,rules);var filled=Capture(copy);
+                if(args.Contains("--require-hidden"))VerifyMixedVisibility(copy);
                 var filledCircles=CaptureBoltCircles(copy);
                 var filledMarks=CaptureProjectionMarks(copy);
                 if(filledMarks.Count!=beforeMarks.Count+report.ProjectionMarksCreated||beforeMarks.Any(p=>filledMarks[p.Key]!=p.Value))
@@ -201,6 +239,8 @@ internal static class SampleTest
                 if(filledCircles.Count!=beforeCircles.Count+report.BoltCirclesCreated||beforeCircles.Any(p=>filledCircles[p.Key]!=p.Value))
                     throw new Exception("Bolt-circle creation changed pre-existing annotations.");
                 if(filled.Count!=before.Count)throw new Exception("Macro changed the number of callouts.");
+                VerifySideMaintenance(copy,rules,filled);
+                VerifyBoltCircles(copy,filledCircles);VerifyProjectionMarks(copy,filledMarks);
                 ((dynamic)copy).Save();((dynamic)copy).Close(false);copy=null;
                 copy=Keep(((dynamic)docs).Open(path));Verify(copy,filled,true);VerifyQuantities(copy,rules);VerifyBoltCircles(copy,filledCircles);VerifyProjectionMarks(copy,filledMarks);
                 RunReport repeat=TurboCallout.Automation.FillDocument(copy,rules,dual,null);

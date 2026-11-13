@@ -1,4 +1,4 @@
-# Turbo Callout & B.C. Macro v0.2
+# Turbo Callout & B.C. Macro v0.3
 
 This macro extends Turbo Callout v1.1 (commit `eecf9e9`) with native, model-linked bolt-hole-circle centerlines for the hole patterns referenced by callouts. It has its own executable and version sequence and retains the established callout formatting and icon.
 
@@ -9,7 +9,7 @@ Fills blank native hole callouts in the active Solid Edge draft. Uses the same r
 ## Use
 
 1. Activate the drawing in Solid Edge.
-2. Run `Compiled Executables/Turbo Callout & B.C. Macro v0.2.exe`.
+2. Run `Compiled Executables/Turbo Callout & B.C. Macro v0.3.exe`.
 3. Choose **Inch only** or **Dual — metric[inch]**. Callout filling and bolt-circle creation start immediately.
 4. Review the result counts and any unchanged callouts. Review the drawing and save it normally.
 
@@ -32,6 +32,10 @@ Each hole also receives a native two-point center mark with projection lines, ma
 New circles and projection marks use the CenterLine settings from `DraftingStandards/annotation-presentation-standard.xml`, embedded in the executable: Chain line type, reference line width, teal Driven color, and reference center-mark settings. These are local annotation overrides; no per-circle dimension styles are added. Native references make the annotations follow view scale/position changes. If projection creation fails, newly added marks are deleted and changed display flags are restored; a newly created circle is also removed. Existing circles and unrelated marks are retained, and cleanup failures are reported. The drawing is never saved automatically.
 
 ## Recognition and notes
+
+Hidden-edge leaders use the same `FROM OPP. SIDE` rule as Turbo Callout v1.2. The exact line appears first in both inch and dual modes, including existing macro notes. Reruns consolidate duplicate standalone headers and remove that exact line when the attached edge is visible. Longer custom manufacturing instructions, quantities, unit precision, native fields, and leader placement are preserved. Bolt circles and radial projection marks retain their existing behavior.
+
+`LeaderSide.cs` follows the attached projected edge and compares its segment style with the model member's configured hidden-edge style; a generic dashed pattern is not sufficient. Mixed circular, elliptical, and linear edges use the leader's attachment point to select the segment. Ambiguous visibility boundaries, unresolved mixed splines, and indistinguishable hidden/visible styles are left for review. Unattached notes and unrelated custom callouts retain their wording.
 
 `Rules.cs`, `LinkedCallouts.cs`, `DowelSeats.xml`, and `DraftCallout.txt` are compiled directly from the sibling **Turbo Hole Table Callouts** directory. No separately maintained copy of the recognition rules is introduced. At runtime the same configured Solid Edge Custom Settings File (application parameter 63) supplies the hole presets. No Excel installation or external note workbook is required.
 
@@ -82,10 +86,12 @@ Writes are checked and placement is verified. A failed fill restores the previou
 - `Build.cmd`: compile the standalone executable into `Compiled Executables`.
 - `Test.cmd`: pure recognition/note and existing-text protection tests.
 - `LiveTest.cmd`: create an isolated part/draft fixture under ignored `Inspection`; verify rendered mixed precision, fixed versus parametric model-update behavior, TYP quantities, one-callout preservation, style reuse, legacy cleanup, local override preservation, protected styles, rollback, multiple sheets, and save/reopen. Returns to the original document if one was active.
-- `SampleTest.cmd [saved-draft-path] [--blank] [--require-bc]`: make separate inch/dual copies of the active draft or supplied sample under `Inspection`, fill/update and save/reopen each, verify requested precision changes and all other formatting/placements, and verify the original unchanged. `--blank` empties only macro notes in the disposable copies to test initial filling against the sample's real model associations. No changes are saved to the original.
+- `SampleTest.cmd [saved-draft-path] [--blank] [--require-bc] [--require-hidden]`: make separate inch/dual copies of the active draft or supplied sample under `Inspection`, fill/update and save/reopen each, verify formatting/placements and hidden-edge headers, and verify the original unchanged. It also exercises misplaced/duplicate header repair and visible-edge omission while checking that bolt circles and projection marks remain unchanged. `--blank` empties only macro notes in the disposable copies to test initial filling; `--require-hidden` requires both hidden and visible attachments in the sample. No changes are saved to the original.
 - `BoltCircleViewTest.cmd`: use a disposable copy of the active sample to verify native circle/projection creation at half scale, preservation of manual projections, v0.1 circle repair, missing/disabled projection repair, conflicting-mark protection, shared circles for multiple callouts, unchanged custom notes and leaders, movement with the view, saved references, rerun reuse, and isometric exclusion.
 - `Inspect.cmd`: inspect native fields of blank callouts; diagnostic probes are removed immediately. `Inspect.cmd --alignment` reads direction and justification without adding probes.
 - `Preview.cmd`: render the initial window to `Inspection/window.png`.
+
+v0.3 verified November 13, 2026: 5,428 pure regression checks and 38 isolated Solid Edge checks passed. Inch and dual copies of the four-note sample filled all notes with zero errors or review cases; only the hidden-edge M6 note received `FROM OPP. SIDE` first. Existing-note tests repaired misplaced/duplicate headers and removed them from the three visible-edge notes. All four bolt circles and 28 radial projection marks retained their geometry and attachments through header maintenance, save/reopen, and repeat runs. The original drawing and its leaders, notes, circles, and projection marks remained unchanged.
 
 v0.2 verified November 13, 2026: all 5,354 pure checks and 23 native bolt-circle/projection checks passed. The manually corrected six-hole circle and its six marks were reused unchanged. Inch and dual copies each filled four callouts, added the remaining three bolt circles and 22 projection marks, and completed with zero errors or review cases. All 28 marks retained their attachments and display after save/reopen, and reruns added no duplicates. The tests also verified v0.1 circle repair, missing/disabled marks, conflict protection, half-scale views, movement, and isometric exclusion. The original draft, leaders, and manual projections remained unchanged.
 

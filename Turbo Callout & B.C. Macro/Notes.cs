@@ -273,6 +273,24 @@ namespace TurboCallout
             return result.ToString();
         }
 
+        internal const string OppositeSideLine = "FROM OPP. SIDE";
+        internal static string[] ApplyOppositeSide(string[] fields, bool hidden)
+        {
+            // This exact standalone line is managed by the leader-side rule.
+            // Keep other wording (including longer custom instructions), native
+            // field codes and each field's line endings intact. Consolidating
+            // across fields also migrates an existing header to the first line.
+            var result = fields.Select(text => RewriteLines(text, line =>
+                String.Equals(line.Trim(), OppositeSideLine, StringComparison.OrdinalIgnoreCase) ? null : line)).ToArray();
+            if (hidden)
+            {
+                string body = result[0] ?? "";
+                Match separator = Regex.Match(body, @"\r\n|\r|\n|%RT");
+                result[0] = OppositeSideLine + (String.IsNullOrEmpty(body) ? "" : (separator.Success ? separator.Value : "\r") + body);
+            }
+            return result;
+        }
+
         internal static string EnsureTypical(string text)
         {
             // Keep an existing TYP line verbatim, including its quantity or
