@@ -235,6 +235,8 @@ namespace TurboCallout
         const string SpacingWords = @"PLC['’]S[ \t]+EQ\.?[ \t]*SP\.?(?:[ \t]+AS[ \t]+SHOWN)?[ \t]*\.?";
         static bool IsSpacingLine(string line)
         { return Regex.IsMatch(line, @"^[ \t]*(?:\([ \t]*" + QuantityCount + @"[ \t]*\)[ \t]*)?" + SpacingWords + @"[ \t]*$", RegexOptions.IgnoreCase); }
+        static bool IsCountedSpacingLine(string line)
+        { return Regex.IsMatch(line, @"^[ \t]*\([ \t]*" + QuantityCount + @"[ \t]*\)[ \t]*" + SpacingWords + @"[ \t]*$", RegexOptions.IgnoreCase); }
         static bool IsTypicalQuantityLine(string line)
         { return Regex.IsMatch(line, @"^[ \t]*TYP\.?[ \t]*\([ \t]*" + QuantityCount + @"[ \t]*\)[ \t]*(?:" + SpacingWords + @")?[ \t]*$", RegexOptions.IgnoreCase); }
 
@@ -245,7 +247,18 @@ namespace TurboCallout
             string[] result = (string[])texts.Clone();
             if (!UsesSpacingQuantity(choice))
             {
-                if (!texts.Any(HasTypical)) result[0] = EnsureTypical(result[0]);
+                // A saved PLC'S line that already carries the quantity also
+                // satisfies the quantity requirement for plain/special holes.
+                // Preserve that line verbatim and remove only redundant whole
+                // TYP lines, even when they occupy another native text field.
+                // Uncounted spacing wording still needs its associated TYP.
+                if (texts.Any(t => Regex.Split(t ?? "", @"\r\n|\r|\n|%RT").Any(IsCountedSpacingLine)))
+                {
+                    result = result.Select(t => RewriteLines(t, line => IsTypicalQuantityLine(line) ? null : line)).ToArray();
+                    if (result.Any(HasTypical))
+                        throw new InvalidOperationException("Custom TYP wording needs review before removing its duplicate quantity.");
+                }
+                else if (!texts.Any(HasTypical)) result[0] = EnsureTypical(result[0]);
                 return result.Select(t => OmitSingleTypical(t, quantity)).ToArray();
             }
 

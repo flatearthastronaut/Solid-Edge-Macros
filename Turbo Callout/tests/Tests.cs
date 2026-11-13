@@ -179,6 +179,35 @@ internal static class Tests
             foreach(int? quantity in new int?[]{null,2,3})
                 Check(Notes.OmitSingleTypical("SIZE\r(%QC)PLC'S EQ. SP. AS SHOWN\rTYP(%QC)",quantity)=="SIZE\r(%QC)PLC'S EQ. SP. AS SHOWN\rTYP(%QC)","Retain linked spacing and TYP lines when count exceeds one or is unresolved");
             const string equalSpacing="(%QC)PLC'S EQ. SP. AS SHOWN";
+            // The pictured plain-hole notes used the saved counted PLC'S line
+            // plus an appended TYP. Exercise independent expected text across
+            // every native field, line ending, and ordinary/special family.
+            foreach(var choice in new[]{new Decision{Family="Simple drill"},new Decision{Family="Dowel"},new Decision{Family="SAE port"}})
+            foreach(string sep in new[]{"\r","\n","\r\n","%RT"})
+            foreach(string spacing in new[]{"(%QC)PLC'S EQ. SP.",equalSpacing,"(3)PLC'S EQ. SP."," (%{%QC})plc’s eq sp as shown "})
+            for(int field=0;field<4;field++)
+            {
+                var input=new[]{"SIZE","FIT","PREFIX","SUFFIX"};
+                input[field]+=sep+spacing;var expected=(string[])input.Clone();
+                input[(field+1)%4]+=sep+"TYP(%QC)";
+                input[(field+2)%4]+=sep+"typ. (3)";
+                var result=Notes.ApplyQuantity(input,choice,3);
+                Check(result.SequenceEqual(expected),"Counted PLC'S line replaces redundant TYP across all four fields without changing saved wording");
+                Check(result.SequenceEqual(Notes.ApplyQuantity(result,choice,3)),"Counted spacing never regains TYP on a rerun");
+            }
+            var drillChoice=new Decision{Family="Simple drill"};
+            foreach(int? quantity in new int?[]{null,1,3})
+            {
+                string result=Notes.ApplyQuantity(new[]{"SIZE\r(%QC)PLC'S EQ. SP.\rTYP(%QC)\rFIT"},drillChoice,quantity)[0];
+                Check(result=="SIZE\r"+(quantity==1?"":"(%QC)PLC'S EQ. SP.\r")+"FIT","Linked plain-hole spacing is retained or omitted at one without duplicate TYP");
+            }
+            Check(Notes.ApplyQuantity(new[]{"SIZE\rPLC'S EQ. SP.\rTYP(%QC)"},drillChoice,3)[0]=="SIZE\rPLC'S EQ. SP.\rTYP(%QC)","Uncounted spacing still retains its TYP quantity");
+            Check(Notes.ApplyQuantity(new[]{"SIZE\rTYP(3)"},drillChoice,3)[0]=="SIZE\rTYP(3)","TYP-only notes keep their quantity");
+            Check(Notes.ApplyQuantity(new[]{"SIZE\r(1)PLC'S EQ. SP.\rTYP(1)"},drillChoice,null)[0]=="SIZE","Literal single-occurrence duplicates omit both whole lines");
+            bool customQuantityRejected=false;
+            try{Notes.ApplyQuantity(new[]{"SIZE\r(%QC)PLC'S EQ. SP.\rTYP(%QC) EACH SIDE"},drillChoice,3);}
+            catch(InvalidOperationException){customQuantityRejected=true;}
+            Check(customQuantityRejected,"Duplicate TYP with additional manufacturing wording needs review");
             foreach(var choice in new[]{new Decision{Category="Threaded hole"},new Decision{Family="SHCS counterbore"}})
             {
                 foreach(string sep in new[]{"\r","\n","\r\n","%RT"})
@@ -213,7 +242,7 @@ internal static class Tests
             foreach(var choice in new[]{new Decision{Family="SAE port",Port=4},new Decision{Family="O-ring face seal"},new Decision{Family="Dowel"},new Decision{Family="Simple drill"}})
             {
                 var input=new[]{"SIZE\r"+equalSpacing,"TYP(2)","",""};
-                Check(Notes.ApplyQuantity(input,choice,2).SequenceEqual(input),"Special families and simple drills keep their existing quantity policy");
+                Check(Notes.ApplyQuantity(input,choice,2).SequenceEqual(new[]{"SIZE\r"+equalSpacing,"","",""}),"Special families and simple drills also omit redundant TYP when a counted spacing line exists");
             }
             foreach(string text in new[]{"%{/ST6.350^6.337}","%{/ST.2500^.2495}","%{/ST+.054^+.050}","SIZE\r%{/ST-.001^-.003}"})
                 Check(Notes.HasFixedStacks(text),"Recognize typed numeric stacks for full text height without changing values");
@@ -372,9 +401,10 @@ internal static class Tests
                 new HoleFacts{Type=1,Diameter=.2,Depth=null}})
             foreach(bool dual in new[]{false,true})
             {
-                var note=Notes.Build(book,simple,dual);Typical(note);
+                var note=Notes.Build(book,simple,dual);
+                if(dual)Typical(note);else Check(!Notes.HasTypical(note.Text),"Inch drill uses its saved counted spacing line without redundant TYP");
                 Check(note.Category=="Simple drilled hole","Ordinary drilled-hole fallback");
-                Check(note.Text==Notes.ApplyWordSpacing(Notes.EnsureTypical(Notes.ApplyPrecision(Notes.FormatFields(LinkedCallouts.ReadSaved(dual?"HC -DRILL M[I]":"HC -DRILL"),dual),Notes.Recognize(book,simple),simple,dual).Replace("%RT","\r"))),"Complete requested saved drill note plus TYP");
+                Check(note.Text==Notes.ApplyWordSpacing(Notes.ApplyPrecision(Notes.FormatFields(LinkedCallouts.ReadSaved(dual?"HC -DRILL M[I]":"HC -DRILL"),dual),Notes.Recognize(book,simple),simple,dual).Replace("%RT","\r")),"Complete requested saved drill note uses only its original quantity line");
                 Check(note.Text.Contains("%HS")&&note.Text.Contains("%ZH")&&note.Text.Contains("%QC"),"Drill size, smart depth and quantity remain linked");
                 Check(note.Text.Contains(dual?"TYP(%QC)":"(%QC)PLC'S EQ. SP."),"Mode-specific drill quantity wording");
                 Check(note.InchPlaces==2&&note.Dual==dual,"Drill precision and unit mode");

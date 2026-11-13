@@ -95,8 +95,10 @@ internal static class SampleTest
                 if(!Property.Equal(Property.Get(style,"ToleranceHeightRatio"),1.0))throw new Exception("Typed stack is smaller than the surrounding text: "+item.Key);
                 if(!Property.Equal(Property.Get(style,"Height"),.125*.0254))throw new Exception("Sample note height is not .125 inch: "+item.Key);
             }
-            if(choice.Category!="Threaded hole"&&choice.Family!="SHCS counterbore")continue;
             string[] text=item.Value.Text;
+            bool countedSpacing=text.Any(t=>System.Text.RegularExpressions.Regex.IsMatch(t??"",@"\((?:\d+|%QC|%\{%QC[^{}]*\})\)\s*PLC['’]S",System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+            if(countedSpacing&&text.Any(Notes.HasTypical))throw new Exception("Note still contains both counted PLC'S and TYP quantities: "+item.Key);
+            if(choice.Category!="Threaded hole"&&choice.Family!="SHCS counterbore")continue;
             if(choice.Category=="Threaded hole"&&text.Any(t=>(t??"").Contains("%HS")))throw new Exception("Thread still includes its tap-drill size: "+item.Key);
             if(text.Any(Notes.HasTypical))throw new Exception("Thread/counterbore still has a TYP line: "+item.Key);
             int count=text.Sum(t=>(t??"").Split('\r').Count(line=>line=="(%QC)PLC'S EQ. SP. AS SHOWN"));
@@ -146,6 +148,28 @@ internal static class SampleTest
                 ((dynamic)note).BalloonText=text;((dynamic)note).BalloonTextSuffix="TYP(%QC)";
             }
         }
+    }
+    static void SeedDuplicateQuantities(object doc,RuleBook rules,bool dual)
+    {
+        // Reproduce the v1.3 plain-hole defect on an isolated sample copy in
+        // either unit mode, even when the user's active leaders are blank.
+        RunReport initial=TurboCallout.Automation.FillDocument(doc,rules,dual,null,false);
+        if(initial.Errors!=0)throw new Exception("Cannot prepare duplicate-quantity fixture.");
+        object sheets=Keep(((dynamic)doc).Sheets);int seeded=0;
+        using(var reader=new NativeHole(doc))foreach(var item in Capture(doc))
+        {
+            if(!item.Value.Macro||!item.Value.Attached)continue;
+            string[] key=item.Key.Split('/');object sheet=Keep(((dynamic)sheets).Item(Int32.Parse(key[0])));
+            object notes=Keep(((dynamic)sheet).Balloons),note=Keep(((dynamic)notes).Item(Int32.Parse(key[1])));
+            int? quantity;Decision choice=Notes.Recognize(rules,reader.Read(note,out quantity));
+            if(choice.Family!="Simple drill"||!quantity.HasValue||quantity.Value<=1)continue;
+            string text=(string)((dynamic)note).BalloonText;
+            if(!text.Contains("PLC'S"))text=text.Replace("TYP(%QC)","(%QC)PLC'S EQ. SP.");
+            ((dynamic)note).BalloonText=text+"\rTYP(%QC)";
+            ((dynamic)note).BalloonTextSuffix="TYP(%QC)";seeded++;
+        }
+        if(seeded==0)throw new Exception("This fixture requires repeated simple drilled holes.");
+        Console.WriteLine("Seeded duplicate PLC'S/TYP quantities on "+seeded+" existing plain-hole notes.");
     }
     static Dictionary<string,string> CaptureDimensions(object doc)
     {
@@ -273,6 +297,7 @@ internal static class SampleTest
                 ((dynamic)source).SaveCopyAs(path);copy=Keep(((dynamic)docs).Open(path));
                 if(args.Contains("--blank"))BlankMacroNotes(copy);
                 if(args.Contains("--mixed-rules"))SeedMixedRules(copy,rules,dual);
+                if(args.Contains("--duplicate-quantities"))SeedDuplicateQuantities(copy,rules,dual);
                 var before=Capture(copy);var beforeCircles=CaptureBoltCircles(copy);var beforeMarks=CaptureProjectionMarks(copy);
                 PrepareExpected(copy,before,rules);
                 RunReport report=TurboCallout.Automation.FillDocument(copy,rules,dual,Console.WriteLine,includeBoltCircles);Console.WriteLine(report);

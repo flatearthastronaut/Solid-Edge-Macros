@@ -118,7 +118,7 @@ namespace TurboCallout
         {
             runner=runAction;reportViewer=showReport;
             AutoScaleMode=AutoScaleMode.None;ClientSize=new Size(624,552);BackColor=Color.FromArgb(249,251,253);
-            Font=new Font("Segoe UI",10);Text="Turbo Callout v1.3";
+            Font=new Font("Segoe UI",10);Text="Turbo Callout v1.4";
             FormBorderStyle=FormBorderStyle.FixedDialog;MaximizeBox=false;MinimizeBox=false;StartPosition=FormStartPosition.CenterScreen;
             using(var s=typeof(MainForm).Assembly.GetManifestResourceStream("TurboCallout.Icon"))Icon=new Icon(s);
             using(var s=typeof(MainForm).Assembly.GetManifestResourceStream("TurboCallout.Image"))using(var loaded=Image.FromStream(s))logo=new Bitmap(loaded);
