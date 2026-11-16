@@ -95,7 +95,7 @@
       "name": "Add Sketch",
       "disposition": "standalone-macro",
       "implementation": "../Add Sketch",
-      "status": "v1.0-built; 13-offline-checks-passed; live-SE-created-two-native-sketches-in-isolated-assembly",
+      "status": "v1.1-built; 22-offline-checks-passed; affected-assembly-read-only-scan-loaded-four-named-planes-skipping-27-unreadable-or-unnamed-entries; live-SE-created-two-native-sketches-in-isolated-assembly",
       "legacyTypes": ["SEAddIn.AddSketch"],
       "migrationChecks": [
         "Verify reference-plane selection and requested sketch count against the 2026 API.",

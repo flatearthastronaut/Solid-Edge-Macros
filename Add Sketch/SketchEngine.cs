@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using Hammill.Automation;
 
 namespace Hammill.AddSketch
@@ -10,17 +11,37 @@ namespace Hammill.AddSketch
         public int Index; public string Name;
         public override string ToString(){return Name;}
     }
+    internal sealed class PlaneScan
+    {
+        public readonly List<PlaneChoice> Choices=new List<PlaneChoice>();
+        public readonly List<string> Notices=new List<string>();
+    }
     internal static class SketchEngine
     {
-        public static List<PlaneChoice> Planes(object assembly)
+        public static PlaneScan Planes(object assembly)
         {
-            var result=new List<PlaneChoice>();
+            var result=new PlaneScan();
             using(var scope=new ComScope())
             {
                 dynamic planes=scope.Own(((dynamic)assembly).AsmRefPlanes);
                 int count=(int)planes.Count;
                 for(int i=1;i<=count;i++)using(var item=new ComScope())
-                {dynamic plane=item.Own(planes.Item(i));result.Add(new PlaneChoice{Index=i,Name=(string)plane.Name});}
+                {
+                    // Real assemblies can retain collection slots whose Name
+                    // getter is empty or returns E_FAIL. One such slot must not
+                    // discard usable planes read earlier or later in the list.
+                    // Keep the native index, not the filtered dropdown position.
+                    try
+                    {
+                        dynamic plane=item.Own(planes.Item(i));
+                        if(plane==null){result.Notices.Add("Plane "+i+": no reference-plane object.");continue;}
+                        string name=(string)plane.Name;
+                        if(String.IsNullOrWhiteSpace(name)){result.Notices.Add("Plane "+i+": no readable name.");continue;}
+                        result.Choices.Add(new PlaneChoice{Index=i,Name=name});
+                    }
+                    catch(COMException error){result.Notices.Add("Plane "+i+": unable to read (0x"+error.ErrorCode.ToString("X8")+").");}
+                    catch(InvalidComObjectException){result.Notices.Add("Plane "+i+": reference is no longer available.");}
+                }
             }
             return result;
         }
@@ -32,8 +53,13 @@ namespace Hammill.AddSketch
             using(var scope=new ComScope())
             {
                 dynamic planes=scope.Own(((dynamic)assembly).AsmRefPlanes);
-                dynamic plane=scope.Own(planes.Item(choice.Index));
-                if((string)plane.Name != choice.Name)throw new InvalidOperationException("Reference planes changed. Reload the list before adding sketches.");
+                dynamic plane;
+                try
+                {
+                    plane=scope.Own(planes.Item(choice.Index));
+                    if(plane==null || (string)plane.Name != choice.Name)throw new InvalidOperationException("Reference planes changed. Reload the list before adding sketches.");
+                }
+                catch(COMException error){throw new InvalidOperationException("The selected reference plane is no longer readable. Reload planes and select an available plane.",error);}
                 dynamic layouts=scope.Own(((dynamic)assembly).Layouts);
                 try
                 {

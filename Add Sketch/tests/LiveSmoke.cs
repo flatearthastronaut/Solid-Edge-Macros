@@ -24,7 +24,7 @@ internal static class LiveSmoke
                 string work=Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"..",".work","live-"+Guid.NewGuid().ToString("N")));
                 Directory.CreateDirectory(work);
                 dynamic document=fixture;document.SaveAs(Path.Combine(work,"Add Sketch verification.asm"));
-                var planes=SketchEngine.Planes(fixture);
+                var planes=SketchEngine.Planes(fixture).Choices;
                 if(planes.Count==0)throw new Exception("Test assembly has no reference planes.");
                 int count=SketchEngine.Add((object)app,fixture,planes[0],2,i=>Console.WriteLine("Created native sketch "+i));
                 document.Save();Console.WriteLine("PASS live Solid Edge created "+count+" sketches. Fixture: "+work);return 0;

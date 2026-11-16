@@ -1,4 +1,4 @@
-param([Parameter(Mandatory=$true)][string]$Project,[Parameter(Mandatory=$true)][string]$Name,[string]$Kind='sketch')
+param([Parameter(Mandatory=$true)][string]$Project,[Parameter(Mandatory=$true)][string]$Name,[string]$Kind='sketch',[ValidatePattern('^\d+\.\d+(\.\d+){0,2}$')][string]$Version='1.0')
 $ErrorActionPreference='Stop'
 $projectPath=[IO.Path]::GetFullPath($Project)
 $output=Join-Path $projectPath 'Compiled Executables'
@@ -8,7 +8,7 @@ $assets=Join-Path $projectPath 'Assets'
 & (Join-Path $PSScriptRoot 'Build-Icon.ps1') -Folder $assets -Name $Name -Kind $Kind
 $compiler=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 $icon=Join-Path $assets ($Name+'.ico')
-$exe=Join-Path $output ($Name+' v1.0.exe')
+$exe=Join-Path $output ($Name+' v'+$Version+'.exe')
 $arguments=@('/nologo','/target:winexe','/platform:x64','/optimize+',('/win32icon:'+$icon),('/resource:'+$icon+',Macro.Icon'),'/r:Microsoft.CSharp.dll','/r:System.Drawing.dll','/r:System.Windows.Forms.dll',('/out:'+$exe))
 $arguments+=@(Get-ChildItem -LiteralPath $projectPath -Filter '*.cs' | ForEach-Object FullName)
 $arguments+=@(Join-Path $PSScriptRoot 'ComSupport.cs'; Join-Path $PSScriptRoot 'MacroHost.cs')
@@ -20,5 +20,5 @@ foreach($file in @('README.md',('Assets\'+$Name+'.ico'),('Assets\'+$Name+'.png')
     Copy-Item -LiteralPath $source -Destination $output -Force
     $files+=Join-Path $output ([IO.Path]::GetFileName($source))
 }
-Compress-Archive -LiteralPath $files -DestinationPath (Join-Path $output ($Name+' v1.0.zip')) -Force
-Write-Output ('Built '+$Name+' v1.0.')
+Compress-Archive -LiteralPath $files -DestinationPath (Join-Path $output ($Name+' v'+$Version+'.zip')) -Force
+Write-Output ('Built '+$Name+' v'+$Version+'.')
