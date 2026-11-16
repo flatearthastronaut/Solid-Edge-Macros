@@ -6,7 +6,7 @@ $compiler=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 $testFolder=Join-Path $PSScriptRoot 'tests'
 $macro=Join-Path $PSScriptRoot 'Compiled Executables\SketchToModels.exe'
 Copy-Item -LiteralPath $macro -Destination (Join-Path $testFolder 'SketchToModels.exe') -Force
-$names=@('ORingWorkflowTests','ComSupportTests','PartColorTests','SaveHandoffTests','ManualValidationTests','AxisSetupTests','SurfaceProjectionTests','PlacementTests','BushingAxisTests','ComboExTest','ChainComboTest')
+$names=@('AutoSketchSelectionTests','ORingWorkflowTests','ComSupportTests','PartColorTests','SaveHandoffTests','ManualValidationTests','AxisSetupTests','SurfaceProjectionTests','PlacementTests','BushingAxisTests','ComboExTest','ChainComboTest')
 foreach($name in $names) {
     $source=Join-Path $testFolder ($name+'.cs')
     $executable=Join-Path $testFolder ($name+'.exe')
@@ -15,4 +15,4 @@ foreach($name in $names) {
     & $executable
     if($LASTEXITCODE -ne 0){throw "Test failed: $name"}
 }
-Write-Output 'All eleven regression programs passed. Live Solid Edge modeling was not exercised.'
+Write-Output 'All twelve regression programs passed. Live Solid Edge modeling was not exercised.'

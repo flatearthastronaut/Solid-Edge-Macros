@@ -1,6 +1,6 @@
 /* EXPLANATORY NOTE
-SKETCH TO MODELS -- DOCUMENTED v2.32 SOURCE
-Updated October 12, 2026. Adds template-based O-ring workflow; existing workflows retained.
+SKETCH TO MODELS -- DOCUMENTED v2.33 SOURCE
+Updated November 16, 2026. Adds optional automatic source-sketch preselection.
 SketchToModels.cs and SketchToModels-Commented.cs contain the same documented source.
 
 READING ORDER
@@ -29,12 +29,17 @@ O-ring Template.par -> default in-place placement -> associative sketch copy
 -> move existing Protrusion 6 immediately after the copied sketch -> color/save.
 No new protrusion is created. ORingWorkflow.cs owns template and reorder rules.
 
+Optional automatic selection preselects the freshly copied Sketch before the
+native Project to Sketch command. It is off by default and does not synthesize
+geometry or claim a successful projection from SelectSet membership. Both
+standard and bushing prompts retain manual fallback and final validation.
+
 This is assisted modeling, not an unattended geometry generator. The user still
-selects source geometry and finishes features. A feature's internal ProfileSet
+reviews/accepts source geometry and finishes features. A feature's internal ProfileSet
 is expected; a second standalone Sketch is not.
 
 BUILDING
-Build.cmd compiles SketchToModels.cs, ComSupport.cs and ORingWorkflow.cs together.
+Build.cmd compiles SketchToModels.cs, ComSupport.cs, ORingWorkflow.cs and AutoSketchSelection.cs together.
 To compile the alternate copy, substitute its input filename and a
 different output EXE name. Do not compile both source copies together: they define
 the same classes. Earlier versioned executables and ZIP files remain available.
@@ -64,6 +69,7 @@ because closing/reopening a CAD document invalidates old automation objects.
         public string Name, FileName;
         public bool BushingStyle;
         public bool ORingStyle;
+        public bool AutoSelectSketch;
     }
 
 /* EXPLANATORY NOTE
@@ -238,13 +244,15 @@ it need not be the assembly origin's global Z direction.
         }
 /* EXPLANATORY NOTE
 Standard-path entry to the assisted solid revolve. The template must have no
-existing model. firstNewSketch is a retained parameter, unused here; the current
-standalone sketch count is read directly from the part for validation.
+existing model. firstNewSketch identifies the newly copied source for optional
+preselection; the current standalone count is retained for validation.
 */
         public static void Revolve(dynamic part, int firstNewSketch)
+        { Revolve(part,firstNewSketch,false); }
+        public static void Revolve(dynamic part, int firstNewSketch, bool autoSelect)
         {
             if ((int)part.Models.Count != 0) throw new InvalidOperationException("The template already contains a model.");
-            using(var prompt=new ProjectionPrompt((object)part,FindRightPlane(part),(int)part.Sketches.Count))
+            using(var prompt=new ProjectionPrompt((object)part,FindRightPlane(part),(int)part.Sketches.Count,false,firstNewSketch,autoSelect))
                 if(prompt.ShowDialog()!=DialogResult.OK)
                     throw new OperationCanceledException("Revolve canceled. The linked part is preserved; the batch has stopped.");
         }
@@ -432,6 +440,9 @@ saved when a later part fails. Do not retry blindly over existing filenames.
                 bool linked = false;
                 part.HasInterpartLinks(ref linked);
                 if (!linked || (int)part.Sketches.Count <= initialSketchCount) throw new InvalidOperationException("Solid Edge did not create a new linked sketch. CopySketch status: " + Convert.ToString(status));
+                // Preselection is safe only when CopySketch appended exactly
+                // one source. An ambiguous result uses the manual fallback.
+                int sourceSketchIndex=(int)part.Sketches.Count==initialSketchCount+1 ? initialSketchCount+1 : 0;
                 // Persist the working linked copy even if the solid cannot be generated.
                 stage = "saving the linked sketch part";
                 part.Save();
@@ -450,7 +461,8 @@ saved when a later part fails. Do not retry blindly over existing filenames.
                 }
                 stage = item.ORingStyle ? "moving Protrusion 6 after the copied sketch" : "creating the revolved protrusion";
                 if (item.ORingStyle) ORingWorkflow.Finish(part, initialSketchCount);
-                else if(item.BushingStyle) BushingWorkflow.Model(part); else Revolve(part, initialSketchCount + 1);
+                else if(item.BushingStyle) BushingWorkflow.Model(part,sourceSketchIndex,item.AutoSelectSketch);
+                else Revolve(part, sourceSketchIndex,item.AutoSelectSketch);
                 linked = false;
                 part.HasInterpartLinks(ref linked);
                 if (!linked) throw new InvalidOperationException("The finished part did not retain the assembly sketch link.");
@@ -580,12 +592,14 @@ returns to Engine.Create for coloring/saving. Cancel stops the batch and keeps
 the partial part, rather than silently continuing to another selected row.
 */
         public static void Model(dynamic part)
+        { Model(part,(int)part.Sketches.Count,false); }
+        public static void Model(dynamic part, int sourceIndex, bool autoSelect)
         {
             if((int)part.Models.Count!=0)throw new InvalidOperationException("Bushing Style requires a template without a solid.");
             int sketchCount=(int)part.Sketches.Count;
-            using(var surface=new BushingSurfacePrompt((object)part))
+            using(var surface=new BushingSurfacePrompt((object)part,sourceIndex,autoSelect))
                 if(surface.ShowDialog()!=DialogResult.OK)throw new OperationCanceledException("Bushing surface canceled; part preserved.");
-            using(var solid=new ProjectionPrompt((object)part,Engine.FindRightPlane(part),sketchCount,true))
+            using(var solid=new ProjectionPrompt((object)part,Engine.FindRightPlane(part),sketchCount,true,sourceIndex,autoSelect))
                 if(solid.ShowDialog()!=DialogResult.OK)throw new OperationCanceledException("Bushing protrusion canceled; part preserved.");
         }
     }
@@ -700,16 +714,37 @@ TopMost keeps instructions visible; timers allow normal form interaction.
         readonly ProfileAxisSetup surfaceAxis=new ProfileAxisSetup();
         int projectionAttempts;
         public BushingSurfacePrompt(object document)
+            : this(document,0,false) {}
+        readonly AutoSketchSelection autoSelection;
+        readonly int sourceSketchCount;
+        public BushingSurfacePrompt(object document,int sourceIndex,bool autoSelect)
         {
+            autoSelection=new AutoSketchSelection(sourceIndex,autoSelect);
             part=document;path=(string)part.FullName;baseline=(int)part.Constructions.RevolvedSurfaces.Count;
+            sourceSketchCount=autoSelect?(int)part.Sketches.Count:0;
             Text="Bushing Style - revolved surface";ClientSize=new Size(585,395);TopMost=true;StartPosition=FormStartPosition.CenterScreen;
             Controls.Add(new Label {Left=16,Top=16,Width=553,Height=200,Text=
                 "1  Create the revolved surface\nThe macro starts Revolved Surface and tries to select Feature's Plane in Create From. If needed, select Feature's Plane yourself.\n\n"+
-                "2  Select the copied sketch\nClick the ORIGINAL copied sketch to define the feature plane. Enter the feature sketch. The selected coordinate system's Z centerline is set automatically, then Project to Sketch / Wireframe Chain starts. Pick the outline and accept.\n\n"+
+                (autoSelect ? "2  Select the plane, then check the outline\nClick the ORIGINAL copied sketch for Feature's Plane and enter the sketch. Z is set automatically. The macro tries to preselect the source for Project to Sketch. Check the preview and accept, or click Select manually.\n\n" :
+                "2  Select the copied sketch\nClick the ORIGINAL copied sketch to define the feature plane. Enter the feature sketch. The selected coordinate system's Z centerline is set automatically, then Project to Sketch / Wireframe Chain starts. Pick the outline and accept.\n\n")+
                 "3  Close Sketch and Finish\nUse a full 360-degree revolution and click Finish, then click Continue after Finish below. The macro starts Revolved Protrusion on Right (yz)."});
             var next=new Button {Left=16,Top=224,Width=275,Height=30,Text="Continue after Finish",Font=new Font(Font,FontStyle.Bold),ForeColor=Color.ForestGreen};
             var cancel=new Button {Left=310,Top=224,Width=259,Height=30,Text="Cancel batch",DialogResult=DialogResult.Cancel};
             var retry=new Button {Left=16,Top=262,Width=553,Height=28,Text="Set Create From to Feature's Plane"};
+            if(autoSelect) {
+                ClientSize=new Size(585,440);
+                var manual=new Button {Left=16,Top=400,Width=553,Height=28,Text="Select manually"};
+                Controls.Add(manual);
+                manual.Click+=delegate {
+                    try {
+                        if(projectionJob!=null && !projectionJob.IsCompleted)throw new InvalidOperationException("Please wait for Wireframe Chain selection to finish, then try again.");
+                        if(part.ActiveSketch==null || (int)part.ActiveSketch.Parent.Type!=-1521484909)throw new InvalidOperationException("Enter the surface's feature sketch first.");
+                        autoSelection.UseManual(part);projectionStarted=false;projectionDone=false;projectionAttempts=0;projectionJob=null;
+                        status.Text="Manual mode: pick the outline with Wireframe Chain and accept.";
+                        timer.Start();
+                    }catch(Exception e){status.Text=e.Message;}
+                };
+            }
             status=new Label {Left=16,Top=302,Width=553,Height=78};Controls.AddRange(new Control[]{next,cancel,retry,status});CancelButton=cancel;
             retry.Click+=delegate {
                 try {
@@ -757,7 +792,7 @@ thread. The worker handles native controls. Do not recreate axes on every tick.
                 if(projectionJob!=null) {
                     if(!projectionJob.IsCompleted)return;
                     bool selected=projectionJob.Result;projectionJob=null;
-                    if(selected){projectionDone=true;status.Text="Wireframe Chain selected. Pick the original outline and accept. The Z centerline is already set. Close Sketch and Finish.";return;}
+                    if(selected){projectionDone=true;status.Text=String.IsNullOrEmpty(autoSelection.Message)?"Wireframe Chain selected. Pick the original outline and accept. The Z centerline is already set. Close Sketch and Finish.":autoSelection.Message;return;}
                 }
                 if(part.ActiveSketch==null || (int)part.Application.GetActiveCommand()!=50011)return;
                 if(++projectionAttempts>8){projectionDone=true;status.Text="Project to Sketch is active. Select Wireframe Chain, pick the outline, and accept. The Z centerline is already set.";return;}
@@ -778,6 +813,7 @@ incompatible plane fails without launching the next command.
             // Never start projection while the original linked Sketch is being edited.
             if((int)active.Type!=1584866912 || (int)active.Parent.Type!=-1521484909)return false;
             surfaceAxis.Ensure((object)active);
+            if(autoSelection.Enabled)autoSelection.Prepare(part,sourceSketchCount);
             part.Application.StartCommand(50011);
             projectionStarted=true;
             return true;
@@ -913,9 +949,13 @@ making the button appear to do nothing.
         bool manualContinueClicked;
         readonly ProfileAxisSetup axisSetup=new ProfileAxisSetup();
         readonly bool userAxis;
+        readonly AutoSketchSelection autoSelection;
         public ProjectionPrompt(object document,object plane,int count) : this(document,plane,count,false) {}
         public ProjectionPrompt(object document,object plane,int count, bool manualAxis)
+            : this(document,plane,count,manualAxis,0,false) {}
+        public ProjectionPrompt(object document,object plane,int count, bool manualAxis,int sourceIndex,bool autoSelect)
         {
+            autoSelection=new AutoSketchSelection(sourceIndex,autoSelect);
             userAxis=manualAxis;
             part=document;right=plane;initialCount=count;initialSets=(int)part.ProfileSets.Count;path=(string)part.FullName;
             Text="Revolve original sketch - "+Path.GetFileName(path);
@@ -929,6 +969,10 @@ making the button appear to do nothing.
                 "Close the profile, set 360 degrees, then click Finish in Solid Edge. Z is predefined. If Solid Edge still asks for an axis, select the centerline the macro added.",
                 "Once the finished solid appears, click Continue below. The macro saves this part and continues with the next selected sketch."};
             if(userAxis) { words[1]="Project to Sketch starts automatically. Pick the outline you want to revolve and accept the projection. Sketch or select your centerline."; words[2]="Close Sketch, select your revolve axis, set 360 degrees, and click Finish. Click Continue here after Finish to save and proceed."; words[3]="After Finish, click Continue to save this part, close this window, and proceed to the next selected part."; }
+            if(autoSelect) {
+                titles[1]="2  Check the automatically selected sketch";
+                words[1]="The macro tries to preselect the copied sketch for Project to Sketch. Check the outline preview and accept. If it is not selected, click Select manually and pick the original outline.";
+            }
             for(int i=0;i<4;i++)
             {
                 if(i==0) { Controls.Add(new Label {Left=16,Top=73,Width=538,Height=35,Text="You are sketching on the Right plate",Font=new Font(Font,FontStyle.Bold)}); continue; }
@@ -938,12 +982,12 @@ making the button appear to do nothing.
                 Controls.Add(new Label {Left=124,Top=58+i*105,Width=430,Height=23,Text=titles[i],Font=new Font(Font,FontStyle.Bold)});
                 Controls.Add(new Label {Left=124,Top=83+i*105,Width=426,Height=72,Text=words[i]});
             }
-            var project=new Button {Left=16,Top=487,Width=180,Height=28,Text="Retry Project to Sketch"};
+            var project=new Button {Left=16,Top=487,Width=180,Height=28,Text=autoSelect?"Select manually":"Retry Project to Sketch"};
             var next=new Button {Left=206,Top=487,Width=170,Height=28,Text="Continue",Font=new Font(Font,FontStyle.Bold),ForeColor=Color.ForestGreen};
             var cancel=new Button {Left=386,Top=487,Width=168,Height=28,Text="Cancel batch",DialogResult=DialogResult.Cancel};
             Controls.AddRange(new Control[]{project,next,cancel});CancelButton=cancel;
             message=new Label {Left=16,Top=525,Width=538,Height=58};Controls.Add(message);
-            project.Click+=delegate {Try(delegate {RequireSelectionIdle();StartProjection();timer.Start();});};
+            project.Click+=delegate {Try(delegate {RequireSelectionIdle();CheckDocument();if(!InFeatureProfile())throw new InvalidOperationException("Enter the revolve's feature sketch first.");if(autoSelect)autoSelection.UseManual(part);StartProjection();timer.Start();});};
             var advanceTimer=new Timer {Interval=250};
             int advanceTicks=0;
             advanceTimer.Tick+=delegate {
@@ -1003,7 +1047,7 @@ making the button appear to do nothing.
                             return;
                         }
                         if(selected)
-                        {message.Text="Project to Sketch: Wireframe Chain selected. Click the original outline and accept.";timer.Stop();}
+                        {message.Text=String.IsNullOrEmpty(autoSelection.Message)?"Project to Sketch: Wireframe Chain selected. Click the original outline and accept.":autoSelection.Message;timer.Stop();}
                         else if(++attempts>=12){message.Text="Automatic selection did not complete. Close any Project Options dialog and click Retry, or select Project to Sketch / Wireframe Chain in Solid Edge.";timer.Stop();}
                     }
                 }catch(Exception e){message.Text=e.Message;timer.Stop();}
@@ -1053,6 +1097,7 @@ another standalone sketch instead of the feature's internal profile.
             if(!InFeatureProfile())throw new InvalidOperationException("Enter the revolve's Draw Profile step on Right (yz) first. Do not edit the original linked sketch.");
             message.Text=userAxis?"Starting projection; you will choose the revolve axis.":"Defining the Z-axis centerline in the revolve profile...";message.Refresh();Log();
             if(!userAxis) axisSetup.Ensure((object)part.ActiveSketch);
+            autoSelection.Prepare(part,initialCount);
             part.Application.StartCommand(50011);started=true;attempts=0;
             message.Text=userAxis?"Starting Project to Sketch and selecting Wireframe Chain...":"Z-axis centerline defined. Starting Project to Sketch and selecting Wireframe Chain...";
         }
@@ -1164,13 +1209,16 @@ Disable this form during a batch to prevent competing processing requests.
         bool comReferencesReleased;
         readonly DataGridView grid = new DataGridView();
         readonly TextBox template = new TextBox(), oRingTemplate = new TextBox();
+        // Opt in for each session. Do not silently change another operator's
+        // established manual workflow via a persisted machine-wide preference.
+        readonly CheckBox autoSelectSketch = new CheckBox { Text="Try automatic sketch selection for revolves", AutoSize=true, Checked=false };
         readonly Label assemblyLabel = new Label(), status = new Label();
         readonly Button process = new Button(), refresh = new Button();
         dynamic app, assembly;
         string assemblyPath;
         public MainWindow()
         {
-            Text = "Sketch to Models v2.32 | Solid Edge 2026";
+            Text = "Sketch to Models v2.33 | Solid Edge 2026";
             Size = new Size(940, 650); MinimumSize = new Size(840, 580);
             StartPosition = FormStartPosition.CenterScreen;
             Font = new Font("Segoe UI", 10);
@@ -1227,6 +1275,7 @@ Disable this form during a batch to prevent competing processing requests.
                 actions.Controls.Add(button);
             }
             refresh.Text = "Refresh"; refresh.AutoSize = true; refresh.Click += delegate { LoadAssembly(); }; actions.Controls.Add(refresh);
+            actions.Controls.Add(autoSelectSketch);
             layout.Controls.Add(actions);
             layout.Controls.Add(new Label { Text = "Select = standard. Bushing Style = surface then solid. O-ring = template with Protrusion 6.\nEither alternate option selects that row and overrides Select.", Dock = DockStyle.Fill });
             var footer = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2 };
@@ -1288,6 +1337,7 @@ including both saves. An exception stops the batch; later rows do not run.
                     var item = Engine.ResolveSketch(current, (SketchItem)row.Tag);
                     item.BushingStyle=Convert.ToBoolean(row.Cells["Bushing"].Value);
                     item.ORingStyle=Convert.ToBoolean(row.Cells["ORing"].Value);
+                    item.AutoSelectSketch=autoSelectSketch.Checked;
                     status.Text = "Creating " + item.FileName + "..."; status.Refresh();
                     Engine.Create(app, assembly, item, ORingWorkflow.TemplateFor(item, template.Text.Trim(), oRingTemplate.Text));
                     item.Source=null;
@@ -1303,7 +1353,7 @@ including both saves. An exception stops the batch; later rows do not run.
             catch (Exception e)
             {
                 // Preflight errors previously bypassed the detailed error log entirely.
-                try { File.AppendAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SketchToModels-error.txt"), "\r\n" + DateTime.Now.ToString("s") + " v2.32 ProcessSelection\r\n" + e.ToString() + "\r\n"); } catch { }
+                try { File.AppendAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SketchToModels-error.txt"), "\r\n" + DateTime.Now.ToString("s") + " v2.33 ProcessSelection\r\n" + e.ToString() + "\r\n"); } catch { }
                 status.Text = "Stopped: " + e.Message;
                 MessageBox.Show(this, e.Message + "\n\nPreviously completed parts remain saved. Existing filenames are blocked on retry.", "Processing stopped", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }

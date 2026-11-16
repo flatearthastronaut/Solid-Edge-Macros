@@ -1,12 +1,22 @@
-# Sketch to Models v2.32 — O-ring workflow
+# Sketch to Models v2.33 — optional automatic sketch selection
 
-Adds an O-ring checkbox column to the working v2.31 macro. Standard and Bushing Style workflows, color rules, and the end-of-batch COM cleanup are retained.
+Adds an opt-in source-sketch preselection trial to the working v2.32 macro. Standard, Bushing Style and O-ring workflows, color rules, the embedded icon, and the end-of-batch COM cleanup are retained. The maintained source folder is still named SketchToModels-v2.32; older versioned executables remain available.
 
 ## Run
 
-Close older macro instances. With a saved assembly active in Solid Edge 2026, run `Compiled Executables/SketchToModels-v2.32.exe`. Update the ribbon button to this executable if it points at an earlier version. Its matching PNG is included.
+Close older macro instances. With a saved assembly active in Solid Edge 2026, run `Compiled Executables/SketchToModels-v2.33.exe`. Update the ribbon button to this executable if it points at an earlier version. Its matching PNG is included.
 
 The assembly filename must contain exactly one isolated five-digit drawing number. Output remains `<sketch name> <number>.par` beside the assembly. Existing files are blocked, never overwritten.
+
+## Optional automatic selection (trial)
+
+The main window has **Try automatic sketch selection for revolves**, unchecked at each launch. Leave it off for the established manual Project to Sketch / Wireframe Chain workflow. When enabled, the macro preselects the exact linked sketch just copied into the part before starting Project to Sketch. Template sketches are not selected. O-ring parts ignore this option.
+
+For a standard revolve, enter its Right (yz) profile as before. Review the automatically selected outline, accept the projection, Close Sketch, Finish the 360-degree feature, and Continue. If no outline preview appears, or you want only part of the sketch, click **Select manually** and pick the original outline using Wireframe Chain. Accepting a projection and finishing the revolve remain user actions.
+
+Bushing Style tries the same preselection in both the surface and solid feature sketches. You still choose the copied sketch for the surface's Feature's Plane step. Its Z axis stays automatic; the solid revolve axis remains user-selected.
+
+This is an experimental preselection path, not a proven unattended projection. SelectSet.Add is issued before the native Project to Sketch command; the macro does not treat a selection highlight as proof that the command consumed it, does not generate offset geometry, and does not weaken the completed-feature checks. Each prompt attempts selection only once. Missing/ambiguous source identification or rejected selection falls back to manual mode. Native command consumption and sketch associativity still require a live Solid Edge test.
 
 ## O-ring
 
@@ -28,9 +38,9 @@ Only templates used by selected rows are required. An O-ring-only batch can use 
 
 ## Source, build and validation
 
-C#/.NET Framework, x64 Windows Forms. Run `Build.cmd` on Windows with Solid Edge 2026 installed. It compiles `SketchToModels.cs`, `ComSupport.cs`, and `ORingWorkflow.cs`; runnable files go in **Compiled Executables**. `SketchToModels-Commented.cs` mirrors the documented main source; do not compile both together.
+C#/.NET Framework, x64 Windows Forms. Run `Build.cmd` on Windows with Solid Edge 2026 installed. It compiles `SketchToModels.cs`, `ComSupport.cs`, `ORingWorkflow.cs`, and `AutoSketchSelection.cs`; runnable files go in **Compiled Executables**. `SketchToModels-Commented.cs` mirrors the documented main source; do not compile both together.
 
-Run `Test.ps1` for eleven regression programs. Tests cover template selection/preflight, selection exclusivity, the O-ring create/copy/reopen/reorder/save path, existing template sketches, missing/duplicate features, failed/no-op reorders, feature errors, COM/thread guards, existing modeling workflows, colors, and native dropdown selection. All eleven passed for this release. Tests use simulated CAD objects and real Windows controls; they do not validate live Solid Edge geometry or the user's actual template. Test one O-ring part before processing a batch.
+Run `Test.ps1` for twelve regression programs. Tests additionally check the default-off option, exact source preselection before the command, single-attempt behavior, rejected selection, manual handoff and both prompt paths. Tests cover template selection/preflight, selection exclusivity, the O-ring create/copy/reopen/reorder/save path, existing template sketches, missing/duplicate features, failed/no-op reorders, feature errors, COM/thread guards, existing modeling workflows, colors, and native dropdown selection. All twelve passed for this release. Tests use simulated CAD objects and real Windows controls; they do not validate live Solid Edge geometry or the user's actual template. Test one O-ring part before processing a batch.
 
 The implementation references the repository SDK Automation sample and its interop signatures. Feature ordering uses Siemens' [Reorder(target, InsertBefore)](https://support.industrysoftware.automation.siemens.com/trainings/se/106/api/SolidEdgePart~ExtrudedProtrusion~Reorder.html), with false to insert after, and reads back [DesignEdgebarFeatures](https://support.industrysoftware.automation.siemens.com/trainings/se/107/api/SolidEdgePart~PartDocument~DesignEdgebarFeatures.html). Temporary wrappers remain scoped to the operation and are handled by the existing batch cleanup; shared COM aliases are not force-released.
 
