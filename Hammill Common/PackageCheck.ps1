@@ -24,7 +24,7 @@ $xml=New-Object Xml.XmlDocument;$xml.LoadXml('<settings><local /></settings>');$
 $settings=Join-Path $work 'settings.xml';$xml.Save($settings)
 $addinFolder=[string](Join-Path $root 'Add-ins\Hammill-Macro-Launcher\Compiled Executables')
 $builds=$manager.GetType('CoopManager.BuildCatalog').GetMethod('Scan').Invoke($null,[object[]]@($addinFolder))
-if($builds.Count -ne 1 -or $builds[0].Path -notlike '*v0.6.zip' -or $detect.Invoke($null,[object[]]@($builds[0])) -ne 'Solid Edge Add-ins'){throw 'Latest combined add-in is not one unambiguous add-in package.'}
+if($builds.Count -ne 1 -or $builds[0].Path -notlike '*v0.7.zip' -or $detect.Invoke($null,[object[]]@($builds[0])) -ne 'Solid Edge Add-ins'){throw 'Latest combined add-in is not one unambiguous add-in package.'}
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zip=[IO.Compression.ZipFile]::OpenRead($builds[0].Path)
 try {
@@ -40,7 +40,7 @@ try {
     }
     finally {$reader.Dispose()}
 } finally {$zip.Dispose()}
-$checker=Join-Path $addinFolder 'Hammill-Macro-Launcher-v0.6\Hammill Macro Catalog Check.exe'
+$checker=Join-Path $addinFolder 'Hammill-Macro-Launcher-v0.7\Hammill Macro Catalog Check.exe'
 $output=& $checker --settings $settings --documents $work
 if($LASTEXITCODE -ne 0 -or @($output|Where-Object{$_ -match ' \| part,assembly,draft,sheetmetal \| '}).Count -ne 4){throw ('Launcher discovery failed: '+($output -join "`n"))}
 if($catalog.GetMethod('Scan').Invoke($null,[object[]]@($source,$true)).Count -ne 4){throw 'Loose shared style file must not appear as an installable macro package.'}

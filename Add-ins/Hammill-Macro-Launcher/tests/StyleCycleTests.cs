@@ -65,7 +65,9 @@ public sealed class CycleTestDimension
     public string SecondaryUpperTolerance { get; set; }
     public string SecondaryLowerTolerance { get; set; }
     public string SecondaryToleranceSymbol { get; set; }
-    public int DisplayType { get; set; }
+    private int displayType;
+    public int IgnoredDisplay = -1;
+    public int DisplayType { get { return displayType; } set { if (value != IgnoredDisplay) displayType = value; } }
     public double TrackDistance { get; set; }
     public double TrackAngle { get; set; }
     public int BreakPosition { get; set; }
@@ -189,8 +191,8 @@ internal static class StyleCycleTests
         check(dimension.Style.Name == "I4" && dimension.NumericUpper == .001m && dimension.NumericLower == -.001m && dimension.Style.PrimaryDecimalRoundOff == 5,
             "mixed style and tolerance clicks run in order and finish at the requested precision");
         var ribbon = new RibbonTarget();
-        addin.RegisterButton(ribbon, "{08244193-B78D-11D2-9216-00C04F79BE98}", Addin.StyleCycleCommand, "dimension-style-cycle", "Cycle Dimension Style", "Drafting", "Cycle", IconResources.StyleCycleImage);
-        check(ribbon.CommandId == 2 && ribbon.SmallImage == 10 && ribbon.LargeImage == 11 && ribbon.Style == (int)SolidEdgeFramework.SeButtonStyle.seButtonIconAndCaptionBelow,
-            "built-in cycle button has a stable command ID and large alpha artwork");
+        addin.RegisterButton(ribbon, "{08244193-B78D-11D2-9216-00C04F79BE98}", Addin.StyleCycleCommand, "dimension-style-cycle", Addin.PlacesCaption, "Drafting", "Cycle", IconResources.StyleCycleImage);
+        check(ribbon.CommandId == 2 && ribbon.SmallImage == 10 && ribbon.LargeImage == 11 && ribbon.Style == (int)SolidEdgeFramework.SeButtonStyle.seButtonIconAndCaptionBelow && ribbon.Names.Contains("\nCycle Places\n"),
+            "Cycle Places caption retains its stable command ID and large alpha artwork");
     }
 }

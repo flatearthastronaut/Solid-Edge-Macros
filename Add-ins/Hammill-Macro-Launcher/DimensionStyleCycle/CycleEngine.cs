@@ -20,7 +20,7 @@ namespace Hammill.DimensionStyleCycle
             using (var scope = new ComScope())
             {
                 dynamic selection = scope.Own(((dynamic)document).SelectSet);
-                if ((int)selection.Count != 1) throw new InvalidOperationException("Select exactly one existing dimension, then click Dimension Style Cycle.");
+                if ((int)selection.Count != 1) throw new InvalidOperationException("Select exactly one existing dimension, then click Cycle Places.");
                 dynamic dimension = scope.Own(selection.Item(1));
                 if ((int)dimension.Type != DimensionObjectType)
                     throw new InvalidOperationException("The selected object is not a dimension. Select one existing dimension first.");

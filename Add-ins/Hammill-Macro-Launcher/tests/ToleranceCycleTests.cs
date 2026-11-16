@@ -17,7 +17,7 @@ internal static class ToleranceCycleTests
     }
     internal static void Run(Action<bool,string> check)
     {
-        check(LimitToleranceCycle.Next(4,".0005","-.0005",5)==.001m && LimitToleranceCycle.Next(4,".001","-.001",5)==.002m && LimitToleranceCycle.Next(4,".002","-.002",5)==.0005m, "limit presets cycle and wrap");
+        check(LimitToleranceCycle.Next(4,".0005","-.0005",5)==.001m && LimitToleranceCycle.Next(4,".001","-.001",5)==.002m && LimitToleranceCycle.Next(4,".002","-.002",5)==0m && LimitToleranceCycle.Next(1,"0","0",5)==.0005m, "tolerances cycle through Nominal and wrap to half-thousandths");
         check(LimitToleranceCycle.Next(4,".0127","-.0127",3)==.001m && LimitToleranceCycle.Next(4,"0.0005 in","-0.0005 in",3)==.001m, "existing equivalent metric and explicit inch tolerance entries are recognized");
         check(LimitToleranceCycle.Next(2,".001","-.001",5)==.0005m && LimitToleranceCycle.Next(4,".001","+.001",5)==.0005m && LimitToleranceCycle.Next(4,"custom","note",5)==.0005m, "non-limit and unmatched values start with the first preset");
         foreach (bool metric in new[] { false, true })
@@ -25,9 +25,9 @@ internal static class ToleranceCycleTests
         {
             var document = Document(metric, metric, orientation);
             var dimension = (CycleTestDimension)document.SelectSet.Item(1);
-            foreach (decimal expected in new[] { .0005m,.001m,.002m,.0005m })
+            foreach (decimal expected in new[] { .0005m,.001m,.002m,0m,.0005m })
             {
-                check(LimitToleranceCycle.Run(document)==expected && dimension.NumericUpper==expected && dimension.NumericLower==-expected && dimension.DisplayType==4, "numeric limits advance in native UnitTolerance order");
+                check(LimitToleranceCycle.Run(document)==expected && dimension.NumericUpper==expected && dimension.NumericLower==-expected && dimension.DisplayType==(expected==0m?1:4), "numeric limits advance through real Nominal display and cleared offsets");
                 check((metric?dimension.Style.SecondaryDecimalRoundOff:dimension.Style.PrimaryDecimalRoundOff)==(expected==.0005m?6:5), "each tolerance selects exactly four or three inch decimal places, including wraparound");
                 if(metric) check(dimension.Style.PrimaryDecimalRoundOff==(expected==.0005m?5:4), "dual metric precision is always one place less than inch");
                 check(dimension.Value==.0127 && dimension.Style.Name=="Original" && dimension.Style.TextOrientation==orientation && dimension.Style.PrimaryUnits==(metric?3:5) && dimension.Style.DualDisplay==metric && document.SelectSet.Item(1)==dimension, "tolerance cycling retains nominal, style family, orientation and selection");
@@ -45,6 +45,17 @@ internal static class ToleranceCycleTests
         dim.IgnoreUpper=true;
         Fails(()=>LimitToleranceCycle.Run(doc),"silently ignored native tolerance writes are detected",check);
         dim.IgnoreUpper=false;
+        LimitToleranceCycle.Run(doc); LimitToleranceCycle.Run(doc); // +/- .002
+        dim.Style.PrimaryDecimalRoundOff=7;dim.Style.SecondaryDecimalRoundOff=6;
+        dim.IgnoredDisplay=1;
+        Fails(()=>LimitToleranceCycle.Run(doc),"ignored Nominal display assignment is detected",check);
+        check(dim.DisplayType==4 && dim.NumericUpper==.002m && dim.NumericLower==-.002m && dim.Style.PrimaryDecimalRoundOff==7 && dim.Style.SecondaryDecimalRoundOff==6,"failed Nominal step restores both numeric limits and current places");
+        dim.IgnoredDisplay=-1;
+        check(LimitToleranceCycle.Run(doc)==0m && dim.DisplayType==1 && dim.NumericUpper==0 && dim.NumericLower==0 && dim.Style.PrimaryDecimalRoundOff==7 && dim.Style.SecondaryDecimalRoundOff==6,"Nominal clears active offsets and preserves custom places");
+        dim.ToleranceChanging=()=>{dim.ToleranceChanging=null;throw new InvalidOperationException("Nominal exit failure");};
+        Fails(()=>LimitToleranceCycle.Run(doc),"failed exit from Nominal is reported",check);
+        check(dim.DisplayType==1 && dim.PrimaryUpperTolerance=="0" && dim.PrimaryLowerTolerance=="0" && dim.NumericUpper==0 && dim.NumericLower==0 && dim.Style.PrimaryDecimalRoundOff==7 && dim.Style.SecondaryDecimalRoundOff==6,"failed Nominal exit restores its display, zero numeric offsets and places");
+        check(LimitToleranceCycle.Run(doc)==.0005m && dim.Style.PrimaryDecimalRoundOff==6 && dim.Style.SecondaryDecimalRoundOff==5,"Nominal restarts the precise four/three-place limit preset");
         foreach (int kind in new[] {3,7,11}) { dim.DimensionType=kind; Fails(()=>LimitToleranceCycle.Run(doc),"angular tolerances are not changed",check); }
         dim.DimensionType=1; dim.OverrideString="CUSTOM"; Fails(()=>LimitToleranceCycle.Run(doc),"overridden measurements are not given calculated limits",check); dim.OverrideString="";
         dim.Style.RoundOffType=2; Fails(()=>LimitToleranceCycle.Run(doc),"fractional inch styles are not changed",check); dim.Style.RoundOffType=1;
@@ -62,7 +73,7 @@ internal static class ToleranceCycleTests
         command.Invoke(addin,new object[]{Addin.LimitToleranceCommand});
         check(dim.NumericUpper==.001m && dim.NumericLower==-.001m,"actual add-in dispatch queues a repeated click without losing it or launching a macro");
         var ribbon=new RibbonTarget();
-        addin.RegisterButton(ribbon,"{08244193-B78D-11D2-9216-00C04F79BE98}",Addin.LimitToleranceCommand,"limit-tolerance-cycle","Cycle Limit Tolerance","Drafting","Cycle",IconResources.LimitToleranceImage);
-        check(ribbon.CommandId==3 && ribbon.SmallImage==12 && ribbon.LargeImage==13 && ribbon.Style==(int)SolidEdgeFramework.SeButtonStyle.seButtonIconAndCaptionBelow,"limit button has a separate stable ID and large icon pair");
+        addin.RegisterButton(ribbon,"{08244193-B78D-11D2-9216-00C04F79BE98}",Addin.LimitToleranceCommand,"limit-tolerance-cycle",Addin.ToleranceCaption,"Drafting","Cycle",IconResources.LimitToleranceImage);
+        check(ribbon.CommandId==3 && ribbon.SmallImage==12 && ribbon.LargeImage==13 && ribbon.Style==(int)SolidEdgeFramework.SeButtonStyle.seButtonIconAndCaptionBelow && ribbon.Names.Contains("\nCycle Tolerance\n"),"Cycle Tolerance caption retains its stable ID and large icon pair");
     }
 }

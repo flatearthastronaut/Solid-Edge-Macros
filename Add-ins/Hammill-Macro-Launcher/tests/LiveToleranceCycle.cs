@@ -50,11 +50,11 @@ internal static class LiveToleranceCycle
                         style.Name=name;dim.DisplayType=1;dim.PrefixString="TEST ";dim.SuffixString=" B.C";
                         double nominal=(double)dim.Value,track=(double)dim.TrackDistance;
                         selection.RemoveAll();selection.Add(dim);
-                        for(int click=0;click<9;click++)
+                        for(int click=0;click<11;click++)
                         {
-                            decimal expected=new[]{.0005m,.001m,.002m}[click%3];
+                            decimal expected=new[]{.0005m,.001m,.002m,0m}[click%4];
                             var timer=Stopwatch.StartNew();decimal actual=Addin.ExecuteLimitTolerance((object)app);timer.Stop();times.Add(timer.Elapsed.TotalMilliseconds);
-                            Check(actual==expected && (int)dim.DisplayType==4,"family "+family+" click "+(click+1)+" advances limits");
+                            Check(actual==expected && (int)dim.DisplayType==(expected==0m?1:4),"family "+family+" click "+(click+1)+" cycles limits/Nominal");
                             AssertDisplay((object)dim,expected,dual);
                             Check((double)dim.Value==nominal && (double)dim.TrackDistance==track && (int)selection.Count==1 &&
                                 (string)dim.PrefixString=="TEST " && (string)dim.SuffixString==" B.C" && (string)style.Name==name &&
@@ -66,13 +66,18 @@ internal static class LiveToleranceCycle
                         // Applying another named style can reset local settings.
                         // Confirm its precision change never changes physical limits.
                         dynamic alternate=scope.Own(definitions.Add(name+" next",name));
-                        alternate.PrimaryDecimalRoundOff=metricPrimary?4:6;alternate.SecondaryDecimalRoundOff=metricPrimary?6:4;
+                        alternate.PrimaryDecimalRoundOff=metricPrimary?5:6;alternate.SecondaryDecimalRoundOff=metricPrimary?6:5;
                         var sequence=StyleSequence.Parse("[Inch]\n"+name+"\n"+name+" next\n");
                         CycleEngine.Run(scratch,sequence,new StyleIndex());
-                        AssertDisplay((object)dim,.002m,dual,4);
+                        AssertDisplay((object)dim,.002m,dual,4,3);
+                        Check(Addin.ExecuteLimitTolerance((object)app)==0m && (int)style.PrimaryDecimalRoundOff==(metricPrimary?5:6) && (int)style.SecondaryDecimalRoundOff==(metricPrimary?6:5),"Nominal preserves places chosen by Cycle Places");
+                        AssertDisplay((object)dim,0m,dual,4,3);
                         Check(Addin.ExecuteLimitTolerance((object)app)==.0005m,"style and tolerance commands can alternate on the same dimension");
                         AssertDisplay((object)dim,.0005m,dual);
                     }
+                    // Save the last dimension in the newly added Nominal state.
+                    Addin.ExecuteLimitTolerance((object)app);Addin.ExecuteLimitTolerance((object)app);
+                    Check(Addin.ExecuteLimitTolerance((object)app)==0m,"Nominal state is ready for save/reopen");
                     ((dynamic)scratch).SaveAs(Path.Combine(run,"Tolerance test.dft"));
                 }
                 ((dynamic)scratch).Close(false);ComScope.Release(scratch);scratch=null;
@@ -81,8 +86,10 @@ internal static class LiveToleranceCycle
                 {
                     dynamic sheet=scope.Own(((dynamic)scratch).ActiveSheet), dims=scope.Own(sheet.Dimensions), dim=scope.Own(dims.Item(lastIndex));
                     dynamic selection=scope.Own(((dynamic)scratch).SelectSet);selection.RemoveAll();selection.Add(dim);
+                    AssertDisplay((object)dim,0m,true);
+                    Check(Addin.ExecuteLimitTolerance((object)app)==.0005m,"reopened Nominal dimension resumes at half-thousandths without hidden state");
                     AssertDisplay((object)dim,.0005m,true);
-                    Check(Addin.ExecuteLimitTolerance((object)app)==.001m,"reopened dimension resumes from its saved tolerance without hidden state");
+                    Check(Addin.ExecuteLimitTolerance((object)app)==.001m,"next click continues to thousandths");
                     AssertDisplay((object)dim,.001m,true);
                 }
                 var steady=times.Skip(1).OrderBy(x=>x).ToArray();
@@ -99,16 +106,25 @@ internal static class LiveToleranceCycle
             }
         }
     }
-    private static void AssertDisplay(object dim,decimal tolerance,bool dual,int inchPlaces=0)
+    private static void AssertDisplay(object dim,decimal tolerance,bool dual,int inchPlaces=0,int metricPlaces=0)
     {
         var text=Texts(dim);
         if(inchPlaces==0)inchPlaces=tolerance==.0005m?4:3;
         string format="F"+inchPlaces;
+        if(tolerance==0m)
+        {
+            // Count rendered numeric tokens, not just stored strings: true Nominal
+            // must show one value per unit, never a pair of equal zero-tolerance limits.
+            double value;var numbers=text.Where(t=>Double.TryParse(t,NumberStyles.Float,CultureInfo.InvariantCulture,out value)).ToArray();
+            Check((int)((dynamic)dim).DisplayType==1 && numbers.Length==(dual?2:1) && text.Contains(1m.ToString(format,CultureInfo.InvariantCulture)),"native Nominal renders one inch measurement without tolerance text ("+String.Join(" | ",text)+")");
+            if(dual)Check(text.Contains(25.4m.ToString("F"+(metricPlaces==0?2:metricPlaces),CultureInfo.InvariantCulture)),"dual Nominal renders one metric measurement at the retained precision");
+            return;
+        }
         string upper=(1+tolerance).ToString(format,CultureInfo.InvariantCulture), lower=(1-tolerance).ToString(format,CultureInfo.InvariantCulture);
         Check(text.Contains(upper)&&text.Contains(lower),"native rendered inch limits "+upper+" / "+lower+" ("+String.Join(" | ",text)+")");
         if(dual)
         {
-            string metricFormat=tolerance==.0005m?"F3":"F2";
+            string metricFormat=metricPlaces==0?(tolerance==.0005m?"F3":"F2"):"F"+metricPlaces;
             upper=(25.4m+tolerance*25.4m).ToString(metricFormat,CultureInfo.InvariantCulture);lower=(25.4m-tolerance*25.4m).ToString(metricFormat,CultureInfo.InvariantCulture);
             Check(text.Contains(upper)&&text.Contains(lower),"native dual conversion renders metric limits "+upper+" / "+lower);
         }

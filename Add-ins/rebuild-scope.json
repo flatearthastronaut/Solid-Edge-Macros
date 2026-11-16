@@ -21,9 +21,9 @@
   },
   "targetSolidEdge": "2026",
   "architecture": "x64",
-  "approach": "One Hammill add-in combines the macro ribbon launcher, automatic Component Display, and resident Cycle Dimension Style and Cycle Limit Tolerance commands. O-Ring Finder, Add Sketch, Occurrence Viewer, and Batch Approval/export are independently distributed standalone macros.",
+  "approach": "One Hammill add-in combines the macro ribbon launcher, automatic Component Display, and resident Cycle Places and Cycle Tolerance commands. O-Ring Finder, Add Sketch, Occurrence Viewer, and Batch Approval/export are independently distributed standalone macros.",
   "macroLauncher": {
-    "status": "v0.6-built; 215-offline-checks-passed; 148-live-style-cycle-checks-passed; 233-prior-live-limit-checks-passed; installed-ribbon-and-production-share-validation-pending",
+    "status": "v0.7-built; 235-offline-checks-passed; 148-prior-live-style-cycle-checks-passed; 296-live-tolerance-checks-passed; installed-ribbon-and-production-share-validation-pending",
     "implementation": "Hammill-Macro-Launcher",
     "initialPackaging": "Keep the existing Hammill launcher COM identity and package family for upgrades; display as Hammill Add-ins and include Component Display. Unregister BWH separately during cutover; preserve its original files as a recovery reference.",
     "ribbonTab": "Hammill Macros",
@@ -44,21 +44,21 @@
   "commands": [
     {
       "key": "limit-tolerance-cycle",
-      "name": "Cycle Limit Tolerance",
+      "name": "Cycle Tolerance",
       "disposition": "new-resident-command",
       "implementation": "Hammill-Macro-Launcher/LimitToleranceCycle.cs",
-      "requirement": "Select one draft dimension; cycle native limits +/-.0005, +/-.001, +/-.002 inch, then wrap. Use exactly 4 inch / 3 metric places for .0005 and 3 inch / 2 metric places for the others. Preserve selected dimension, actual value, native links, unit family, orientation, text and placement. Run inside the add-in with a large Hammill green icon.",
-      "configuration": "Three built-in inch presets; no additional configuration file.",
-      "validation": "188 combined offline checks and 233 native limit checks passed, including rendered values, both dual unit orders, precision, save/reopen and style-command interoperability. Installed ribbon acceptance pending."
+      "requirement": "Select one draft dimension; cycle native limits +/-.0005, +/-.001, +/-.002 inch, then Nominal (no tolerance), then wrap. Use exactly 4 inch / 3 metric places for .0005 and 3 inch / 2 metric places for .001 and .002; Nominal retains current places. Preserve selected dimension, actual value, native links, unit family, orientation, text and placement. Run inside the add-in with a large Hammill green icon.",
+      "configuration": "Three built-in inch limit presets followed by native Nominal; no additional configuration file.",
+      "validation": "235 combined offline checks and 296 native tolerance checks passed, including rendered values, both dual unit orders, precision, save/reopen and style-command interoperability. Installed ribbon acceptance pending."
     },
     {
       "key": "dimension-style-cycle",
-      "name": "Cycle Dimension Style",
+      "name": "Cycle Places",
       "disposition": "new-resident-command",
       "implementation": "Hammill-Macro-Launcher/DimensionStyleCycle",
       "requirement": "Select one existing draft dimension; each button press advances within the same inch, dual, vertical inch, or vertical dual family and wraps in user-configured order. Run directly inside the existing add-in for rapid repeated clicks.",
       "configuration": "One Hammill.DimensionStyles.txt at the root of the USER Macro Manager's shared Available/source folder. Read the saved source setting and shared contents each click, cache parsing only, never seed or overwrite the share or fall back to old local/cached lists. Package Greg's approved lists for one-time placement; all later edits apply without rebuilding or restarting.",
-      "validation": "215 combined offline checks and 148 live native-style checks passed. Two independent readers reload same-length/same-timestamp edits, unavailable configuration leaves dimensions unchanged, and restoration recovers without restart. Native selection, values, text, tolerances and placement are preserved. Production-share and installed ribbon timing remain to be confirmed."
+      "validation": "235 combined offline checks and 148 live native-style checks passed. Two independent readers reload same-length/same-timestamp edits, unavailable configuration leaves dimensions unchanged, and restoration recovers without restart. Native selection, values, text, tolerances and placement are preserved. Production-share and installed ribbon timing remain to be confirmed."
     },
     {
       "key": "oring-finder",

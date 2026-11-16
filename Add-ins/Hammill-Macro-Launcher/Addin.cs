@@ -15,8 +15,8 @@ using Environment = System.Environment;
 [assembly: AssemblyTitle("Hammill Add-ins")]
 [assembly: AssemblyCompany("Hammill")]
 [assembly: AssemblyProduct("Hammill Add-ins")]
-[assembly: AssemblyVersion("0.6.0.0")]
-[assembly: AssemblyFileVersion("0.6.0.0")]
+[assembly: AssemblyVersion("0.7.0.0")]
+[assembly: AssemblyFileVersion("0.7.0.0")]
 [assembly: ComVisible(false)]
 
 namespace Hammill.MacroLauncher
@@ -27,6 +27,7 @@ namespace Hammill.MacroLauncher
         internal const string ApplicationEnvironment = "{26618394-09D6-11D1-BA07-080036230602}";
         internal const int StyleCycleCommand = 2; // Built-ins are below persisted macro IDs (100+).
         internal const int LimitToleranceCommand = 3;
+        internal const string PlacesCaption = "Cycle Places", ToleranceCaption = "Cycle Tolerance";
         internal static readonly Dictionary<string, string> Environments = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
             { ApplicationEnvironment, "application" },
             { "{26618396-09D6-11D1-BA07-080036230602}", "part" },
@@ -95,10 +96,10 @@ namespace Hammill.MacroLauncher
                 RegisterButton(extended, category, 1, "status", "Macro folder", "Launcher", "Show the macro folder, detected tools and startup scan results.", -1);
                 if (name == "draft")
                 {
-                    RegisterButton(extended, category, StyleCycleCommand, "dimension-style-cycle", "Cycle Dimension Style", "Drafting",
+                    RegisterButton(extended, category, StyleCycleCommand, "dimension-style-cycle", PlacesCaption, "Drafting",
                         "Apply the next style in the selected dimension's configured family.", icons == null ? -1 : IconResources.StyleCycleImage);
-                    RegisterButton(extended, category, LimitToleranceCommand, "limit-tolerance-cycle", "Cycle Limit Tolerance", "Drafting",
-                        "Cycle inch limits: +/-0.0005, +/-0.001, +/-0.002.", icons == null ? -1 : IconResources.LimitToleranceImage);
+                    RegisterButton(extended, category, LimitToleranceCommand, "limit-tolerance-cycle", ToleranceCaption, "Drafting",
+                        "Cycle inch limits: +/-0.0005, +/-0.001, +/-0.002, then Nominal (no tolerance).", icons == null ? -1 : IconResources.LimitToleranceImage);
                 }
                 foreach (var entry in catalog.Entries.Where(x => x.Environments.Split(',').Contains(name)))
                 {
@@ -172,7 +173,7 @@ namespace Hammill.MacroLauncher
                 using (var process = Process.Start(new ProcessStartInfo { FileName = executable, WorkingDirectory = Path.GetDirectoryName(executable), UseShellExecute = false, CreateNoWindow = true })) { }
                 Log("Launched " + macro.Name);
             }
-            catch (Exception error) { Log("Command failed: " + error); MessageBox.Show(error.Message, id == LimitToleranceCommand ? "Hammill Limit Tolerance Cycle" : id == StyleCycleCommand ? "Hammill Dimension Style Cycle" : "Hammill Macro Launcher", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+            catch (Exception error) { Log("Command failed: " + error); MessageBox.Show(error.Message, id == LimitToleranceCommand ? "Hammill " + ToleranceCaption : id == StyleCycleCommand ? "Hammill " + PlacesCaption : "Hammill Macro Launcher", MessageBoxButtons.OK, MessageBoxIcon.Error); }
         }
 
         internal static string ExecuteStyleCycle(object application, StyleSequenceFile configuration, StyleIndex index)
@@ -196,14 +197,14 @@ namespace Hammill.MacroLauncher
         private void OnHelp(int window, int help, int id)
         {
             if (id == LimitToleranceCommand)
-                MessageBox.Show("Select one inch or dual-unit dimension. Each click advances the native limits: +/-0.0005, +/-0.001, +/-0.002 inch, then repeats. Other tolerances start at +/-0.0005. The dimension stays selected.", "Hammill Limit Tolerance Cycle", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("Select one inch or dual-unit dimension. Each click advances: +/-0.0005, +/-0.001, +/-0.002 inch, Nominal (no tolerance), then repeats. Nominal keeps the current decimal places. Other tolerances start at +/-0.0005. The dimension stays selected.", "Hammill " + ToleranceCaption, MessageBoxButtons.OK, MessageBoxIcon.Information);
             else if (id == StyleCycleCommand && styleSequence != null)
             {
                 string location;
                 try { location = styleSequence.Path; }
                 catch (Exception error) { location = error.Message; }
                 MessageBox.Show("Select one dimension and click to advance within its family.\r\nEveryone uses this shared list; saved edits apply on the next click:\r\n\r\n" + location,
-                    "Hammill Dimension Style Cycle", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    "Hammill " + PlacesCaption, MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             else OnCommand(1);
         }

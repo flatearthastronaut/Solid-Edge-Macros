@@ -7,7 +7,7 @@ namespace Hammill.MacroLauncher
 {
     internal static class LimitToleranceCycle
     {
-        internal const int Limits = 4, UnitTolerance = 15, Inches = 5, Millimeters = 3;
+        internal const int Nominal = 1, Limits = 4, UnitTolerance = 15, Inches = 5, Millimeters = 3;
         private static readonly decimal[] Presets = { .0005m, .001m, .002m };
 
         internal static decimal Next(int display, string upper, string lower, int toleranceUnits)
@@ -16,7 +16,8 @@ namespace Hammill.MacroLauncher
             if (display == Limits && TryInches(upper, toleranceUnits, out u) && TryInches(lower, toleranceUnits, out l))
                 for (int i = 0; i < Presets.Length; i++)
                     if (Math.Abs(u - Presets[i]) < .000000001m && Math.Abs(l + Presets[i]) < .000000001m)
-                        return Presets[(i + 1) % Presets.Length];
+                        // Zero denotes native Nominal display, not +/-0 limits.
+                        return i + 1 == Presets.Length ? 0m : Presets[i + 1];
             return Presets[0];
         }
 
@@ -48,7 +49,7 @@ namespace Hammill.MacroLauncher
             using (var scope = new ComScope())
             {
                 dynamic selection = scope.Own(((dynamic)document).SelectSet);
-                if ((int)selection.Count != 1) throw new InvalidOperationException("Select exactly one dimension, then click Cycle Limit Tolerance.");
+                if ((int)selection.Count != 1) throw new InvalidOperationException("Select exactly one dimension, then click Cycle Tolerance.");
                 dynamic dimension = scope.Own(selection.Item(1));
                 if ((int)dimension.Type != CycleEngine.DimensionObjectType) throw new InvalidOperationException("Select a dimension, not a callout or another drawing object.");
                 int kind = (int)dimension.DimensionType;
@@ -66,6 +67,7 @@ namespace Hammill.MacroLauncher
 
                 var before = new ToleranceState((object)dimension, (object)style);
                 decimal tolerance = Next(before.Display, before.Upper, before.Lower, before.Units);
+                int targetDisplay = tolerance == 0m ? Nominal : Limits;
                 // Changing style is unnecessary: edit this dimension's local
                 // properties, keep its unit order/orientation and all model links.
                 var protectedState = new DimensionState((object)dimension,
@@ -75,15 +77,19 @@ namespace Hammill.MacroLauncher
                     dimension.UseStandardLimitAndFitTolerance = false;
                     style.SecondaryToleranceEquivalent = true;
                     int requiredPrecision = tolerance == .0005m ? 6 : 5; // SDK decimal enum: places + 2.
-                    // Precision is part of the preset: four inch places for
+                    // Precision is part of each limit preset: four inch places for
                     // half-thousandths, three for the other two tolerances.
-                    // Dual dimensions use exactly one fewer metric place.
-                    if (inchPrimary) style.PrimaryDecimalRoundOff = requiredPrecision;
-                    else style.SecondaryDecimalRoundOff = requiredPrecision;
-                    if (dual)
+                    // Dual dimensions use exactly one fewer metric place. Nominal
+                    // keeps the current places, including manual/Cycle Places edits.
+                    if (tolerance != 0m)
                     {
-                        if (inchPrimary) style.SecondaryDecimalRoundOff = requiredPrecision - 1;
-                        else style.PrimaryDecimalRoundOff = requiredPrecision - 1;
+                        if (inchPrimary) style.PrimaryDecimalRoundOff = requiredPrecision;
+                        else style.SecondaryDecimalRoundOff = requiredPrecision;
+                        if (dual)
+                        {
+                            if (inchPrimary) style.SecondaryDecimalRoundOff = requiredPrecision - 1;
+                            else style.PrimaryDecimalRoundOff = requiredPrecision - 1;
+                        }
                     }
 
                     // CRITICAL: setting tolerance text directly in Limits mode
@@ -95,17 +101,22 @@ namespace Hammill.MacroLauncher
                     dimension.DisplayType = UnitTolerance;
                     dimension.PrimaryUpperTolerance = Number(tolerance);
                     dimension.PrimaryLowerTolerance = Number(-tolerance);
-                    dimension.DisplayType = Limits;
+                    // On the Nominal step, zero the numeric offsets before hiding
+                    // them so old +/- values cannot survive as active native limits.
+                    dimension.DisplayType = targetDisplay;
                     protectedState.RestoreAndVerify((object)dimension);
                     decimal u, l;
-                    if ((int)dimension.DisplayType != Limits || (bool)dimension.UseStandardLimitAndFitTolerance ||
+                    bool precisionCorrect = tolerance == 0m
+                        ? (int)style.PrimaryDecimalRoundOff == before.PrimaryPrecision && (int)style.SecondaryDecimalRoundOff == before.SecondaryPrecision
+                        : (inchPrimary ? (int)style.PrimaryDecimalRoundOff : (int)style.SecondaryDecimalRoundOff) == requiredPrecision &&
+                            (!dual || (inchPrimary ? (int)style.SecondaryDecimalRoundOff : (int)style.PrimaryDecimalRoundOff) == requiredPrecision - 1);
+                    if ((int)dimension.DisplayType != targetDisplay || (bool)dimension.UseStandardLimitAndFitTolerance ||
                         (int)style.PrimaryLinearToleranceUnits != Inches || !(bool)style.SecondaryToleranceEquivalent ||
                         !TryInches((string)dimension.PrimaryUpperTolerance, Inches, out u) || u != tolerance ||
                         !TryInches((string)dimension.PrimaryLowerTolerance, Inches, out l) || l != -tolerance ||
-                        (inchPrimary ? (int)style.PrimaryDecimalRoundOff : (int)style.SecondaryDecimalRoundOff) != requiredPrecision ||
-                        (dual && (inchPrimary ? (int)style.SecondaryDecimalRoundOff : (int)style.PrimaryDecimalRoundOff) != requiredPrecision - 1) ||
+                        !precisionCorrect ||
                         (string)style.Name != before.StyleName)
-                        throw new InvalidOperationException("Solid Edge did not retain the requested limit tolerance.");
+                        throw new InvalidOperationException("Solid Edge did not retain the requested tolerance display.");
                     return tolerance;
                 }
                 catch (Exception error)
@@ -113,7 +124,7 @@ namespace Hammill.MacroLauncher
                     string recovery;
                     try { before.Restore((object)dimension, (object)style); recovery = " Original tolerance restored."; }
                     catch (Exception restore) { recovery = " Recovery needs review: " + restore.Message; }
-                    throw new InvalidOperationException("Could not change the limit tolerance: " + error.Message + recovery, error);
+                    throw new InvalidOperationException("Could not cycle the tolerance: " + error.Message + recovery, error);
                 }
             }
         }
@@ -124,7 +135,8 @@ namespace Hammill.MacroLauncher
             internal readonly string Upper, Lower, StyleName;
             private readonly string secondaryUpper, secondaryLower;
             private readonly bool standards, equivalent;
-            private readonly int primaryPrecision, secondaryPrecision;
+            private readonly bool numericTolerance;
+            internal readonly int PrimaryPrecision, SecondaryPrecision;
             private readonly DimensionState original;
             internal ToleranceState(object dim, object styling)
             {
@@ -133,11 +145,11 @@ namespace Hammill.MacroLauncher
                 Upper = (string)d.PrimaryUpperTolerance; Lower = (string)d.PrimaryLowerTolerance;
                 secondaryUpper = (string)d.SecondaryUpperTolerance; secondaryLower = (string)d.SecondaryLowerTolerance;
                 standards = (bool)d.UseStandardLimitAndFitTolerance; equivalent = (bool)s.SecondaryToleranceEquivalent;
-                primaryPrecision = (int)s.PrimaryDecimalRoundOff; secondaryPrecision = (int)s.SecondaryDecimalRoundOff;
+                PrimaryPrecision = (int)s.PrimaryDecimalRoundOff; SecondaryPrecision = (int)s.SecondaryDecimalRoundOff;
                 StyleName = (string)s.Name; original = new DimensionState(dim);
                 decimal value;
-                if ((Display == Limits || Display == UnitTolerance) &&
-                    (!TryInches(Upper, Units, out value) || !TryInches(Lower, Units, out value)))
+                numericTolerance = TryInches(Upper, Units, out value) && TryInches(Lower, Units, out value);
+                if ((Display == Limits || Display == UnitTolerance) && !numericTolerance)
                     throw new InvalidOperationException("The existing numeric limits contain unsupported tolerance text. Review them before cycling.");
             }
             internal void Restore(object dim, object styling)
@@ -145,16 +157,18 @@ namespace Hammill.MacroLauncher
                 dynamic d = dim, s = styling;
                 d.UseStandardLimitAndFitTolerance = false;
                 s.PrimaryLinearToleranceUnits = Units;
-                d.DisplayType = Display == Limits || Display == UnitTolerance ? UnitTolerance : Display;
+                // Restore known numeric offsets even when their original mode was
+                // Nominal, so a failed exit does not leave hidden nonzero offsets.
+                d.DisplayType = Display == Limits || Display == UnitTolerance || (Display == Nominal && numericTolerance) ? UnitTolerance : Display;
                 d.PrimaryUpperTolerance = Upper; d.PrimaryLowerTolerance = Lower;
                 s.SecondaryToleranceEquivalent = false;
                 d.SecondaryUpperTolerance = secondaryUpper; d.SecondaryLowerTolerance = secondaryLower;
                 s.SecondaryToleranceEquivalent = equivalent;
-                s.PrimaryDecimalRoundOff = primaryPrecision; s.SecondaryDecimalRoundOff = secondaryPrecision;
+                s.PrimaryDecimalRoundOff = PrimaryPrecision; s.SecondaryDecimalRoundOff = SecondaryPrecision;
                 d.DisplayType = Display; d.UseStandardLimitAndFitTolerance = standards;
                 original.RestoreAndVerify(dim);
                 if ((int)s.PrimaryLinearToleranceUnits != Units || (bool)s.SecondaryToleranceEquivalent != equivalent ||
-                    (int)s.PrimaryDecimalRoundOff != primaryPrecision || (int)s.SecondaryDecimalRoundOff != secondaryPrecision ||
+                    (int)s.PrimaryDecimalRoundOff != PrimaryPrecision || (int)s.SecondaryDecimalRoundOff != SecondaryPrecision ||
                     (bool)d.UseStandardLimitAndFitTolerance != standards)
                     throw new InvalidOperationException("Original tolerance settings were not retained.");
             }

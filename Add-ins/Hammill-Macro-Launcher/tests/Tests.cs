@@ -112,8 +112,12 @@ internal static class Tests
             Check(limitsUpgrade.Version == 11 && catalog.Entries.Single(x => x.Key == "tool").CommandId == 150 && RibbonState.Update(migrationPath, Scan()).Version == 11,
                 "v0.4 upgrade adds limit tolerance once while retaining macro IDs");
             oldLines[0] = "hammill-launcher-ribbon-v5-limit-tolerance-cycle";
-            Check(limitsUpgrade.Signature == MacroCatalog.Hash(Encoding.UTF8.GetBytes(String.Join("\n", oldLines))),
-                "shared-list upgrade retains the v0.5 GUI signature, button identities and artwork cache");
+            oldState.Root.SetAttributeValue("version", 11);
+            oldState.Root.SetAttributeValue("signature", MacroCatalog.Hash(Encoding.UTF8.GetBytes(String.Join("\n", oldLines))));
+            oldState.Save(migrationPath);
+            var renamed = RibbonState.Update(migrationPath, catalog);
+            Check(renamed.Version == 12 && catalog.Entries.Single(x => x.Key == "tool").CommandId == 150 && RibbonState.Update(migrationPath, Scan()).Version == 12,
+                "v0.5/v0.6 upgrade refreshes the renamed buttons once while preserving command IDs");
 
             string statePath = Path.Combine(run, "State", "ribbon.xml");
             var state1 = RibbonState.Update(statePath, catalog); int toolId = catalog.Entries.Single(x => x.Key == "tool").CommandId;
@@ -162,7 +166,7 @@ internal static class Tests
             File.Delete(Path.Combine(local, "HammillMacros.xml")); Package("tool", true, "Tool.exe", "Tool.png");
 
             var resourcesCatalog = Scan(); var resourcesState = RibbonState.Update(statePath, resourcesCatalog);
-            string template = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "Compiled Executables", "Hammill-Macro-Launcher-v0.6", "Hammill.MacroLauncher.Resources.dll"));
+            string template = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "Compiled Executables", "Hammill-Macro-Launcher-v0.7", "Hammill.MacroLauncher.Resources.dll"));
             string stale = Path.Combine(run, "IconCache", "ribbon-" + oldSignature + ".dll");
             Directory.CreateDirectory(Path.GetDirectoryName(stale));
             File.WriteAllText(stale, "old bitmap cache fixture");
