@@ -1,10 +1,12 @@
-# Hammill O-Ring Finder v1.0
+# O-ring Finder v1.1
 
 Standalone x64 Windows macro extracted from the behavior of the July 2019 `SEAddIn.dll`. It connects to a running Solid Edge session; no add-in registration or legacy DLL is required. Requires .NET Framework 4.x. Target host: Solid Edge 2026.
 
+Version 1.1 uses the title **O-ring Finder** and a compact 740 × 460 pixel content area without the large heading. Hover over the selected part details to see its full file path. All 47 regression checks passed; the window was rendered and visually checked.
+
 ## Install and use
 
-Extract **O-Ring Finder v1.0.zip** into a local folder, keeping all five files together. Open an assembly in Solid Edge and run **O-Ring Finder v1.0.exe**. Select an O-ring part, review the size and pressure option, and click **Apply & save part**. Close or select another part without applying to leave it unchanged.
+Extract **O-Ring Finder v1.1.zip** into a local folder, keeping all five files together. Open an assembly in Solid Edge and run **O-Ring Finder v1.1.exe**. Select an O-ring part, review the size and pressure option, and click **Apply & save part**. Close or select another part without applying to leave it unchanged.
 
 The ZIP can also be published and installed as **Solid Edge Macros** through Macro Manager v1.14. The manager creates the stable **O-Ring Finder/O-Ring Finder.exe** and copies the table beside it. Restart Solid Edge after installation for Hammill Macro Launcher discovery. No Register.cmd or administrator registration is needed.
 

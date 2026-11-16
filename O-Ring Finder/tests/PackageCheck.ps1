@@ -5,7 +5,7 @@ $work = [string](Join-Path $PSScriptRoot ('.work\package-' + [guid]::NewGuid().T
 $source = [string](Join-Path $work 'Source')
 $local = [string](Join-Path $work 'Installed')
 New-Item -ItemType Directory -Path $source,$local | Out-Null
-$zip = Join-Path $project 'Compiled Executables\O-Ring Finder v1.0.zip'
+$zip = Join-Path $project 'Compiled Executables\O-Ring Finder v1.1.zip'
 Copy-Item -LiteralPath $zip -Destination $source
 
 # Exercise the actual manager package installer in an isolated project-local
@@ -28,7 +28,7 @@ $xml.LoadXml('<settings><local /></settings>')
 $xml.DocumentElement.SelectSingleNode('local').InnerText = $local
 $settings = Join-Path $work 'settings.xml'
 $xml.Save($settings)
-$checker = Join-Path $repository 'Add-ins\Hammill-Macro-Launcher\Compiled Executables\Hammill-Macro-Launcher-v0.1\Hammill Macro Catalog Check.exe'
+$checker = Join-Path $repository 'Add-ins\Hammill-Macro-Launcher\Compiled Executables\Hammill-Macro-Launcher-v0.7\Hammill Macro Catalog Check.exe'
 $output = & $checker --settings $settings --documents $work
 if ($LASTEXITCODE -ne 0 -or -not ($output -match '^O-Ring Finder \|')) { throw ('Launcher discovery failed: ' + ($output -join "`n")) }
 Write-Output 'PASS real Macro Manager install, stable EXE/table/icon, and Hammill ribbon discovery'

@@ -7,6 +7,6 @@ Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'README.md') -Destination $outpu
 foreach ($name in @('O-Ring Finder.png','O-Ring Finder.ico')) {
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot ('Assets\' + $name)) -Destination $output -Force
 }
-$names = @('O-Ring Finder v1.0.exe','Oring_table.txt','O-Ring Finder.png','O-Ring Finder.ico','README.md')
+$names = @('O-Ring Finder v1.1.exe','Oring_table.txt','O-Ring Finder.png','O-Ring Finder.ico','README.md')
 $files = @($names | ForEach-Object { Join-Path $output $_ })
-Compress-Archive -LiteralPath $files -DestinationPath (Join-Path $output 'O-Ring Finder v1.0.zip') -Force
+Compress-Archive -LiteralPath $files -DestinationPath (Join-Path $output 'O-Ring Finder v1.1.zip') -Force

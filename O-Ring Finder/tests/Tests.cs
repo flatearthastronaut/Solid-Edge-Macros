@@ -157,6 +157,9 @@ internal static class Tests
                 // without putting a test window in the user's working area.
                 form.ShowInTaskbar = false; form.StartPosition = FormStartPosition.Manual; form.Location = new Point(-32000,-32000);
                 form.Show(); form.PerformLayout();
+                Check(form.Text == "O-ring Finder", "compact window uses the requested title");
+                var actions = form.Controls[0].Controls.OfType<FlowLayoutPanel>().Single();
+                Check(actions.Controls.Cast<Control>().All(c => actions.ClientRectangle.Contains(c.Bounds)), "compact window keeps all action buttons fully visible");
                 using(var image = new Bitmap(form.Width,form.Height)) { form.DrawToBitmap(image,new Rectangle(Point.Empty,form.Size)); image.Save(Path.Combine(root,"tests",".work","preview.png")); }
                 form.Hide();
             }
