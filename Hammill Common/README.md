@@ -2,6 +2,16 @@
 
 These source files are compiled into Add Sketch, Occurrence Viewer, Batch Approval Export, and the combined Hammill add-in. They are not a separately distributed DLL or installed add-in. O-Ring Finder remains its already-built independent macro.
 
+## Automatic video conversion during packaging
+
+Put recordings in each macro project's `Tooltips` folder, for example `O-Ring Finder/Tooltips/O-Ring Finder.wmv`, then run its normal `Build.cmd`. Add Sketch, Occurrence Viewer, Batch Approval Export, and O-Ring Finder automatically package an H.264/yuv420p MP4 beside each WMV. Hammill add-in v0.8 already prefers that MP4 for inline tooltips; no add-in update is needed. Source recordings remain unchanged, and an explicitly supplied same-name MP4 takes precedence. Videos are silent in tooltips.
+
+`Prepare-VideoTooltips.ps1` converts staged copies, decodes newly converted output to check it, and caches conversions by the WMV's SHA-256 contents and conversion recipe. Replacing a recording invalidates the cache even if its timestamp is unchanged. Conversion failures stop packaging before replacing the previous ZIP. Temporary staging paths are checked before cleanup.
+
+`Get-VideoEncoder.ps1` uses FFmpeg on PATH if available, otherwise downloads the portable Windows essentials build from gyan.dev (linked by ffmpeg.org), verifies the distributor's SHA-256 checksum, and keeps the encoder under `Hammill Common/.tools`. The first WMV conversion requires internet access; subsequent conversions use the local encoder. FFmpeg and its cache are excluded from Git and macro packages. End users need no encoder installation. Files downloaded from the distributor retain their checksum record locally; this is checksum verification, not a digital-signature check.
+
+Run `Test-VideoPackage.ps1` for a real WMV conversion, MP4 codec verification, source preservation, actual Macro Manager installation, launcher discovery, and failed-conversion package preservation. Actual hover playback still requires acceptance in Solid Edge.
+
 - `ComSupport.cs`: deterministic, per-acquisition COM cleanup and the standalone macros' bounded STA message filter, following the bundled SDK automation examples.
 - `MacroHost.cs`: attach to the user's running Solid Edge session, validate the active document type, and show a branded standalone window. It never closes the user's documents or Solid Edge.
 - `Build-Macro.ps1` and `Build-Icon.ps1`: compile each named x64 macro and create its Hammill-green icon and Macro Manager ZIP in that project's Compiled Executables folder.

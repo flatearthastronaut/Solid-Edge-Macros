@@ -21,6 +21,21 @@ foreach($file in @('README.md',('Assets\'+$Name+'.ico'),('Assets\'+$Name+'.png')
     $files+=Join-Path $output ([IO.Path]::GetFileName($source))
 }
 $tooltipFolder=Join-Path $projectPath 'Tooltips'
-if(Test-Path -LiteralPath $tooltipFolder -PathType Container){$files+=$tooltipFolder}
+$stage=$null
+try {
+if(Test-Path -LiteralPath $tooltipFolder -PathType Container){
+    $stage=Join-Path $projectPath ('.tooltip-build\'+[guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $stage | Out-Null
+    $prepared=Join-Path $stage 'Tooltips'
+    & (Join-Path $PSScriptRoot 'Prepare-VideoTooltips.ps1') -Source $tooltipFolder -Destination $prepared
+    $files+=$prepared
+}
 Compress-Archive -LiteralPath $files -DestinationPath (Join-Path $output ($Name+' v'+$Version+'.zip')) -Force
+} finally {
+    if($stage){
+        $allowed=[IO.Path]::GetFullPath((Join-Path $projectPath '.tooltip-build'))+'\'
+        if(-not [IO.Path]::GetFullPath($stage).StartsWith($allowed,[StringComparison]::OrdinalIgnoreCase)){throw 'Invalid tooltip staging cleanup path.'}
+        Remove-Item -LiteralPath $stage -Recurse -Force
+    }
+}
 Write-Output ('Built '+$Name+' v'+$Version+'.')
