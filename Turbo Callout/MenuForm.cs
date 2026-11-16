@@ -123,12 +123,12 @@ namespace TurboCallout
         {
             runner=runAction;reportViewer=showReport;
             AutoScaleMode=AutoScaleMode.None;ClientSize=new Size(624,552);BackColor=Color.FromArgb(249,251,253);
-            Font=new Font("Segoe UI",10);Text="Turbo Callout v1.5";
+            Font=new Font("Segoe UI",10);Text="Turbo Callout v1.6";
             FormBorderStyle=FormBorderStyle.FixedDialog;MaximizeBox=false;MinimizeBox=false;StartPosition=FormStartPosition.CenterScreen;
             using(var s=typeof(MainForm).Assembly.GetManifestResourceStream("TurboCallout.Icon"))Icon=new Icon(s);
             using(var s=typeof(MainForm).Assembly.GetManifestResourceStream("TurboCallout.Image"))using(var loaded=Image.FromStream(s))logo=new Bitmap(loaded);
             without.WithCircles=false;without.Title="Without bolt circles";without.Description="Fill and update hole callouts.";
-            with.WithCircles=true;with.Title="With bolt circles";with.Description="Callouts, centerlines, and B.C dimensions.";
+            with.WithCircles=true;with.Title="With bolt circles";with.Description="Callouts, centerlines, B.C sizes and angles.";
             without.SetBounds(24,142,280,232);with.SetBounds(320,142,280,232);
             inch.Units=dual.Units=true;inch.Title="Inch only";dual.Title="Dual  (metric [inch])";
             inch.SetBounds(24,414,280,50);dual.SetBounds(320,414,280,50);

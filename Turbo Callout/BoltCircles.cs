@@ -31,6 +31,7 @@ namespace TurboCallout
     {
         [DispId(6)] void GetCenter([MarshalAs(UnmanagedType.IDispatch)]out object reference,out double x,out double y,out double z,out bool keyPoint);
         [DispId(8303)] void GetArcCenter([MarshalAs(UnmanagedType.IDispatch)]out object reference,out double x,out double y,out double z,out bool keyPoint);
+        [DispId(24578)] void GetKeyPoint(int index,out double x,out double y,out double z,out int type,out int handle);
     }
 
     internal enum BoltCircleResult { Created, Existing, Skipped, Review }

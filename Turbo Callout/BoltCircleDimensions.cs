@@ -200,7 +200,7 @@ namespace TurboCallout
             return false;
         }
 
-        static void ApplyPresentation(object style)
+        internal static void ApplyPresentation(object style)
         {
             using(var stream=typeof(BoltCircleDimensions).Assembly.GetManifestResourceStream("TurboCallout.DimensionStandard"))
             {

@@ -53,6 +53,33 @@ internal static class Tests
     {
         try
         {
+            for(int degrees=-179;degrees<=180;degrees++)
+            {
+                double radians=degrees*Math.PI/180;
+                var angle=BoltCircleAngles.Plan(.1*Math.Cos(radians),.1*Math.Sin(radians));
+                int remainder=Math.Abs(degrees)%90;
+                if(remainder==0){Check(angle==null,"Axis-aligned holes have no angle");continue;}
+                double expected=Math.Min(remainder,90-remainder)*Math.PI/180;
+                Check(Math.Abs(angle.Angle-expected)<1e-10,"Nearest-axis angle in all four quadrants");
+                Check(angle.Angle<=Math.PI/4+1e-10,"Angular measurement never exceeds 45 degrees");
+                Check(Math.Abs(Math.Abs(BoltCircleAngles.Wrapped(radians-angle.AxisAngle))-angle.Angle)<1e-10,"Correct signed half-axis");
+                if(remainder==45)Check(!angle.Vertical,"45-degree tie uses horizontal");
+            }
+            Check(BoltCircleAngles.Plan(.1,1e-10)==null,"Native projection round-off is treated as on-axis");
+            Check(BoltCircleAngles.Plan(.1,.00001)!=null,"Small real off-axis angle is retained");
+            foreach(int degrees in new[]{10,40,42,45,138,230,-10,-42})
+            {
+                var plan=BoltCircleAngles.Plan(Math.Cos(degrees*Math.PI/180),Math.Sin(degrees*Math.PI/180));
+                double extent=BoltCircleAngles.SectorExtent(plan,0,0,-1,-1,1,1);
+                for(int i=0;i<=100;i++)
+                {
+                    double angle=plan.AxisAngle+BoltCircleAngles.Wrapped(plan.HoleAngle-plan.AxisAngle)*i/100;
+                    double x=extent*Math.Cos(angle),y=extent*Math.Sin(angle);
+                    Check(Math.Max(Math.Abs(x),Math.Abs(y))>=1-1e-10,"Angular arc clears the entire rectangular view sector");
+                }
+            }
+            foreach(var p in new[]{new[]{0.0,0.0},new[]{Double.NaN,1.0},new[]{1.0,Double.PositiveInfinity}})
+            {bool failed=false;try{BoltCircleAngles.Plan(p[0],p[1]);}catch(InvalidOperationException){failed=true;}Check(failed,"Invalid angular geometry requires review");}
             foreach(double length in new[]{.003175,-.0047625})
             foreach(double dx in new[]{-.004, .004})
                 Check(Math.Abs(BoltCircleDimensions.DirectedLength(length,dx,0)-Math.Sign(dx)*Math.Abs(length))<1e-12,

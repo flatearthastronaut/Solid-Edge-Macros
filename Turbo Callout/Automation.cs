@@ -386,13 +386,15 @@ namespace TurboCallout
         internal int ProjectionMarksCreated, ProjectionMarksUpdated;
         internal bool BoltCirclesEnabled;
         internal int BcDimensionsCreated, BcDimensionsUpdated, BcDimensionsExisting, BcDimensionsReview;
+        internal int BcAnglesCreated, BcAnglesExisting, BcAnglesSkipped, BcAnglesRemoved, BcAnglesReview;
         internal readonly List<string> Details = new List<string>();
         public override string ToString()
         {
             return String.Format("{0} blank callouts found.\r\n{1} filled; {4} existing notes aligned; {5} existing notes updated; {6} old styles removed; {2} need review; {3} errors.\r\n\r\nReview the drawing, then save it in Solid Edge.\r\n", Blank, Filled, Review, Errors, AlignedExisting, UpdatedExisting, StylesRemoved) +
                 (BoltCirclesEnabled?String.Format("Bolt circles: {0} created; {1} already present; {2} need review.\r\n",BoltCirclesCreated,BoltCirclesExisting,BoltCirclesReview)+
                 String.Format("Projection marks: {0} added; {1} restored.\r\n",ProjectionMarksCreated,ProjectionMarksUpdated)+
-                String.Format("B.C dimensions: {0} added; {1} updated; {2} already correct; {3} need review.\r\n",BcDimensionsCreated,BcDimensionsUpdated,BcDimensionsExisting,BcDimensionsReview):"Mode: Without bolt circles.\r\n")+
+                String.Format("B.C dimensions: {0} added; {1} updated; {2} already correct; {3} need review.\r\n",BcDimensionsCreated,BcDimensionsUpdated,BcDimensionsExisting,BcDimensionsReview)+
+                String.Format("B.C angles: {0} added; {1} already present; {2} on-axis holes skipped; {3} removed; {4} need review.\r\n",BcAnglesCreated,BcAnglesExisting,BcAnglesSkipped,BcAnglesRemoved,BcAnglesReview):"Mode: Without bolt circles.\r\n")+
                 String.Join("\r\n", Details);
         }
     }
@@ -526,7 +528,11 @@ namespace TurboCallout
             }
             finally
             {
-                try { BoltCircleDimensions.Process(draft,circles.DimensionTargets,rules,dual,report,progress); }
+                try
+                {
+                    BoltCircleDimensions.Process(draft,circles.DimensionTargets,rules,dual,report,progress);
+                    BoltCircleAngles.Process(draft,circles.DimensionTargets,report,progress);
+                }
                 finally { report.ProjectionMarksCreated=circles.ProjectionMarksCreated;report.ProjectionMarksUpdated=circles.ProjectionMarksUpdated;Com.Release(sheets); }
             }
         }
