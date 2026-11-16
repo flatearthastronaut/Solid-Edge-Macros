@@ -93,7 +93,7 @@ internal static class StyleCycleTests
     }
     private static void Fails(Action action, string message, Action<bool, string> check)
     {
-        bool failed = false; try { action(); } catch (InvalidOperationException) { failed = true; } catch (InvalidDataException) { failed = true; } catch (FileNotFoundException) { failed = true; }
+        bool failed = false; try { action(); } catch (InvalidOperationException) { failed = true; } catch (InvalidDataException) { failed = true; } catch (IOException) { failed = true; }
         check(failed, message);
     }
     internal static void Run(string run, Action<bool, string> check)
@@ -161,18 +161,17 @@ internal static class StyleCycleTests
         document.SelectSet.Values = new object[] { dimension, dimension }; Fails(() => CycleEngine.Run(document, sequence, index), "multiple selections are rejected", check);
         document.Type = 3; Fails(() => CycleEngine.Run(document, sequence, index), "other document types remain unchanged", check);
 
-        string defaults = Path.Combine(run, "DefaultStyles.txt"), user = Path.Combine(run, "Preferences", "Hammill.DimensionStyles.txt");
-        File.WriteAllText(defaults, Configuration);
-        var file = new StyleSequenceFile(user); file.Initialize(defaults); var first = file.Get();
+        string user = Path.Combine(run, "Hammill.DimensionStyles.txt");
+        File.WriteAllText(user, Configuration);
+        var file = new StyleSequenceFile(user); var first = file.Get();
         check(Object.ReferenceEquals(first, file.Get()), "unchanged clicks reuse the parsed configuration");
         File.WriteAllText(user, Configuration.Replace("I2\nI4\nI3", "I2\nI3\nI4") + "# edited\n");
-        file.Initialize(defaults);
-        check(file.Get().Next("I2") == "I3", "editing order reloads without restart and upgrades preserve the user's file");
+        check(file.Get().Next("I2") == "I3", "editing order reloads without restart");
         File.WriteAllText(user, "[Inch]\nI2\nI2");
         Fails(() => file.Get(), "invalid edit never falls back to stale cached order", check);
         File.WriteAllText(user, Configuration); file.Get();
         File.Delete(user); Fails(() => file.Get(), "deleted configuration is reported rather than silently reused", check);
-        file.Initialize(defaults);
+        File.WriteAllText(user, Configuration);
         var application = new CycleTestApplication { ActiveDocument = Document() };
         var addin = new Addin();
         typeof(Addin).GetField("hostApplication", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(addin, application);

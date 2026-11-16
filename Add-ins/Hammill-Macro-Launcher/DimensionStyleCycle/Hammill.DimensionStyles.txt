@@ -4,35 +4,28 @@
 # Keep each style in only one family. Reorder/add/remove lines as needed.
 # Names are case-insensitive. Blank lines and lines starting # or ; are ignored.
 # The next named style must already exist in the draft; missing names stop the click.
-# Edit Hammill.DimensionStyles.txt in your Macro Manager install folder.
-# Changes reload on the next click. No recompiling or SE restart is needed.
+# Put this file in the ROOT of Macro Manager's shared Available/source folder.
+# Everyone using Hammill v0.6+ reads that one shared Hammill.DimensionStyles.txt.
+# Edit the shared copy: changes reload on each person's next style-cycle click.
+# No rebuilding, republishing, reinstalling or SE restart is needed for list edits.
+# Local installation copies are not read or copied to the share automatically.
 
 [Inch]
 1 2 place
 1 3 place
 1 4 place
-1 5 place
 
 [Inch-Metric]
 2 2 place m[i]
 2 3 place m[i]
 2 4 place m[i]
-2 5 place m[i]
 
 [Vertical Inch]
-Vert- 2 PLC
-Vert- 3 PLC
-Vert- 4 PLC
+3 2 place (vert)
+3 3 place (vert)
+3 4 place (vert)
 
 [Vertical Inch-Metric]
-Vert - 2PLC m[i]
-Vert - 3PLC m[i]
-Vert - 4PLC m[i]
-
-# If your draft uses numbered vertical styles instead, replace the Vert names
-# in those two lists with its exact names, such as:
-# 3 3 place (vert)
-# 3 4 place (vert)
-# and, in Vertical Inch-Metric:
-# 4 3 place m[i] (vert)
-# 4 4 place m[i] (vert)
+4 2 place m[i] (vert)
+4 3 place m[i] (vert)
+4 4 place m[i] (vert)

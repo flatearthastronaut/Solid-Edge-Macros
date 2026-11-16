@@ -34,6 +34,7 @@ internal static class Tests
             Directory.CreateDirectory(Path.Combine(local, ".se-manager"));
             StyleCycleTests.Run(run, Check);
             ToleranceCycleTests.Run(Check);
+            SharedStyleTests.Run(run, Check);
             Check(MacroCatalog.ManagerFolder(settings, documents) == Path.Combine(documents, "Add-ins"), "manager default uses user's Documents/Add-ins");
             new XDocument(new XElement("settings", new XElement("source", "Z:\\NeverScanThePublishShare"), new XElement("local", local))).Save(settings);
             Check(MacroCatalog.ManagerFolder(settings, documents) == local, "manager local preference wins over source and default");
@@ -110,6 +111,9 @@ internal static class Tests
             var limitsUpgrade = RibbonState.Update(migrationPath, catalog);
             Check(limitsUpgrade.Version == 11 && catalog.Entries.Single(x => x.Key == "tool").CommandId == 150 && RibbonState.Update(migrationPath, Scan()).Version == 11,
                 "v0.4 upgrade adds limit tolerance once while retaining macro IDs");
+            oldLines[0] = "hammill-launcher-ribbon-v5-limit-tolerance-cycle";
+            Check(limitsUpgrade.Signature == MacroCatalog.Hash(Encoding.UTF8.GetBytes(String.Join("\n", oldLines))),
+                "shared-list upgrade retains the v0.5 GUI signature, button identities and artwork cache");
 
             string statePath = Path.Combine(run, "State", "ribbon.xml");
             var state1 = RibbonState.Update(statePath, catalog); int toolId = catalog.Entries.Single(x => x.Key == "tool").CommandId;
@@ -158,7 +162,7 @@ internal static class Tests
             File.Delete(Path.Combine(local, "HammillMacros.xml")); Package("tool", true, "Tool.exe", "Tool.png");
 
             var resourcesCatalog = Scan(); var resourcesState = RibbonState.Update(statePath, resourcesCatalog);
-            string template = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "Compiled Executables", "Hammill-Macro-Launcher-v0.5", "Hammill.MacroLauncher.Resources.dll"));
+            string template = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "Compiled Executables", "Hammill-Macro-Launcher-v0.6", "Hammill.MacroLauncher.Resources.dll"));
             string stale = Path.Combine(run, "IconCache", "ribbon-" + oldSignature + ".dll");
             Directory.CreateDirectory(Path.GetDirectoryName(stale));
             File.WriteAllText(stale, "old bitmap cache fixture");

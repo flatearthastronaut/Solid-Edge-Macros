@@ -1,40 +1,58 @@
 using System;
 using System.IO;
+using System.Text;
 
 namespace Hammill.DimensionStyleCycle
 {
     internal sealed class StyleSequenceFile
     {
-        public readonly string Path;
+        private readonly Func<string> resolvePath;
         private StyleSequence cached;
-        private DateTime lastWrite;
-        private long length;
-        public StyleSequenceFile(string path) { Path = path; }
-
-        public void Initialize(string defaults)
-        {
-            // User preferences live at the Macro Manager folder root, outside
-            // versioned add-in packages. Upgrades must never replace their edits.
-            if (File.Exists(Path)) return;
-            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path));
-            try { File.Copy(defaults, Path, false); }
-            catch (IOException) { if (!File.Exists(Path)) throw; }
-        }
+        private string cachedText;
+        public string Path { get { return resolvePath(); } }
+        public StyleSequenceFile(string path) : this(() => path) { }
+        internal StyleSequenceFile(Func<string> path) { resolvePath = path; }
 
         public StyleSequence Get()
         {
-            // One cheap metadata check per click; parse only when the local text
-            // file changes. No CAD-object caches, timers, processes or polling.
-            var info = new FileInfo(Path);
-            if (!info.Exists) throw new FileNotFoundException("The dimension-style list is missing: " + Path);
-            if (cached != null && info.LastWriteTimeUtc == lastWrite && info.Length == length) return cached;
-            var parsed = StyleSequence.Load(Path);
-            DateTime stamp = info.LastWriteTimeUtc; long size = info.Length;
-            info.Refresh();
-            if (info.LastWriteTimeUtc != stamp || info.Length != size)
-                throw new IOException("The style list changed while being read. Finish saving it, then click again.");
-            cached = parsed; lastWrite = stamp; length = size;
+            string path = Path, text;
+            try { text = ReadText(path); }
+            catch (InvalidDataException error) { throw new InvalidDataException("Invalid shared dimension-style list:\r\n" + path + "\r\n" + error.Message, error); }
+            catch (IOException error)
+            {
+                throw new IOException("Cannot read the shared dimension-style list:\r\n" + path +
+                    "\r\nCheck Macro Manager's Available folder and the shared file, then try again. " + error.Message, error);
+            }
+            catch (UnauthorizedAccessException error)
+            {
+                throw new UnauthorizedAccessException("Read access is required for the shared dimension-style list:\r\n" + path, error);
+            }
+            // One small read per click detects same-length edits even when
+            // timestamps are retained or network metadata is cached. Reuse the
+            // parse for identical contents, never a stale/local fallback list.
+            if (cached != null && String.Equals(text, cachedText, StringComparison.Ordinal)) return cached;
+            StyleSequence parsed;
+            try { parsed = StyleSequence.Parse(text); }
+            catch (InvalidDataException error) { throw new InvalidDataException("Invalid shared dimension-style list:\r\n" + path + "\r\n" + error.Message, error); }
+            cached = parsed; cachedText = text;
             return cached;
+        }
+
+        private static string ReadText(string path)
+        {
+            // Lock out in-place writers during this bounded read. Share Delete
+            // lets editors atomically replace the file; an open handle sees one
+            // complete version, never a mixture. Nothing writes to the share.
+            using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete))
+            {
+                const int maximum = 65536;
+                if (stream.Length > maximum) throw new InvalidDataException("Hammill.DimensionStyles.txt is too large (maximum 64 KB).");
+                var bytes = new byte[maximum + 1]; int count = 0, read;
+                while (count < bytes.Length && (read = stream.Read(bytes, count, bytes.Length - count)) != 0) count += read;
+                if (count > maximum) throw new InvalidDataException("Hammill.DimensionStyles.txt is too large (maximum 64 KB).");
+                using (var memory = new MemoryStream(bytes, 0, count))
+                using (var reader = new StreamReader(memory, Encoding.UTF8, true)) return reader.ReadToEnd();
+            }
         }
     }
 }

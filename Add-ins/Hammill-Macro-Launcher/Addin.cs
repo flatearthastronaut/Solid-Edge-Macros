@@ -15,8 +15,8 @@ using Environment = System.Environment;
 [assembly: AssemblyTitle("Hammill Add-ins")]
 [assembly: AssemblyCompany("Hammill")]
 [assembly: AssemblyProduct("Hammill Add-ins")]
-[assembly: AssemblyVersion("0.5.0.0")]
-[assembly: AssemblyFileVersion("0.5.0.0")]
+[assembly: AssemblyVersion("0.6.0.0")]
+[assembly: AssemblyFileVersion("0.6.0.0")]
 [assembly: ComVisible(false)]
 
 namespace Hammill.MacroLauncher
@@ -61,17 +61,10 @@ namespace Hammill.MacroLauncher
             try
             {
                 Directory.CreateDirectory(cache);
-                catalog = MacroCatalog.Scan(Path.Combine(userData, "Coop", "SEMacroManager", "settings.xml"), Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));
-                if (!String.IsNullOrWhiteSpace(catalog.Folder))
-                {
-                    styleSequence = new StyleSequenceFile(Path.Combine(catalog.Folder, "Hammill.DimensionStyles.txt"));
-                    try
-                    {
-                        styleSequence.Initialize(Path.Combine(Path.GetDirectoryName(typeof(Addin).Assembly.Location), "DimensionStyles.txt"));
-                        styleSequence.Get(); // Warm the tiny configuration cache at startup.
-                    }
-                    catch (Exception error) { catalog.Notices.Add("Dimension style list: " + error.Message); }
-                }
+                string managerSettings = Path.Combine(userData, "Coop", "SEMacroManager", "settings.xml");
+                catalog = MacroCatalog.Scan(managerSettings, Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));
+                // Avoid network reads during connection and ribbon UI updates.
+                styleSequence = SharedStyleSequence(managerSettings);
                 RibbonState state = RibbonState.Update(Path.Combine(cache, "ribbon.xml"), catalog);
                 // SDK Addins/VC/SEAddin.cpp: GuiVersion changes purge the add-in's cached GUI.
                 // Only actual catalog/icon/layout changes advance it; ordinary EXE updates do not.
@@ -142,7 +135,11 @@ namespace Hammill.MacroLauncher
                 {
                     string summary = catalog.Folder + "\r\n\r\n" + catalog.Entries.Count + " installed macro(s).\r\nRestart Solid Edge after installing or removing macros.\r\n\r\n";
                     summary += String.Join("\r\n", catalog.Notices.Count == 0 ? catalog.Entries.Select(x => x.Name) : catalog.Notices);
-                    if (styleSequence != null) summary += "\r\n\r\nDimension style order: " + styleSequence.Path;
+                    if (styleSequence != null)
+                    {
+                        try { summary += "\r\n\r\nShared dimension style order: " + styleSequence.Path; }
+                        catch (Exception error) { summary += "\r\n\r\nShared dimension style order: " + error.Message; }
+                    }
                     MessageBox.Show(summary, "Hammill Macro Launcher", MessageBoxButtons.OK, MessageBoxIcon.Information); return;
                 }
                 if (id == StyleCycleCommand || id == LimitToleranceCommand)
@@ -189,13 +186,25 @@ namespace Hammill.MacroLauncher
             }
         }
 
+        internal static StyleSequenceFile SharedStyleSequence(string managerSettings)
+        {
+            // Also follow a changed Available folder on the next click, without
+            // reconnecting the add-in. Macros still run from local installations.
+            return new StyleSequenceFile(() => Path.Combine(MacroCatalog.ManagerSourceFolder(managerSettings), "Hammill.DimensionStyles.txt"));
+        }
+
         private void OnHelp(int window, int help, int id)
         {
             if (id == LimitToleranceCommand)
                 MessageBox.Show("Select one inch or dual-unit dimension. Each click advances the native limits: +/-0.0005, +/-0.001, +/-0.002 inch, then repeats. Other tolerances start at +/-0.0005. The dimension stays selected.", "Hammill Limit Tolerance Cycle", MessageBoxButtons.OK, MessageBoxIcon.Information);
             else if (id == StyleCycleCommand && styleSequence != null)
-                MessageBox.Show("Select one dimension and click to advance within its family.\r\nEdit the style names and order here:\r\n\r\n" + styleSequence.Path,
+            {
+                string location;
+                try { location = styleSequence.Path; }
+                catch (Exception error) { location = error.Message; }
+                MessageBox.Show("Select one dimension and click to advance within its family.\r\nEveryone uses this shared list; saved edits apply on the next click:\r\n\r\n" + location,
                     "Hammill Dimension Style Cycle", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
             else OnCommand(1);
         }
         internal static decimal ExecuteLimitTolerance(object application)

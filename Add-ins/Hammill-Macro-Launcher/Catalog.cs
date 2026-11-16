@@ -48,6 +48,27 @@ namespace Hammill.MacroLauncher
         internal static string FamilyKey(string name)
         { return Regex.Replace(name, @"[\s_.-]+", "").ToLowerInvariant(); }
 
+        internal static string ManagerSourceFolder(string settingsPath)
+        {
+            // Match the USER manager's Available folder and default migration
+            // (Macro-Addin-Manager/Diagnostics.cs). The admin source is a builds
+            // folder, so never consult its settings for shared configuration.
+            string configured = null;
+            if (File.Exists(settingsPath))
+            {
+                var root = ReadXml(settingsPath).Root;
+                if (root == null || root.Name != "settings") throw new InvalidDataException("Unexpected Macro Manager settings format.");
+                configured = (string)root.Element("source");
+            }
+            string path = String.IsNullOrWhiteSpace(configured) ? "" : configured.Trim();
+            if (path.Length == 0 || path.TrimEnd('\\').Equals(@"H:\solid_edge\Coop\internal\Macros and Add-ins", StringComparison.OrdinalIgnoreCase))
+                path = @"H:\Coop\internal\Macros and Add-ins";
+            // IsPathRooted alone also accepts C:relative and \relative.
+            if (!Regex.IsMatch(path, @"^(?:[A-Za-z]:[\\/]|\\\\[^\\/]+[\\/][^\\/]+(?:[\\/]|$))"))
+                throw new InvalidDataException("Macro Manager's Available folder must be a full drive or UNC path.");
+            return System.IO.Path.GetFullPath(path);
+        }
+
         internal static bool Versioned(string name)
         { return Regex.IsMatch(name, @"^(.*?)[\s_.-]*[vV]?(\d+(?:\.\d+){1,3})$"); }
 

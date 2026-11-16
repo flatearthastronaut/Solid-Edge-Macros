@@ -24,18 +24,25 @@ $xml=New-Object Xml.XmlDocument;$xml.LoadXml('<settings><local /></settings>');$
 $settings=Join-Path $work 'settings.xml';$xml.Save($settings)
 $addinFolder=[string](Join-Path $root 'Add-ins\Hammill-Macro-Launcher\Compiled Executables')
 $builds=$manager.GetType('CoopManager.BuildCatalog').GetMethod('Scan').Invoke($null,[object[]]@($addinFolder))
-if($builds.Count -ne 1 -or $builds[0].Path -notlike '*v0.5.zip' -or $detect.Invoke($null,[object[]]@($builds[0])) -ne 'Solid Edge Add-ins'){throw 'Latest combined add-in is not one unambiguous add-in package.'}
+if($builds.Count -ne 1 -or $builds[0].Path -notlike '*v0.6.zip' -or $detect.Invoke($null,[object[]]@($builds[0])) -ne 'Solid Edge Add-ins'){throw 'Latest combined add-in is not one unambiguous add-in package.'}
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zip=[IO.Compression.ZipFile]::OpenRead($builds[0].Path)
 try {
-    $defaults=@($zip.Entries|Where-Object{$_.Name -eq 'DimensionStyles.txt'})
-    if($defaults.Count -ne 1){throw 'The add-in must package one starter dimension-style list.'}
+    $defaults=@($zip.Entries|Where-Object{$_.Name -eq 'Hammill.DimensionStyles.txt'})
+    if($defaults.Count -ne 1 -or $defaults[0].FullName.Replace('\','/') -ne 'Shared Configuration/Hammill.DimensionStyles.txt'){throw 'The add-in must package one clearly identified shared configuration handoff file.'}
+    if(@($zip.Entries|Where-Object{$_.Name -eq 'DimensionStyles.txt'}).Count -ne 0){throw 'Obsolete local starter filename must not be packaged.'}
     $reader=[IO.StreamReader]::new($defaults[0].Open())
-    try { $content=$reader.ReadToEnd(); foreach($family in @('[Inch]','[Inch-Metric]','[Vertical Inch]','[Vertical Inch-Metric]')) {if(-not $content.Contains($family)){throw ('Missing style family: '+$family)}} }
+    try {
+        $content=$reader.ReadToEnd()
+        foreach($family in @('[Inch]','[Inch-Metric]','[Vertical Inch]','[Vertical Inch-Metric]')) {if(-not $content.Contains($family)){throw ('Missing style family: '+$family)}}
+        if($content -ne [IO.File]::ReadAllText((Join-Path $root 'Add-ins\Hammill-Macro-Launcher\DimensionStyleCycle\Hammill.DimensionStyles.txt'))){throw 'Packaged shared list differs from approved project list.'}
+        [IO.File]::WriteAllText((Join-Path $source 'Hammill.DimensionStyles.txt'),$content)
+    }
     finally {$reader.Dispose()}
 } finally {$zip.Dispose()}
-$checker=Join-Path $addinFolder 'Hammill-Macro-Launcher-v0.5\Hammill Macro Catalog Check.exe'
+$checker=Join-Path $addinFolder 'Hammill-Macro-Launcher-v0.6\Hammill Macro Catalog Check.exe'
 $output=& $checker --settings $settings --documents $work
 if($LASTEXITCODE -ne 0 -or @($output|Where-Object{$_ -match ' \| part,assembly,draft,sheetmetal \| '}).Count -ne 4){throw ('Launcher discovery failed: '+($output -join "`n"))}
-Write-Output 'PASS one combined add-in package with editable style-list defaults, four macro installs, stable EXEs/icons, external table, and four launcher commands'
+if($catalog.GetMethod('Scan').Invoke($null,[object[]]@($source,$true)).Count -ne 4){throw 'Loose shared style file must not appear as an installable macro package.'}
+Write-Output 'PASS one combined add-in package, approved shared style handoff file, four macro installs, stable EXEs/icons, external table, and four launcher commands'
 Write-Output $output
