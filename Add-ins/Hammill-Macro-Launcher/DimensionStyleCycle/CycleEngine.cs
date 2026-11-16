@@ -86,10 +86,11 @@ namespace Hammill.DimensionStyleCycle
         };
         private readonly Dictionary<string, object> values = new Dictionary<string, object>();
         private readonly double measured;
-        internal DimensionState(object dimension)
+        internal DimensionState(object dimension, params string[] excluded)
         {
             measured = (double)((dynamic)dimension).Value;
-            foreach (string field in Fields) values.Add(field, Read(dimension, field));
+            foreach (string field in Fields)
+                if (Array.IndexOf(excluded, field) < 0) values.Add(field, Read(dimension, field));
         }
         private static object Read(object target, string field)
         { return target.GetType().InvokeMember(field, BindingFlags.GetProperty, null, target, null, CultureInfo.InvariantCulture); }

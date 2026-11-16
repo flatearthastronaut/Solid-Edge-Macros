@@ -15,8 +15,8 @@ using Environment = System.Environment;
 [assembly: AssemblyTitle("Hammill Add-ins")]
 [assembly: AssemblyCompany("Hammill")]
 [assembly: AssemblyProduct("Hammill Add-ins")]
-[assembly: AssemblyVersion("0.4.0.0")]
-[assembly: AssemblyFileVersion("0.4.0.0")]
+[assembly: AssemblyVersion("0.5.0.0")]
+[assembly: AssemblyFileVersion("0.5.0.0")]
 [assembly: ComVisible(false)]
 
 namespace Hammill.MacroLauncher
@@ -26,6 +26,7 @@ namespace Hammill.MacroLauncher
     {
         internal const string ApplicationEnvironment = "{26618394-09D6-11D1-BA07-080036230602}";
         internal const int StyleCycleCommand = 2; // Built-ins are below persisted macro IDs (100+).
+        internal const int LimitToleranceCommand = 3;
         internal static readonly Dictionary<string, string> Environments = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
             { ApplicationEnvironment, "application" },
             { "{26618396-09D6-11D1-BA07-080036230602}", "part" },
@@ -41,8 +42,8 @@ namespace Hammill.MacroLauncher
         private ISEApplicationEvents_Event applicationEvents;
         private object hostApplication;
         private bool updatingComponentDisplay;
-        private bool cyclingDimensionStyle;
-        private int pendingStyleCycles;
+        private bool processingDraftingCommand;
+        private readonly Queue<int> pendingDraftingCommands = new Queue<int>();
         private StyleSequenceFile styleSequence;
         private readonly StyleIndex cycleStyleIndex = new StyleIndex();
         private MacroCatalog catalog;
@@ -100,8 +101,12 @@ namespace Hammill.MacroLauncher
                 var extended = (ISEAddInEx2)native;
                 RegisterButton(extended, category, 1, "status", "Macro folder", "Launcher", "Show the macro folder, detected tools and startup scan results.", -1);
                 if (name == "draft")
+                {
                     RegisterButton(extended, category, StyleCycleCommand, "dimension-style-cycle", "Cycle Dimension Style", "Drafting",
                         "Apply the next style in the selected dimension's configured family.", icons == null ? -1 : IconResources.StyleCycleImage);
+                    RegisterButton(extended, category, LimitToleranceCommand, "limit-tolerance-cycle", "Cycle Limit Tolerance", "Drafting",
+                        "Cycle inch limits: +/-0.0005, +/-0.001, +/-0.002.", icons == null ? -1 : IconResources.LimitToleranceImage);
+                }
                 foreach (var entry in catalog.Entries.Where(x => x.Environments.Split(',').Contains(name)))
                 {
                     int imageId = icons == null ? -1 : icons.ResourceIds[entry.CommandId];
@@ -140,24 +145,25 @@ namespace Hammill.MacroLauncher
                     if (styleSequence != null) summary += "\r\n\r\nDimension style order: " + styleSequence.Path;
                     MessageBox.Show(summary, "Hammill Macro Launcher", MessageBoxButtons.OK, MessageBoxIcon.Information); return;
                 }
-                if (id == StyleCycleCommand)
+                if (id == StyleCycleCommand || id == LimitToleranceCommand)
                 {
                     // Runs directly on SE's command callback thread. No EXE launch,
                     // ROT connection, modal success dialog or document-wide scan.
                     // If SE dispatches another button click during a native call,
                     // retain it and apply its step after the current change finishes.
-                    pendingStyleCycles++;
-                    if (cyclingDimensionStyle) return;
-                    cyclingDimensionStyle = true;
+                    pendingDraftingCommands.Enqueue(id);
+                    if (processingDraftingCommand) return;
+                    processingDraftingCommand = true;
                     try
                     {
-                        while (pendingStyleCycles > 0)
+                        while (pendingDraftingCommands.Count > 0)
                         {
-                            pendingStyleCycles--;
-                            ExecuteStyleCycle(hostApplication, styleSequence, cycleStyleIndex);
+                            int command = pendingDraftingCommands.Dequeue();
+                            if (command == StyleCycleCommand) ExecuteStyleCycle(hostApplication, styleSequence, cycleStyleIndex);
+                            else ExecuteLimitTolerance(hostApplication);
                         }
                     }
-                    finally { cyclingDimensionStyle = false; pendingStyleCycles = 0; }
+                    finally { processingDraftingCommand = false; pendingDraftingCommands.Clear(); }
                     return;
                 }
                 var macro = catalog.Entries.FirstOrDefault(x => x.CommandId == id);
@@ -169,7 +175,7 @@ namespace Hammill.MacroLauncher
                 using (var process = Process.Start(new ProcessStartInfo { FileName = executable, WorkingDirectory = Path.GetDirectoryName(executable), UseShellExecute = false, CreateNoWindow = true })) { }
                 Log("Launched " + macro.Name);
             }
-            catch (Exception error) { Log("Command failed: " + error); MessageBox.Show(error.Message, id == StyleCycleCommand ? "Hammill Dimension Style Cycle" : "Hammill Macro Launcher", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+            catch (Exception error) { Log("Command failed: " + error); MessageBox.Show(error.Message, id == LimitToleranceCommand ? "Hammill Limit Tolerance Cycle" : id == StyleCycleCommand ? "Hammill Dimension Style Cycle" : "Hammill Macro Launcher", MessageBoxButtons.OK, MessageBoxIcon.Error); }
         }
 
         internal static string ExecuteStyleCycle(object application, StyleSequenceFile configuration, StyleIndex index)
@@ -185,10 +191,18 @@ namespace Hammill.MacroLauncher
 
         private void OnHelp(int window, int help, int id)
         {
-            if (id == StyleCycleCommand && styleSequence != null)
+            if (id == LimitToleranceCommand)
+                MessageBox.Show("Select one inch or dual-unit dimension. Each click advances the native limits: +/-0.0005, +/-0.001, +/-0.002 inch, then repeats. Other tolerances start at +/-0.0005. The dimension stays selected.", "Hammill Limit Tolerance Cycle", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            else if (id == StyleCycleCommand && styleSequence != null)
                 MessageBox.Show("Select one dimension and click to advance within its family.\r\nEdit the style names and order here:\r\n\r\n" + styleSequence.Path,
                     "Hammill Dimension Style Cycle", MessageBoxButtons.OK, MessageBoxIcon.Information);
             else OnCommand(1);
+        }
+        internal static decimal ExecuteLimitTolerance(object application)
+        {
+            if (application == null) throw new InvalidOperationException("Reconnect Hammill Add-ins before cycling tolerances.");
+            using (var scope = new ComScope())
+                return LimitToleranceCycle.Run(scope.Own(((dynamic)application).ActiveDocument));
         }
         private void BeforeHostCommand(int command)
         {
@@ -202,7 +216,7 @@ namespace Hammill.MacroLauncher
         {
             // Called frequently by SE: no filesystem scans, hashing or XML reads on this path.
             text = null;
-            flags = id == 1 || id == StyleCycleCommand || (catalog != null && catalog.Entries.Any(x => x.CommandId == id)) ? 1 : 0;
+            flags = id == 1 || id == StyleCycleCommand || id == LimitToleranceCommand || (catalog != null && catalog.Entries.Any(x => x.CommandId == id)) ? 1 : 0;
         }
 
         public void OnDisconnection(SeDisconnectMode mode)

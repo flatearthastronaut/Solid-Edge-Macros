@@ -69,6 +69,12 @@ internal static class IconResourceTests
                 check(cycle.Width == 32 && cycleHigh.Width == 40 && cycle.GetPixel(0, 0).A == 0, "built-in cycle icon has transparent 32/40px resources");
                 cycleHigh.Save(Path.Combine(Path.GetDirectoryName(resources.FileName), "Cycle icon.png"), ImageFormat.Png);
             }
+            using (var limits = ReadPng(module, IconResources.LimitToleranceImage))
+            using (var limitsHigh = ReadPng(module, IconResources.LimitToleranceImage + 1))
+            {
+                check(limits.Width == 32 && limitsHigh.Width == 40 && limits.GetPixel(0, 0).A == 0, "limit tolerance has its own transparent large icon pair");
+                limitsHigh.Save(Path.Combine(Path.GetDirectoryName(resources.FileName), "Limit tolerance icon.png"), ImageFormat.Png);
+            }
         }
         finally { if (module != IntPtr.Zero) FreeLibrary(module); }
     }

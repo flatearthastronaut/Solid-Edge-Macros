@@ -12,6 +12,7 @@ namespace Hammill.MacroLauncher
     internal sealed class IconResources
     {
         internal const int StyleCycleImage = 10;
+        internal const int LimitToleranceImage = 12;
         public string FileName;
         public readonly Dictionary<int, int> ResourceIds = new Dictionary<int, int>();
 
@@ -47,6 +48,11 @@ namespace Hammill.MacroLauncher
                 {
                     WritePng(handle, StyleCycleImage, cycle, 32);
                     WritePng(handle, StyleCycleImage + 1, cycle, 40);
+                }
+                using (var limits = CreateCycleIcon(true))
+                {
+                    WritePng(handle, LimitToleranceImage, limits, 32);
+                    WritePng(handle, LimitToleranceImage + 1, limits, 40);
                 }
                 foreach (var entry in catalog.Entries)
                 {
@@ -88,6 +94,9 @@ namespace Hammill.MacroLauncher
         }
 
         private static Bitmap CreateStyleCycleIcon()
+        { return CreateCycleIcon(false); }
+
+        private static Bitmap CreateCycleIcon(bool tolerance)
         {
             // The same code-drawn Hammill green artwork style as the standalone
             // tools, encoded with alpha like the other ribbon resources.
@@ -95,10 +104,10 @@ namespace Hammill.MacroLauncher
             using (var g = Graphics.FromImage(result))
             using (var green = new SolidBrush(Color.FromArgb(114, 148, 3)))
             using (var pen = new Pen(green, 9))
-            using (var font = new Font("Segoe UI", 33, FontStyle.Bold, GraphicsUnit.Pixel))
+            using (var font = new Font("Segoe UI", tolerance ? 58 : 33, FontStyle.Bold, GraphicsUnit.Pixel))
             {
                 g.Clear(Color.Transparent); g.SmoothingMode = SmoothingMode.AntiAlias;
-                g.DrawString(".000", font, green, 9, 39);
+                g.DrawString(tolerance ? "\u00b1" : ".000", font, green, tolerance ? 35 : 9, tolerance ? 23 : 39);
                 g.DrawArc(pen, 16, 14, 96, 100, 205, 105);
                 g.DrawArc(pen, 16, 14, 96, 100, 25, 105);
                 g.FillPolygon(green, new[] { new Point(103, 15), new Point(106, 40), new Point(83, 29) });

@@ -13,12 +13,18 @@ public sealed class CycleTestStyle
     public string Reject, Ignore;
     public Action Changing;
     public int Writes;
-    public CycleTestStyle(string value) { name = value; PrimaryUnits = 5; SecondaryUnits = 5; }
+    public CycleTestStyle(string value) { name = value; PrimaryUnits = 5; SecondaryUnits = 5; PrimaryLinearToleranceUnits = 5; PrimaryDecimalRoundOff = 4; SecondaryDecimalRoundOff = 4; RoundOffType = 1; SecondaryLinearRoundOffType = 1; }
     public string Name { get { return name; } set { Writes++; if (value == Ignore) return; name = value; if (Changing != null) Changing(); if (value == Reject) throw new InvalidOperationException("Simulated failure after mutation"); } }
     public bool DualDisplay { get; set; }
     public int PrimaryUnits { get; set; }
     public int SecondaryUnits { get; set; }
     public int TextOrientation { get; set; }
+    public int PrimaryLinearToleranceUnits { get; set; }
+    public bool SecondaryToleranceEquivalent { get; set; }
+    public int PrimaryDecimalRoundOff { get; set; }
+    public int SecondaryDecimalRoundOff { get; set; }
+    public int RoundOffType { get; set; }
+    public int SecondaryLinearRoundOffType { get; set; }
 }
 public sealed class CycleTestStyles
 {
@@ -46,8 +52,15 @@ public sealed class CycleTestDimension
     public string SuperfixString { get; set; }
     public string SubfixString2 { get; set; }
     public string OverrideString { get; set; }
-    public string PrimaryUpperTolerance { get; set; }
-    public string PrimaryLowerTolerance { get; set; }
+    private string upper, lower;
+    public Action ToleranceChanging;
+    public bool IgnoreUpper;
+    public decimal NumericUpper, NumericLower;
+    // SE only recalculates these numeric offsets when text is assigned in
+    // UnitTolerance mode. A test that only checked strings would miss this bug.
+    public string PrimaryUpperTolerance { get { return upper; } set { if (IgnoreUpper) return; upper = value; if (DisplayType == 15) LimitToleranceCycle.TryInches(value, Style.PrimaryLinearToleranceUnits, out NumericUpper); } }
+    public string PrimaryLowerTolerance { get { return lower; } set { lower = value; if (DisplayType == 15) LimitToleranceCycle.TryInches(value, Style.PrimaryLinearToleranceUnits, out NumericLower); if (ToleranceChanging != null) ToleranceChanging(); } }
+    public bool UseStandardLimitAndFitTolerance { get; set; }
     public string PrimaryToleranceSymbol { get; set; }
     public string SecondaryUpperTolerance { get; set; }
     public string SecondaryLowerTolerance { get; set; }
@@ -172,6 +185,10 @@ internal static class StyleCycleTests
         dimension.Style.Changing = () => { if (repeat) { repeat = false; command.Invoke(addin, new object[] { Addin.StyleCycleCommand }); } };
         command.Invoke(addin, new object[] { Addin.StyleCycleCommand });
         check(dimension.Style.Name == "I2", "a second click dispatched during a style change is queued instead of lost");
+        dimension.Style.Changing = () => { dimension.Style.Changing = null; command.Invoke(addin, new object[] { Addin.LimitToleranceCommand }); command.Invoke(addin, new object[] { Addin.LimitToleranceCommand }); };
+        command.Invoke(addin, new object[] { Addin.StyleCycleCommand });
+        check(dimension.Style.Name == "I4" && dimension.NumericUpper == .001m && dimension.NumericLower == -.001m && dimension.Style.PrimaryDecimalRoundOff == 5,
+            "mixed style and tolerance clicks run in order and finish at the requested precision");
         var ribbon = new RibbonTarget();
         addin.RegisterButton(ribbon, "{08244193-B78D-11D2-9216-00C04F79BE98}", Addin.StyleCycleCommand, "dimension-style-cycle", "Cycle Dimension Style", "Drafting", "Cycle", IconResources.StyleCycleImage);
         check(ribbon.CommandId == 2 && ribbon.SmallImage == 10 && ribbon.LargeImage == 11 && ribbon.Style == (int)SolidEdgeFramework.SeButtonStyle.seButtonIconAndCaptionBelow,
