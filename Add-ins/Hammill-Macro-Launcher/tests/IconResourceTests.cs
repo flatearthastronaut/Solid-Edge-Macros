@@ -63,6 +63,12 @@ internal static class IconResourceTests
             int fallbackId = resources.ResourceIds[catalog.Entries.Single(x => x.Key == "other").CommandId];
             using (var fallback = ReadPng(module, fallbackId))
                 check(fallback.Width == 32 && fallback.Height == 32, "executable/fallback artwork also encodes as a native PNG");
+            using (var cycle = ReadPng(module, IconResources.StyleCycleImage))
+            using (var cycleHigh = ReadPng(module, IconResources.StyleCycleImage + 1))
+            {
+                check(cycle.Width == 32 && cycleHigh.Width == 40 && cycle.GetPixel(0, 0).A == 0, "built-in cycle icon has transparent 32/40px resources");
+                cycleHigh.Save(Path.Combine(Path.GetDirectoryName(resources.FileName), "Cycle icon.png"), ImageFormat.Png);
+            }
         }
         finally { if (module != IntPtr.Zero) FreeLibrary(module); }
     }

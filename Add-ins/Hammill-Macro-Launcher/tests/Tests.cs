@@ -32,6 +32,7 @@ internal static class Tests
             run = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".work", Guid.NewGuid().ToString("N"));
             local = Path.Combine(run, "Installed Macros"); documents = Path.Combine(run, "Documents"); settings = Path.Combine(run, "settings.xml");
             Directory.CreateDirectory(Path.Combine(local, ".se-manager"));
+            StyleCycleTests.Run(run, Check);
             Check(MacroCatalog.ManagerFolder(settings, documents) == Path.Combine(documents, "Add-ins"), "manager default uses user's Documents/Add-ins");
             new XDocument(new XElement("settings", new XElement("source", "Z:\\NeverScanThePublishShare"), new XElement("local", local))).Save(settings);
             Check(MacroCatalog.ManagerFolder(settings, documents) == local, "manager local preference wins over source and default");
@@ -94,6 +95,13 @@ internal static class Tests
             Check(alphaUpgrade.Version == 9 && alphaUpgrade.Signature != oldSignature && catalog.Entries.Single(x => x.Key == "tool").CommandId == 150,
                 "v0.2 bitmap cache upgrades to alpha PNGs without changing macro IDs");
             Check(RibbonState.Update(migrationPath, Scan()).Version == 9, "alpha PNG upgrade refreshes GUI only once");
+            oldLines[0] = "hammill-launcher-ribbon-v3-alpha-png-32-40";
+            oldState.Root.SetAttributeValue("version", 9);
+            oldState.Root.SetAttributeValue("signature", MacroCatalog.Hash(Encoding.UTF8.GetBytes(String.Join("\n", oldLines))));
+            oldState.Save(migrationPath);
+            var commandUpgrade = RibbonState.Update(migrationPath, catalog);
+            Check(commandUpgrade.Version == 10 && catalog.Entries.Single(x => x.Key == "tool").CommandId == 150 && RibbonState.Update(migrationPath, Scan()).Version == 10,
+                "v0.3 upgrade adds the built-in cycle command once while retaining macro IDs");
 
             string statePath = Path.Combine(run, "State", "ribbon.xml");
             var state1 = RibbonState.Update(statePath, catalog); int toolId = catalog.Entries.Single(x => x.Key == "tool").CommandId;
@@ -142,7 +150,7 @@ internal static class Tests
             File.Delete(Path.Combine(local, "HammillMacros.xml")); Package("tool", true, "Tool.exe", "Tool.png");
 
             var resourcesCatalog = Scan(); var resourcesState = RibbonState.Update(statePath, resourcesCatalog);
-            string template = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "Compiled Executables", "Hammill-Macro-Launcher-v0.3", "Hammill.MacroLauncher.Resources.dll"));
+            string template = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "Compiled Executables", "Hammill-Macro-Launcher-v0.4", "Hammill.MacroLauncher.Resources.dll"));
             string stale = Path.Combine(run, "IconCache", "ribbon-" + oldSignature + ".dll");
             Directory.CreateDirectory(Path.GetDirectoryName(stale));
             File.WriteAllText(stale, "old bitmap cache fixture");

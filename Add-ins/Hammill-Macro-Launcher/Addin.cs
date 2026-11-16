@@ -8,14 +8,15 @@ using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using Microsoft.Win32;
 using Hammill.Automation;
+using Hammill.DimensionStyleCycle;
 using SolidEdgeFramework;
 using Environment = System.Environment;
 
 [assembly: AssemblyTitle("Hammill Add-ins")]
 [assembly: AssemblyCompany("Hammill")]
 [assembly: AssemblyProduct("Hammill Add-ins")]
-[assembly: AssemblyVersion("0.3.0.0")]
-[assembly: AssemblyFileVersion("0.3.0.0")]
+[assembly: AssemblyVersion("0.4.0.0")]
+[assembly: AssemblyFileVersion("0.4.0.0")]
 [assembly: ComVisible(false)]
 
 namespace Hammill.MacroLauncher
@@ -24,6 +25,7 @@ namespace Hammill.MacroLauncher
     public sealed class Addin : ISolidEdgeAddIn
     {
         internal const string ApplicationEnvironment = "{26618394-09D6-11D1-BA07-080036230602}";
+        internal const int StyleCycleCommand = 2; // Built-ins are below persisted macro IDs (100+).
         internal static readonly Dictionary<string, string> Environments = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
             { ApplicationEnvironment, "application" },
             { "{26618396-09D6-11D1-BA07-080036230602}", "part" },
@@ -39,6 +41,10 @@ namespace Hammill.MacroLauncher
         private ISEApplicationEvents_Event applicationEvents;
         private object hostApplication;
         private bool updatingComponentDisplay;
+        private bool cyclingDimensionStyle;
+        private int pendingStyleCycles;
+        private StyleSequenceFile styleSequence;
+        private readonly StyleIndex cycleStyleIndex = new StyleIndex();
         private MacroCatalog catalog;
         private IconResources icons;
         private string logPath;
@@ -55,6 +61,16 @@ namespace Hammill.MacroLauncher
             {
                 Directory.CreateDirectory(cache);
                 catalog = MacroCatalog.Scan(Path.Combine(userData, "Coop", "SEMacroManager", "settings.xml"), Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));
+                if (!String.IsNullOrWhiteSpace(catalog.Folder))
+                {
+                    styleSequence = new StyleSequenceFile(Path.Combine(catalog.Folder, "Hammill.DimensionStyles.txt"));
+                    try
+                    {
+                        styleSequence.Initialize(Path.Combine(Path.GetDirectoryName(typeof(Addin).Assembly.Location), "DimensionStyles.txt"));
+                        styleSequence.Get(); // Warm the tiny configuration cache at startup.
+                    }
+                    catch (Exception error) { catalog.Notices.Add("Dimension style list: " + error.Message); }
+                }
                 RibbonState state = RibbonState.Update(Path.Combine(cache, "ribbon.xml"), catalog);
                 // SDK Addins/VC/SEAddin.cpp: GuiVersion changes purge the add-in's cached GUI.
                 // Only actual catalog/icon/layout changes advance it; ordinary EXE updates do not.
@@ -83,6 +99,9 @@ namespace Hammill.MacroLauncher
                 if (native == null || catalog == null || !Environments.TryGetValue(category, out name) || connected.Contains(category)) return;
                 var extended = (ISEAddInEx2)native;
                 RegisterButton(extended, category, 1, "status", "Macro folder", "Launcher", "Show the macro folder, detected tools and startup scan results.", -1);
+                if (name == "draft")
+                    RegisterButton(extended, category, StyleCycleCommand, "dimension-style-cycle", "Cycle Dimension Style", "Drafting",
+                        "Apply the next style in the selected dimension's configured family.", icons == null ? -1 : IconResources.StyleCycleImage);
                 foreach (var entry in catalog.Entries.Where(x => x.Environments.Split(',').Contains(name)))
                 {
                     int imageId = icons == null ? -1 : icons.ResourceIds[entry.CommandId];
@@ -118,7 +137,28 @@ namespace Hammill.MacroLauncher
                 {
                     string summary = catalog.Folder + "\r\n\r\n" + catalog.Entries.Count + " installed macro(s).\r\nRestart Solid Edge after installing or removing macros.\r\n\r\n";
                     summary += String.Join("\r\n", catalog.Notices.Count == 0 ? catalog.Entries.Select(x => x.Name) : catalog.Notices);
+                    if (styleSequence != null) summary += "\r\n\r\nDimension style order: " + styleSequence.Path;
                     MessageBox.Show(summary, "Hammill Macro Launcher", MessageBoxButtons.OK, MessageBoxIcon.Information); return;
+                }
+                if (id == StyleCycleCommand)
+                {
+                    // Runs directly on SE's command callback thread. No EXE launch,
+                    // ROT connection, modal success dialog or document-wide scan.
+                    // If SE dispatches another button click during a native call,
+                    // retain it and apply its step after the current change finishes.
+                    pendingStyleCycles++;
+                    if (cyclingDimensionStyle) return;
+                    cyclingDimensionStyle = true;
+                    try
+                    {
+                        while (pendingStyleCycles > 0)
+                        {
+                            pendingStyleCycles--;
+                            ExecuteStyleCycle(hostApplication, styleSequence, cycleStyleIndex);
+                        }
+                    }
+                    finally { cyclingDimensionStyle = false; pendingStyleCycles = 0; }
+                    return;
                 }
                 var macro = catalog.Entries.FirstOrDefault(x => x.CommandId == id);
                 if (macro == null) return;
@@ -129,10 +169,27 @@ namespace Hammill.MacroLauncher
                 using (var process = Process.Start(new ProcessStartInfo { FileName = executable, WorkingDirectory = Path.GetDirectoryName(executable), UseShellExecute = false, CreateNoWindow = true })) { }
                 Log("Launched " + macro.Name);
             }
-            catch (Exception error) { Log("Launch failed: " + error); MessageBox.Show(error.Message, "Hammill Macro Launcher", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+            catch (Exception error) { Log("Command failed: " + error); MessageBox.Show(error.Message, id == StyleCycleCommand ? "Hammill Dimension Style Cycle" : "Hammill Macro Launcher", MessageBoxButtons.OK, MessageBoxIcon.Error); }
         }
 
-        private void OnHelp(int window, int help, int id) { OnCommand(1); }
+        internal static string ExecuteStyleCycle(object application, StyleSequenceFile configuration, StyleIndex index)
+        {
+            if (application == null || configuration == null) throw new InvalidOperationException("Reconnect Hammill Add-ins to initialize the dimension-style command.");
+            StyleSequence sequence = configuration.Get();
+            using (var scope = new ComScope())
+            {
+                object document = scope.Own(((dynamic)application).ActiveDocument);
+                return CycleEngine.Run(document, sequence, index);
+            }
+        }
+
+        private void OnHelp(int window, int help, int id)
+        {
+            if (id == StyleCycleCommand && styleSequence != null)
+                MessageBox.Show("Select one dimension and click to advance within its family.\r\nEdit the style names and order here:\r\n\r\n" + styleSequence.Path,
+                    "Hammill Dimension Style Cycle", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            else OnCommand(1);
+        }
         private void BeforeHostCommand(int command)
         {
             if(updatingComponentDisplay || command != ComponentDisplay.UpdateViewsCommand)return;
@@ -145,7 +202,7 @@ namespace Hammill.MacroLauncher
         {
             // Called frequently by SE: no filesystem scans, hashing or XML reads on this path.
             text = null;
-            flags = id == 1 || (catalog != null && catalog.Entries.Any(x => x.CommandId == id)) ? 1 : 0;
+            flags = id == 1 || id == StyleCycleCommand || (catalog != null && catalog.Entries.Any(x => x.CommandId == id)) ? 1 : 0;
         }
 
         public void OnDisconnection(SeDisconnectMode mode)
@@ -167,7 +224,7 @@ namespace Hammill.MacroLauncher
                 // shared application/document/add-in object used by other managed extensions.
                 try { if (Marshal.IsComObject(subscription)) Marshal.ReleaseComObject(subscription); } catch (Exception error) { Log(error.Message); }
             }
-            connected.Clear(); native = null; catalog = null; icons = null;
+            connected.Clear(); native = null; catalog = null; icons = null; styleSequence = null;
         }
 
         private void Log(string message)

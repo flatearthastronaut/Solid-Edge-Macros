@@ -1,0 +1,38 @@
+# HAMMILL DIMENSION STYLE CYCLE
+# Put the EXACT style names from your draft below, one per line.
+# Each click advances DOWN the selected style's list, then wraps to the top.
+# Keep each style in only one family. Reorder/add/remove lines as needed.
+# Names are case-insensitive. Blank lines and lines starting # or ; are ignored.
+# The next named style must already exist in the draft; missing names stop the click.
+# Edit Hammill.DimensionStyles.txt in your Macro Manager install folder.
+# Changes reload on the next click. No recompiling or SE restart is needed.
+
+[Inch]
+1 2 place
+1 3 place
+1 4 place
+1 5 place
+
+[Inch-Metric]
+2 2 place m[i]
+2 3 place m[i]
+2 4 place m[i]
+2 5 place m[i]
+
+[Vertical Inch]
+Vert- 2 PLC
+Vert- 3 PLC
+Vert- 4 PLC
+
+[Vertical Inch-Metric]
+Vert - 2PLC m[i]
+Vert - 3PLC m[i]
+Vert - 4PLC m[i]
+
+# If your draft uses numbered vertical styles instead, replace the Vert names
+# in those two lists with its exact names, such as:
+# 3 3 place (vert)
+# 3 4 place (vert)
+# and, in Vertical Inch-Metric:
+# 4 3 place m[i] (vert)
+# 4 4 place m[i] (vert)

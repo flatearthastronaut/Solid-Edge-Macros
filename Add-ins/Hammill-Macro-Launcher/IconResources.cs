@@ -11,6 +11,7 @@ namespace Hammill.MacroLauncher
 {
     internal sealed class IconResources
     {
+        internal const int StyleCycleImage = 10;
         public string FileName;
         public readonly Dictionary<int, int> ResourceIds = new Dictionary<int, int>();
 
@@ -42,6 +43,11 @@ namespace Hammill.MacroLauncher
                 // copy avoids modifying the loaded add-in or holding 32-bit module handles.
                 handle = BeginUpdateResource(temporary, false);
                 if (handle == IntPtr.Zero) throw new Win32Exception(Marshal.GetLastWin32Error());
+                using (var cycle = CreateStyleCycleIcon())
+                {
+                    WritePng(handle, StyleCycleImage, cycle, 32);
+                    WritePng(handle, StyleCycleImage + 1, cycle, 40);
+                }
                 foreach (var entry in catalog.Entries)
                 {
                     using (var image = Load(entry, catalog.Notices))
@@ -79,6 +85,26 @@ namespace Hammill.MacroLauncher
             }
             catch (Exception error) { notices.Add(entry.Name + ": using a generic icon; " + error.Message); }
             return SystemIcons.Application.ToBitmap();
+        }
+
+        private static Bitmap CreateStyleCycleIcon()
+        {
+            // The same code-drawn Hammill green artwork style as the standalone
+            // tools, encoded with alpha like the other ribbon resources.
+            var result = new Bitmap(128, 128, PixelFormat.Format32bppArgb);
+            using (var g = Graphics.FromImage(result))
+            using (var green = new SolidBrush(Color.FromArgb(114, 148, 3)))
+            using (var pen = new Pen(green, 9))
+            using (var font = new Font("Segoe UI", 33, FontStyle.Bold, GraphicsUnit.Pixel))
+            {
+                g.Clear(Color.Transparent); g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.DrawString(".000", font, green, 9, 39);
+                g.DrawArc(pen, 16, 14, 96, 100, 205, 105);
+                g.DrawArc(pen, 16, 14, 96, 100, 25, 105);
+                g.FillPolygon(green, new[] { new Point(103, 15), new Point(106, 40), new Point(83, 29) });
+                g.FillPolygon(green, new[] { new Point(25, 113), new Point(22, 88), new Point(45, 99) });
+            }
+            return result;
         }
 
         private static void WritePng(IntPtr handle, int id, Image original, int size)

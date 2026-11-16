@@ -1,12 +1,12 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-set "HAMMILL_OUTPUT=Compiled Executables\Hammill-Macro-Launcher-v0.3"
+set "HAMMILL_OUTPUT=Compiled Executables\Hammill-Macro-Launcher-v0.4"
 if not exist "%HAMMILL_OUTPUT%" mkdir "%HAMMILL_OUTPUT%"
 if errorlevel 1 exit /b 1
 set "HAMMILL_CSC=%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
 set "HAMMILL_REFS=/r:System.Core.dll /r:System.Xml.Linq.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:Microsoft.CSharp.dll"
-"%HAMMILL_CSC%" /nologo /target:library /platform:x64 /optimize+ %HAMMILL_REFS% /r:"lib\Interop.SolidEdgeFramework.dll" /out:"%HAMMILL_OUTPUT%\Hammill.MacroLauncher.dll" Catalog.cs RibbonState.cs IconResources.cs Addin.cs ComponentDisplay.cs "..\..\Hammill Common\ComSupport.cs"
+"%HAMMILL_CSC%" /nologo /target:library /platform:x64 /optimize+ %HAMMILL_REFS% /r:"lib\Interop.SolidEdgeFramework.dll" /out:"%HAMMILL_OUTPUT%\Hammill.MacroLauncher.dll" Catalog.cs RibbonState.cs IconResources.cs Addin.cs ComponentDisplay.cs DimensionStyleCycle\*.cs "..\..\Hammill Common\ComSupport.cs"
 if errorlevel 1 exit /b 1
 "%HAMMILL_CSC%" /nologo /target:library /platform:x64 /optimize+ /out:"%HAMMILL_OUTPUT%\Hammill.MacroLauncher.Resources.dll" ResourceTemplate.cs
 if errorlevel 1 exit /b 1
@@ -20,6 +20,8 @@ copy /y UNRegister.cmd "%HAMMILL_OUTPUT%\UNRegister.cmd" >nul
 if errorlevel 1 exit /b 1
 copy /y README.md "%HAMMILL_OUTPUT%\README.md" >nul
 if errorlevel 1 exit /b 1
+copy /y DimensionStyleCycle\DimensionStyles.txt "%HAMMILL_OUTPUT%\DimensionStyles.txt" >nul
+if errorlevel 1 exit /b 1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File Package.ps1
 if errorlevel 1 exit /b 1
-echo Built Hammill Macro Launcher v0.3.
+echo Built Hammill Macro Launcher v0.4.

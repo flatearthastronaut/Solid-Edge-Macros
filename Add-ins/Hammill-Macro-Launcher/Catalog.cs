@@ -171,7 +171,7 @@ namespace Hammill.MacroLauncher
             // Resource format and DPI sizes are part of the cached presentation.
             // An upgrade must rebuild both SE's GUI and our resource DLL even
             // when the installed macros and their original artwork are unchanged.
-            var lines = new List<string> { "hammill-launcher-ribbon-v3-alpha-png-32-40", Folder.ToLowerInvariant() };
+            var lines = new List<string> { "hammill-launcher-ribbon-v4-dimension-style-cycle", Folder.ToLowerInvariant() };
             foreach (var entry in Entries.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
             {
                 string icon = "default";

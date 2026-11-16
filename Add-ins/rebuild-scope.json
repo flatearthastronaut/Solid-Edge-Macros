@@ -21,9 +21,9 @@
   },
   "targetSolidEdge": "2026",
   "architecture": "x64",
-  "approach": "One Hammill add-in combines the macro ribbon launcher and automatic Component Display. O-Ring Finder, Add Sketch, Occurrence Viewer, and Batch Approval/export are independently distributed standalone macros.",
+  "approach": "One Hammill add-in combines the macro ribbon launcher, automatic Component Display, and the resident Cycle Dimension Style command. O-Ring Finder, Add Sketch, Occurrence Viewer, and Batch Approval/export are independently distributed standalone macros.",
   "macroLauncher": {
-    "status": "v0.3-built; 54-offline-checks-passed; transparent-icon-resource-previews-verified; live-SE-validation-pending",
+    "status": "v0.4-built; 102-offline-checks-passed; 145-live-style-cycle-checks-passed; installed-ribbon-validation-pending",
     "implementation": "Hammill-Macro-Launcher",
     "initialPackaging": "Keep the existing Hammill launcher COM identity and package family for upgrades; display as Hammill Add-ins and include Component Display. Unregister BWH separately during cutover; preserve its original files as a recovery reference.",
     "ribbonTab": "Hammill Macros",
@@ -42,6 +42,15 @@
     "legacyFiles": "Preserve the original binaries and supporting files as recovery references. This scope file does not change an installed add-in."
   },
   "commands": [
+    {
+      "key": "dimension-style-cycle",
+      "name": "Cycle Dimension Style",
+      "disposition": "new-resident-command",
+      "implementation": "Hammill-Macro-Launcher/DimensionStyleCycle",
+      "requirement": "Select one existing draft dimension; each button press advances within the same inch, dual, vertical inch, or vertical dual family and wraps in user-configured order. Run directly inside the existing add-in for rapid repeated clicks.",
+      "configuration": "Hammill.DimensionStyles.txt in the user's Macro Manager install folder; seed once from packaged defaults, preserve edits across updates, reload changes without restart/recompile.",
+      "validation": "102 combined offline checks and 145 live native-style checks passed. Selection, values, text, tolerances and placement preserved. Installed ribbon timing remains to be confirmed."
+    },
     {
       "key": "oring-finder",
       "name": "O-Ring Finder",
