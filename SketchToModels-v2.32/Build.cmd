@@ -25,3 +25,6 @@ if errorlevel 1 exit /b 1
 copy /y "SketchToModels.ico" "Compiled Executables\SketchToModels.ico" >nul
 if errorlevel 1 exit /b 1
 echo Built Compiled Executables\SketchToModels-v2.35.exe
+
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "..\Hammill Common\Package-CompiledMacro.ps1" -Project . -Executable "Compiled Executables\SketchToModels-v2.35.exe" -Icon "SketchToModels.ico" -Image "SketchToModels.png" -DataFiles "template.txt" -OptionalFiles "Compiled Executables\oring-template.txt"
+exit /b %errorlevel%

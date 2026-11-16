@@ -16,5 +16,6 @@ try {
     # copy so an upgrade does not invalidate their registered executable path.
     Copy-Item -LiteralPath $release -Destination 'Compiled Executables\SolidEdgeConvert.exe' -Force
     Write-Output "Built $release and SolidEdgeConvert.exe"
+    & (Join-Path $PSScriptRoot '..\Hammill Common\Package-CompiledMacro.ps1') -Project $PSScriptRoot -Executable $release -Icon 'Assets\SolidEdgeConvert.ico'
 }
 finally { Pop-Location }

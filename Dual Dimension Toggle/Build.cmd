@@ -8,3 +8,6 @@ if errorlevel 1 exit /b 1
 "%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /target:winexe /platform:x64 /optimize+ /r:Microsoft.CSharp.dll /r:System.Windows.Forms.dll /r:System.Drawing.dll /win32icon:"Assets\DualDimensionToggle.ico" /resource:"Assets\DualDimensionToggle.ico",DualDimensionToggle.ico /out:"Compiled Executables\Dual Dimension Toggle v1.10.exe" Program.cs DimensionPreview.cs StyleMap.cs Converter.cs FeatureFrameConverter.cs UnitText.cs CalloutConverter.cs CalloutHistory.cs CalloutFields.cs
 if errorlevel 1 exit /b 1
 echo Built Compiled Executables\Dual Dimension Toggle v1.10.exe
+
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "..\Hammill Common\Package-CompiledMacro.ps1" -Project . -Executable "Compiled Executables\Dual Dimension Toggle v1.10.exe" -Icon "Assets\DualDimensionToggle.ico" -Image "Assets\DualDimensionToggle.png"
+exit /b %errorlevel%

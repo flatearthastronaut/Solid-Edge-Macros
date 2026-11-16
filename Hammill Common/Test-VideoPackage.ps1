@@ -12,6 +12,18 @@ $wmv=Join-Path $tips 'Demo.wmv'
 if($LASTEXITCODE -ne 0){throw 'WMV fixture generation failed.'}
 $originalHash=(Get-FileHash -LiteralPath $wmv).Hash
 & (Join-Path $PSScriptRoot 'Build-Macro.ps1') -Project $project -Name Demo -Kind sketch
+# The generic packager used by Turbo and the other previously EXE-only builds
+# must preserve explicit dependencies and never scoop up obsolete executables.
+[IO.File]::WriteAllText((Join-Path $project 'runtime.txt'),'required runtime data')
+[IO.File]::WriteAllText((Join-Path $project 'Compiled Executables\Demo v0.9.exe'),'old release fixture')
+[IO.File]::WriteAllText((Join-Path $project 'Demo v1.0.zip'),'legacy current ZIP fixture')
+& (Join-Path $PSScriptRoot 'Package-CompiledMacro.ps1') -Project $project -Executable 'Compiled Executables\Demo v1.0.exe' -DataFiles runtime.txt -Icon 'Assets\Demo.ico' -Image 'Assets\Demo.png'
+if((Get-FileHash -LiteralPath (Join-Path $project 'Demo v1.0.zip')).Hash -ne (Get-FileHash -LiteralPath (Join-Path $project 'Compiled Executables\Demo v1.0.zip')).Hash){throw 'Legacy current ZIP differs from compiled-output package.'}
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$archive=[IO.Compression.ZipFile]::OpenRead((Join-Path $project 'Compiled Executables\Demo v1.0.zip'))
+try {
+    if(@($archive.Entries | Where-Object {$_.Name -like '*.exe'}).Count -ne 1 -or -not($archive.Entries.Name -contains 'runtime.txt')){throw 'Generic package lost a dependency or included an old executable.'}
+} finally {$archive.Dispose()}
 $source=[string](Join-Path $work 'Source');$local=[string](Join-Path $work 'Installed')
 New-Item -ItemType Directory -Path $source,$local | Out-Null
 Copy-Item -LiteralPath (Join-Path $project 'Compiled Executables\Demo v1.0.zip') -Destination $source
@@ -53,4 +65,7 @@ Remove-Item -LiteralPath (Join-Path $tips 'Demo.mp4')
 $failed=$false
 try {& (Join-Path $PSScriptRoot 'Build-Macro.ps1') -Project $project -Name Demo -Kind sketch} catch {$failed=$true}
 if(-not $failed -or (Get-FileHash -LiteralPath $zip).Hash -ne $beforeZip){throw 'Bad WMV must fail without replacing the previous package.'}
+$failed=$false
+try {& (Join-Path $PSScriptRoot 'Package-CompiledMacro.ps1') -Project $project -Executable 'Compiled Executables\Demo v1.0.exe'} catch {$failed=$true}
+if(-not $failed -or (Get-FileHash -LiteralPath $zip).Hash -ne $beforeZip){throw 'Generic package must also preserve prior ZIP on conversion failure.'}
 Write-Output 'PASS real WMV converts to H.264/yuv420p MP4, source stays unchanged, real manager installs both, launcher prefers MP4, and invalid recording preserves prior ZIP.'

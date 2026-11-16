@@ -19,3 +19,4 @@ if ($LASTEXITCODE -ne 0) { throw 'Macro compilation failed.' }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Read Me.txt') -Destination $output -Force
 foreach ($file in (Get-ChildItem -LiteralPath $assets -File)) { Copy-Item -LiteralPath $file.FullName -Destination $output -Force }
 Write-Output ('Built ' + $exe + ' with icon ' + $IconChoice + '.')
+& (Join-Path $PSScriptRoot '..\Hammill Common\Package-CompiledMacro.ps1') -Project $PSScriptRoot -Executable 'Compiled Executables\Resize Base Planes v1.1.exe' -Icon ('Assets\'+$names[$IconChoice-1]+'.ico') -Image ('Assets\'+$names[$IconChoice-1]+'.png')

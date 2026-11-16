@@ -7,3 +7,6 @@ if errorlevel 1 exit /b 1
 copy /y "Assets\Turbo Callouts.ico" "Compiled Executables\Turbo Callouts.ico" >nul
 copy /y "Assets\Turbo Callouts.png" "Compiled Executables\Turbo Callouts.png" >nul
 echo Built "Turbo Callouts v1.6.exe"
+
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "..\Hammill Common\Package-CompiledMacro.ps1" -Project . -Executable "Compiled Executables\Turbo Callouts v1.6.exe" -Icon "Assets\Turbo Callouts.ico" -Image "Assets\Turbo Callouts.png"
+exit /b %errorlevel%

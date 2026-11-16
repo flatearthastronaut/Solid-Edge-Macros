@@ -10,3 +10,6 @@ copy /y "C'bore Chart.xls" "Compiled Executables\C'bore Chart.xls" >nul
 copy /y "BoltCircleHoles.ico" "Compiled Executables\BoltCircleHoles.ico" >nul
 copy /y "BoltCircleHoles.png" "Compiled Executables\BoltCircleHoles.png" >nul
 echo Built BoltCircleHoles-v0.20.exe
+
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "..\Hammill Common\Package-CompiledMacro.ps1" -Project . -Executable "Compiled Executables\BoltCircleHoles-v0.20.exe" -Icon "BoltCircleHoles.ico" -Image "BoltCircleHoles.png" -DataFiles "C'bore Chart.xls"
+exit /b %errorlevel%
