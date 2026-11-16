@@ -3,8 +3,8 @@ Add-Type -AssemblyName System.Drawing
 
 # Package Greg's selected artwork without redrawing or changing its design.
 # PNG-compressed RGBA frames keep transparency at every Windows icon size.
-$sourcePath = Join-Path $PSScriptRoot 'Turbo Callout.png'
-$iconPath = Join-Path $PSScriptRoot 'Turbo Callout.ico'
+$sourcePath = Join-Path $PSScriptRoot 'Turbo Callouts.png'
+$iconPath = Join-Path $PSScriptRoot 'Turbo Callouts.ico'
 $sizes = @(16, 24, 32, 48, 64, 128, 256)
 $frames = [Collections.Generic.List[byte[]]]::new()
 $source = [Drawing.Image]::FromFile($sourcePath)
@@ -49,4 +49,4 @@ try {
     foreach ($frame in $frames) { $writer.Write([byte[]]$frame) }
 }
 finally { $writer.Dispose() }
-Write-Output ('Packaged Turbo Callout.ico at ' + ($sizes -join ', ') + ' pixels.')
+Write-Output ('Packaged Turbo Callouts.ico at ' + ($sizes -join ', ') + ' pixels.')

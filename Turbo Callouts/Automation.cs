@@ -268,6 +268,8 @@ namespace TurboCallout
         readonly Dictionary<string, StyleValues> reusable = new Dictionary<string, StyleValues>(StringComparer.Ordinal);
         readonly HashSet<string> known = new HashSet<string>(StringComparer.Ordinal);
         readonly List<string> legacy = new List<string>();
+        // Persisted style names retain their original spelling for compatibility
+        // with existing drawings. The application/package name is Turbo Callouts.
         internal static bool IsLegacy(string name)
         { const string prefix = "Turbo Callout "; Guid id; return name != null && name.StartsWith(prefix, StringComparison.Ordinal) && Guid.TryParseExact(name.Substring(prefix.Length), "N", out id); }
         internal static bool IsManaged(string name)
@@ -416,7 +418,7 @@ namespace TurboCallout
             try
             {
                 try { app = Marshal.GetActiveObject("SolidEdge.Application"); }
-                catch (COMException error) { throw new InvalidOperationException("Open Solid Edge and activate a draft before running Turbo Callout.", error); }
+                catch (COMException error) { throw new InvalidOperationException("Open Solid Edge and activate a draft before running Turbo Callouts.", error); }
                 draft = ((dynamic)app).ActiveDocument;
                 if (draft == null || (int)((dynamic)draft).Type != 2) throw new InvalidOperationException("Activate a Solid Edge draft (.dft).");
                 object setting; ((dynamic)app).GetGlobalParameter(63, out setting);
@@ -456,9 +458,9 @@ namespace TurboCallout
                                     if (NoteAlignment.IsExistingMacroNote(note))
                                     {
                                         string review;
-                                        if (Maintain(note, catalog, rules, reader, includeBoltCircles, out review)) { report.UpdatedExisting++; report.Details.Add(label + ": updated existing Turbo Callout note."); }
+                                        if (Maintain(note, catalog, rules, reader, includeBoltCircles, out review)) { report.UpdatedExisting++; report.Details.Add(label + ": updated existing Turbo Callouts note."); }
                                         if (review != null) { report.Review++; report.Details.Add(label + ": note text unchanged; " + review); }
-                                        if (NoteAlignment.Apply(note)) { report.AlignedExisting++; report.Details.Add(label + ": aligned existing Turbo Callout note."); }
+                                        if (NoteAlignment.Apply(note)) { report.AlignedExisting++; report.Details.Add(label + ": aligned existing Turbo Callouts note."); }
                                     }
                                     continue;
                                 }

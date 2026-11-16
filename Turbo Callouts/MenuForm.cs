@@ -123,7 +123,7 @@ namespace TurboCallout
         {
             runner=runAction;reportViewer=showReport;
             AutoScaleMode=AutoScaleMode.None;ClientSize=new Size(624,552);BackColor=Color.FromArgb(249,251,253);
-            Font=new Font("Segoe UI",10);Text="Turbo Callout v1.6";
+            Font=new Font("Segoe UI",10);Text="Turbo Callouts v1.6";
             FormBorderStyle=FormBorderStyle.FixedDialog;MaximizeBox=false;MinimizeBox=false;StartPosition=FormStartPosition.CenterScreen;
             using(var s=typeof(MainForm).Assembly.GetManifestResourceStream("TurboCallout.Icon"))Icon=new Icon(s);
             using(var s=typeof(MainForm).Assembly.GetManifestResourceStream("TurboCallout.Image"))using(var loaded=Image.FromStream(s))logo=new Bitmap(loaded);
@@ -135,7 +135,7 @@ namespace TurboCallout
             without.AccessibleName=without.Title;with.AccessibleName=with.Title;inch.AccessibleName=inch.Title;dual.AccessibleName=dual.Title;
             without.Click+=delegate{SelectModes(false,UseDual);};with.Click+=delegate{SelectModes(true,UseDual);};
             inch.Click+=delegate{SelectModes(IncludeBoltCircles,false);};dual.Click+=delegate{SelectModes(IncludeBoltCircles,true);};
-            run.Text="Run Turbo Callout";run.SetBounds(414,490,186,42);run.BackColor=Palette.Gold;run.ForeColor=Palette.Navy;
+            run.Text="Run Turbo Callouts";run.SetBounds(414,490,186,42);run.BackColor=Palette.Gold;run.ForeColor=Palette.Navy;
             run.Font=new Font("Segoe UI",10.5f,FontStyle.Bold);run.FlatStyle=FlatStyle.Flat;run.FlatAppearance.BorderSize=0;run.Cursor=Cursors.Hand;
             run.Click+=delegate{RunSelection();};
             var cancel=new Button {Text="Cancel",DialogResult=DialogResult.Cancel,FlatStyle=FlatStyle.Flat,ForeColor=Palette.Muted,BackColor=BackColor};
@@ -173,7 +173,7 @@ namespace TurboCallout
             if(reportViewer!=null){reportViewer(report);return;}
             using(var results=new Form())
             {
-                results.Text="Turbo Callout results";results.ClientSize=new Size(620,440);results.Font=Font;
+                results.Text="Turbo Callouts results";results.ClientSize=new Size(620,440);results.Font=Font;
                 results.StartPosition=FormStartPosition.CenterParent;results.MinimizeBox=false;results.Icon=Icon;
                 var text=new TextBox{Multiline=true,ReadOnly=true,ScrollBars=ScrollBars.Vertical,Text=report.ToString(),
                     BackColor=Color.White,BorderStyle=BorderStyle.FixedSingle};text.SetBounds(20,20,580,350);
@@ -188,7 +188,7 @@ namespace TurboCallout
             base.OnPaint(e);Graphics g=e.Graphics;g.SmoothingMode=SmoothingMode.AntiAlias;
             using(var b=new SolidBrush(Palette.Navy))g.FillRectangle(b,0,0,ClientSize.Width,92);
             g.DrawImage(logo,24,20,52,52);
-            Palette.Text(g,"Turbo Callout",21,FontStyle.Bold,Color.White,90,17);
+            Palette.Text(g,"Turbo Callouts",21,FontStyle.Bold,Color.White,90,17);
             using(var statusFont=new Font("Segoe UI",10))TextRenderer.DrawText(g,statusText,statusFont,new Rectangle(92,55,500,25),Color.FromArgb(199,213,228),TextFormatFlags.EndEllipsis|TextFormatFlags.NoPadding);
             Palette.Text(g,"What would you like to add?",11,FontStyle.Bold,Palette.Ink,24,111);
             Palette.Text(g,"Dimension format",11,FontStyle.Bold,Palette.Ink,24,386);

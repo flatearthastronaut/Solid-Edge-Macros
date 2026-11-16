@@ -37,7 +37,7 @@ internal static class MenuTests
                     Check(form.IncludeBoltCircles==circles&&form.UseDual==dual,"Card clicks select both mode and units");
                     using(var bitmap=new Bitmap(form.Width,form.Height))
                     {form.DrawToBitmap(bitmap,new Rectangle(Point.Empty,form.Size));bitmap.Save("Inspection/Menu/"+(circles?"With-":"Without-")+(dual?"dual":"inch")+".png");}
-                    form.Controls.OfType<Button>().Single(b=>b.Text=="Run Turbo Callout").PerformClick();
+                    form.Controls.OfType<Button>().Single(b=>b.Text=="Run Turbo Callouts").PerformClick();
                     Check(calledCircles==circles&&calledDual==dual&&displayed.Filled==2,"Run forwards exactly the selected options");
                     Check(form.ChoicesEnabled,"Choices enabled after success");
                     Check(displayed.ToString().Contains("Bolt circles:")==circles,"Report matches the selected mode");

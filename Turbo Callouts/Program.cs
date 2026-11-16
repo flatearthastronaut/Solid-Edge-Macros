@@ -1,6 +1,6 @@
 using System;
 using System.Windows.Forms;
-[assembly: System.Reflection.AssemblyTitle("Turbo Callout")]
+[assembly: System.Reflection.AssemblyTitle("Turbo Callouts")]
 [assembly: System.Reflection.AssemblyVersion("1.6.0.0")]
 namespace TurboCallout
 {
