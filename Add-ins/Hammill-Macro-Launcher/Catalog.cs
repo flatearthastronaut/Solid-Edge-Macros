@@ -13,7 +13,7 @@ namespace Hammill.MacroLauncher
     // This is deliberately independent of Solid Edge: discovery must never execute a macro.
     internal sealed class MacroEntry
     {
-        public string Key, Name, Path, IconPath, Group = "Installed macros", Environments = "part,assembly,draft,sheetmetal";
+        public string Key, Name, Path, IconPath, VideoPath, Group = "Installed macros", Environments = "part,assembly,draft,sheetmetal";
         public int CommandId { get; set; }
     }
 
@@ -171,6 +171,8 @@ namespace Hammill.MacroLauncher
                                 if (owned.Contains(icon, StringComparer.OrdinalIgnoreCase) && File.Exists(Child(result.Folder, icon))) { entry.IconPath = Child(result.Folder, icon); break; }
                             }
                         }
+                        try { entry.VideoPath = VideoTooltip.Discover(entry.Path, entry.Name); }
+                        catch(Exception error) { result.Notices.Add(entry.Name + ": tooltip unavailable: " + error.Message); }
                         result.Entries.Add(entry);
                     }
                     catch (Exception error) { result.Notices.Add(System.IO.Path.GetFileName(file) + ": " + error.Message); }
@@ -197,7 +199,7 @@ namespace Hammill.MacroLauncher
             {
                 string icon = "default";
                 try { if (entry.IconPath != null) icon = Hash(File.ReadAllBytes(entry.IconPath)); } catch { icon = "unavailable"; }
-                lines.Add(entry.Key + "|" + entry.Path.ToLowerInvariant() + "|" + entry.Name + "|" + entry.Group + "|" + entry.Environments + "|" + icon);
+                lines.Add(entry.Key + "|" + entry.Path.ToLowerInvariant() + "|" + entry.Name + "|" + entry.Group + "|" + entry.Environments + "|" + icon + (entry.VideoPath == null ? "" : "|video:" + entry.VideoPath));
             }
             return Hash(Encoding.UTF8.GetBytes(String.Join("\n", lines)));
         }

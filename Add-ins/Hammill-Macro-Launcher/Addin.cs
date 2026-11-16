@@ -15,8 +15,8 @@ using Environment = System.Environment;
 [assembly: AssemblyTitle("Hammill Add-ins")]
 [assembly: AssemblyCompany("Hammill")]
 [assembly: AssemblyProduct("Hammill Add-ins")]
-[assembly: AssemblyVersion("0.7.0.0")]
-[assembly: AssemblyFileVersion("0.7.0.0")]
+[assembly: AssemblyVersion("0.8.0.0")]
+[assembly: AssemblyFileVersion("0.8.0.0")]
 [assembly: ComVisible(false)]
 
 namespace Hammill.MacroLauncher
@@ -104,7 +104,7 @@ namespace Hammill.MacroLauncher
                 foreach (var entry in catalog.Entries.Where(x => x.Environments.Split(',').Contains(name)))
                 {
                     int imageId = icons == null ? -1 : icons.ResourceIds[entry.CommandId];
-                    RegisterButton(extended, category, entry.CommandId, entry.Key, entry.Name, entry.Group, "Run " + entry.Name, imageId);
+                    RegisterButton(extended, category, entry.CommandId, entry.Key, entry.Name, entry.Group, "Run " + entry.Name, imageId, entry.VideoPath);
                 }
                 connected.Add(category);
                 // environment/application are borrowed callback parameters. Do not forcibly release
@@ -113,8 +113,13 @@ namespace Hammill.MacroLauncher
             catch (Exception error) { Log("Ribbon setup failed for " + category + ": " + error); }
         }
 
-        internal void RegisterButton(ISEAddInEx2 target, string environment, int id, string key, string label, string group, string tooltip, int image)
+        internal void RegisterButton(ISEAddInEx2 target, string environment, int id, string key, string label, string group, string tooltip, int image, string video = null)
         {
+            if(video != null)
+            {
+                try { tooltip += " tooltipurl=" + VideoTooltip.Page(video, label, System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Hammill", "VideoTooltips")); }
+                catch { /* Optional tooltip failure leaves the command available. */ }
+            }
             Array names = new string[] { "Hammill.MacroLauncher." + key + "\n" + label + "\n" + tooltip + "\n" + label };
             Array ids = new int[] { id };
             // SDK Addins/VC/SEAddin.cpp uses IconAndCaptionBelow to request a

@@ -9,4 +9,6 @@ foreach ($name in @('O-Ring Finder.png','O-Ring Finder.ico')) {
 }
 $names = @('O-Ring Finder v1.1.exe','Oring_table.txt','O-Ring Finder.png','O-Ring Finder.ico','README.md')
 $files = @($names | ForEach-Object { Join-Path $output $_ })
+$tooltipFolder=Join-Path $PSScriptRoot 'Tooltips'
+if(Test-Path -LiteralPath $tooltipFolder -PathType Container){$files+=$tooltipFolder}
 Compress-Archive -LiteralPath $files -DestinationPath (Join-Path $output 'O-Ring Finder v1.1.zip') -Force

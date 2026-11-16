@@ -1,4 +1,4 @@
-# Hammill Add-ins v0.7
+# Hammill Add-ins v0.8
 
 This add-in creates a **Hammill Macros** ribbon tab from macros installed by the user edition of the Solid Edge Macro & Add-in Manager. Solid Edge scans the installation records when the add-in connects at startup. Installing a new macro through the manager makes it eligible for a button at the next Solid Edge startup. Discovery never runs the macros.
 
@@ -20,15 +20,15 @@ Older installed packages without stable-copy metadata need an update or repair t
 
 ## Build and distribution
 
-Run `Build.cmd` on 64-bit Windows with the .NET Framework compiler. The output is an x64 CLR 4 class library and diagnostic executable in **Compiled Executables**. The build also produces `Hammill-Macro-Launcher-v0.7.zip`, suitable for the existing Macro Manager's add-in installation workflow.
+Run `Build.cmd` on 64-bit Windows with the .NET Framework compiler. The output is an x64 CLR 4 class library and diagnostic executable in **Compiled Executables**. The build also produces `Hammill-Macro-Launcher-v0.8.zip`, suitable for the existing Macro Manager's add-in installation workflow.
 
 The framework interop in `lib` is the supplied legacy package's `Interop.SolidEdgeFramework.dll`. The add-in uses `ISolidEdgeAddIn`, `ISEAddInEx2`, `ISEApplicationEvents_Event`, and paired event subscriptions, checked against `SDK_2026_2510_English/SDK/Advanced/samples/Addins/VC/SEAddin.cpp`, the VB.NET add-in example, the ApplicationEvents sample, and `include/secatids.h`. Shared COM cleanup source in `../../Hammill Common` is compiled into the DLL. It does not load or invoke the legacy `SEAddIn.dll`.
 
 To install manually, extract the ZIP into a permanent local folder, close Solid Edge, and run its `Register.cmd` as administrator. The Macro Manager can also install the ZIP and run its registration script. Launch Solid Edge and check **Settings > Add-Ins** for **Hammill Add-ins**. Registering the add-in does not install any of the macros themselves.
 
-For a manual upgrade, close Solid Edge, run the old launcher's `UNRegister.cmd` as administrator, then run the new v0.7 folder's `Register.cmd` as administrator. Restart Solid Edge to refresh the ribbon. If installed through Macro Manager, publish v0.7 and use **Install / update selected**; the manager runs the old and new registration scripts. No manual icon-cache deletion or macro rebuilds are required.
+For a manual upgrade, close Solid Edge, run the old launcher's `UNRegister.cmd` as administrator, then run the new v0.8 folder's `Register.cmd` as administrator. Restart Solid Edge to refresh the ribbon. If installed through Macro Manager, publish v0.8 and use **Install / update selected**; the manager runs the old and new registration scripts. No manual icon-cache deletion or macro rebuilds are required.
 
-For the BWH cutover, install the four standalone macro packages as **Solid Edge Macros** and the v0.7 ZIP as **Solid Edge Add-ins**. With Solid Edge closed, run **BWH's own UNRegister.cmd**, located beside its original `SEAddIn.dll`, as administrator. Keep that old package as a recovery copy. Restart Solid Edge with only **Hammill Add-ins** enabled; do not run both Component Display handlers together. The new registration script deliberately does not unregister BWH automatically. Check the four macro workflows and Update Views on a copy of a representative drawing before distributing company-wide.
+For the BWH cutover, install the four standalone macro packages as **Solid Edge Macros** and the v0.8 ZIP as **Solid Edge Add-ins**. With Solid Edge closed, run **BWH's own UNRegister.cmd**, located beside its original `SEAddIn.dll`, as administrator. Keep that old package as a recovery copy. Restart Solid Edge with only **Hammill Add-ins** enabled; do not run both Component Display handlers together. The new registration script deliberately does not unregister BWH automatically. Check the four macro workflows and Update Views on a copy of a representative drawing before distributing company-wide.
 
 To remove this launcher, close Solid Edge and run its `UNRegister.cmd` as administrator. Both scripts check for running Solid Edge processes. They use the launcher's own COM identity and do not unregister BWH.
 
@@ -41,7 +41,7 @@ Edit **Hammill.DimensionStyles.txt at the root of Macro Manager's shared Availab
 One-time rollout:
 
 1. Copy `Shared Configuration\Hammill.DimensionStyles.txt` from this release into the root of the shared Available folder, beside the published packages. It contains Greg's approved two-, three- and four-place inch/dual/vertical lists. If a shared list already exists, review it before replacing it.
-2. Publish/install the v0.7 add-in once on each computer, with Solid Edge closed, then restart Solid Edge. Everyone must use the same Available folder and have read access to the shared file.
+2. Publish/install the v0.8 add-in once on each computer, with Solid Edge closed, then restart Solid Edge. Everyone must use the same Available folder and have read access to the shared file.
 3. Thereafter edit only the shared text file. Saved changes apply on each person's next **Cycle Places** click without rebuilding, publishing, reinstalling or restarting. Changing a saved Available-folder setting also takes effect on the next click.
 
 The add-in reads the small shared file on every click and reuses its parsed lists when the content is unchanged. This catches edits even when length and modification time are unchanged. It does not read the share during startup or ribbon enablement callbacks. A missing, inaccessible, locked, oversized or invalid file stops that click with an explanation; it never uses an old cached/local list instead. Restoring the shared file lets the next click proceed. Shared-folder response time affects click latency; live testing here used project-local fixtures, not the production network share.
@@ -132,4 +132,12 @@ Shared-file regressions cover independent users with conflicting old local lists
 
 `LiveToleranceTest.ps1` passed 296 native checks using a disposable project-local draft: all presets across inch, dual, vertical and inch-first dual styles; actual rendered upper/lower inch and metric numbers; exact precision changes; native Nominal rendering with one number per unit; retained places and cleared active offsets; selection and model-value preservation; untouched shared styles; alternating the two cycle commands; and persistence/continued cycling from Nominal after save/reopen. It reuses an existing Solid Edge session or creates a test session, restores the original active document, and closes only its own test document/session. These tests do not install or register the add-in; installed ribbon timing remains to be confirmed.
 
-Compilation, regression checks, native dimension-style cycling, package checks and icon resource previews passed. **The v0.7 package has not been installed or registered by this test run.** The installed ribbon button's appearance and response still need confirmation after updating. Other live acceptance items remain Component Display before Update Views, clean shutdown, the standalone workflows/exports, and customized button/shortcut behavior after GUI changes.
+Compilation, regression checks, native dimension-style cycling, package checks and icon resource previews passed. **The v0.8 package has not been installed or registered by this test run.** The installed ribbon button's appearance and response still need confirmation after updating. Other live acceptance items remain Component Display before Update Views, clean shutdown, the standalone workflows/exports, and customized button/shortcut behavior after GUI changes.
+
+## Video tooltips (v0.8)
+
+Place a Tooltips folder beside the installed macro EXE. Use a single MP4 or WMV, or name the preferred clip after the stable macro EXE (for example, Tooltips/O-Ring Finder.mp4). MP4 takes precedence over WMV. Restart Solid Edge after adding, removing, or renaming a clip; replacing the clip at the same path needs no code rebuild. Enhanced tooltips/video clips must be enabled in Solid Edge. Playback in the actual Solid Edge tooltip viewer still needs acceptance testing.
+
+MP4 uses an automatically generated HTML video tooltip. WMV is discovered and packaged, but has an Open recording link instead of unsupported inline playback; convert a copy to H.264 MP4 for hover playback. Tooltip discovery failures leave the macro button available and appear in Macro folder diagnostics. Cached HTML pages are kept in the user's LocalAppData/Hammill/VideoTooltips folder; macro install folders need read access only.
+
+For Add Sketch, Occurrence Viewer, Batch Approval Export, and O-Ring Finder, put Tooltips in the macro SOURCE folder before running Build.cmd. Their build/package scripts include the entire folder in the ZIP; Macro Manager preserves it beside the stable EXE. Other macro ZIPs must likewise include Tooltips at the EXE's level. No Macro Manager upgrade is needed. Adding media to an existing ZIP requires repackaging/republication, but does not require changing the macro code.

@@ -20,5 +20,7 @@ foreach($file in @('README.md',('Assets\'+$Name+'.ico'),('Assets\'+$Name+'.png')
     Copy-Item -LiteralPath $source -Destination $output -Force
     $files+=Join-Path $output ([IO.Path]::GetFileName($source))
 }
+$tooltipFolder=Join-Path $projectPath 'Tooltips'
+if(Test-Path -LiteralPath $tooltipFolder -PathType Container){$files+=$tooltipFolder}
 Compress-Archive -LiteralPath $files -DestinationPath (Join-Path $output ($Name+' v'+$Version+'.zip')) -Force
 Write-Output ('Built '+$Name+' v'+$Version+'.')
