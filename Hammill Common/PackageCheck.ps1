@@ -4,7 +4,7 @@ $work=[string](Join-Path $PSScriptRoot ('tests\.work\packages-'+[guid]::NewGuid(
 $source=[string](Join-Path $work 'Source');$local=[string](Join-Path $work 'Installed')
 New-Item -ItemType Directory -Path $source,$local|Out-Null
 foreach($name in @('O-Ring Finder','Add Sketch','Occurrence Viewer','Batch Approval Export')){
-    $version=if($name -eq 'Add Sketch'){'1.2'}else{'1.0'}
+    $version=if($name -eq 'Add Sketch'){'1.2'}elseif($name -eq 'Occurrence Viewer'){'1.1'}else{'1.0'}
     Copy-Item -LiteralPath (Join-Path $root ($name+'\Compiled Executables\'+$name+' v'+$version+'.zip')) -Destination $source
 }
 $manager=[Reflection.Assembly]::LoadFrom((Join-Path $root 'Macro-Addin-Manager\Compiled Executables\SE Macro Manager v1.14.exe'))

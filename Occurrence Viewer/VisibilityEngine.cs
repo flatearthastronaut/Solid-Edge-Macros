@@ -13,7 +13,7 @@ namespace Hammill.OccurrenceViewer
     internal static class VisibilityEngine
     {
         public static readonly string[] Filters={"All","Reference","Assembly reports (BOM)","Drawing views","Physical properties","Higher level","Interference reports","User-defined quantity","Selectable"};
-        private sealed class Target { public object VisibleObject; public bool Current; }
+        private sealed class Target { public object VisibleObject; public bool Current,Desired; }
         internal static bool Matches(object occurrence,int filter,bool expected)
         {
             dynamic item=occurrence;bool value;
@@ -32,7 +32,7 @@ namespace Hammill.OccurrenceViewer
             }
             return value==expected;
         }
-        public static VisibilityResult Run(object application,object assembly,int filter,bool expected,bool includeNested,bool? visibility)
+        public static VisibilityResult Run(object application,object assembly,int filter,bool expected,bool includeNested,bool? visibility,bool showOnly=false)
         {
             if(filter<0 || filter>=Filters.Length)throw new ArgumentOutOfRangeException("filter");
             var result=new VisibilityResult();var targets=new List<Target>();
@@ -42,7 +42,7 @@ namespace Hammill.OccurrenceViewer
                 // SubOccurrence.Visible is the instance in this top assembly;
                 // ThisAsOccurrence is only used to inspect its property flags.
                 dynamic occurrences=scope.Own(((dynamic)assembly).Occurrences);
-                Collect(occurrences,false,0,includeNested,filter,expected,scope,targets,result);
+                Collect(occurrences,false,0,includeNested,filter,expected,scope,targets,result,showOnly);
                 if(!visibility.HasValue)return result;
                 dynamic app=application;bool delay=(bool)app.DelayCompute;
                 try
@@ -50,8 +50,9 @@ namespace Hammill.OccurrenceViewer
                     app.DelayCompute=true;
                     foreach(var target in targets)
                     {
-                        if(target.Current==visibility.Value)continue;
-                        try{((dynamic)target.VisibleObject).Visible=visibility.Value;result.Changed++;}
+                        bool desired=showOnly ? target.Desired : visibility.Value;
+                        if(target.Current==desired)continue;
+                        try{((dynamic)target.VisibleObject).Visible=desired;result.Changed++;}
                         catch(Exception error){result.Errors.Add("Could not change an occurrence: "+error.Message);}
                     }
                 }
@@ -59,35 +60,43 @@ namespace Hammill.OccurrenceViewer
             }
             return result;
         }
-        private static void Collect(object collection,bool nested,int depth,bool recurse,int filter,bool expected,ComScope lifetime,List<Target> targets,VisibilityResult result)
+        private static bool Collect(object collection,bool nested,int depth,bool recurse,int filter,bool expected,ComScope lifetime,List<Target> targets,VisibilityResult result,bool showOnly)
         {
             if(depth>128)throw new InvalidOperationException("Assembly nesting exceeds 128 levels.");
+            bool any=false;
             dynamic items=collection;int count=(int)items.Count;
             for(int i=1;i<=count;i++)
             {
                 dynamic item=lifetime.Own(items.Item(i));
                 if(nested)result.Nested++;else result.TopLevel++;
+                Target target=null;bool keep=false;
                 try
                 {
                     using(var properties=new ComScope())
                     {
                         object occurrence=nested ? properties.Own(item.ThisAsOccurrence) : item;
-                        if(Matches(occurrence,filter,expected))
-                        {result.Matched++;targets.Add(new Target{VisibleObject=item,Current=(bool)item.Visible});}
+                        bool match=Matches(occurrence,filter,expected);keep=match;
+                        if(match)result.Matched++;
+                        if(match || showOnly){target=new Target{VisibleObject=item,Current=(bool)item.Visible,Desired=match};targets.Add(target);}
                     }
                 }
-                catch(Exception error){result.Errors.Add("Cannot inspect "+(nested?"nested":"top-level")+" occurrence "+i+": "+error.Message);}
+                catch(Exception error){keep=true;result.Errors.Add("Cannot inspect "+(nested?"nested":"top-level")+" occurrence "+i+": "+error.Message);}
                 if(recurse)
                 {
                     try
                     {
                         if((bool)item.Subassembly)
                         using(var children=new ComScope())
-                        {dynamic sub=children.Own(item.SubOccurrences);Collect(sub,true,depth+1,true,filter,expected,lifetime,targets,result);}
+                        {dynamic sub=children.Own(item.SubOccurrences);keep=Collect(sub,true,depth+1,true,filter,expected,lifetime,targets,result,showOnly) || keep;}
                     }
-                    catch(Exception error){result.Errors.Add("Cannot traverse subassembly "+i+": "+error.Message);}
+                    catch(Exception error){keep=true;result.Errors.Add("Cannot traverse subassembly "+i+": "+error.Message);}
                 }
+                // Ancestors must remain visible for matching children. Unknown
+                // branches are retained rather than hidden on incomplete evidence.
+                if(target!=null)target.Desired=keep;
+                any=any || keep;
             }
+            return any;
         }
     }
 }

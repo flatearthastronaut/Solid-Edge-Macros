@@ -1,12 +1,14 @@
-# Hammill Occurrence Viewer v1.0
+# Occurrence Viewer v1.1
 
-Standalone x64 .NET Framework replacement for BWH Occurrence Viewer. Open an assembly and run **Occurrence Viewer v1.0.exe**. Choose a filter, choose whether its value is Yes or No, optionally include subassemblies, then **Preview**, **Show matching**, or **Hide matching**. Visibility changes are not automatically saved.
+Standalone x64 .NET Framework replacement for BWH Occurrence Viewer. Open an assembly and run **Occurrence Viewer v1.1.exe**. Choose a filter, choose whether its value is Yes or No, optionally include subassemblies, then **Preview**, **Show Only**, or **Hide matching**. Visibility changes are not automatically saved.
 
 The original filters are retained: All, Reference, Assembly reports/BOM, Drawing views, Physical properties, Higher level, Interference reports, User-defined quantity, and Selectable. User-defined quantity means Quantity differs from one; its No option now correctly selects Quantity equal to one. Filters only select occurrences; they do not change those property flags.
 
-Nested traversal processes each assembly instance once, without the original repeated nested loops or invalid casts. It reads flags through ThisAsOccurrence but changes visibility through the actual SubOccurrence, preserving top-assembly instance context. Matching nested children does not automatically show a hidden parent. Unavailable properties/components are reported; other usable instances can still be processed. The original DelayCompute value is restored in a finally block, including on failures. Preview never changes visibility or compute settings.
+Nested traversal processes each assembly instance once, without the original repeated nested loops or invalid casts. It reads flags through ThisAsOccurrence but changes visibility through the actual SubOccurrence, preserving top-assembly instance context. Show Only shows matching occurrences and hides nonmatches within the selected scope. With subassemblies included, ancestors of matches remain visible. Unreadable occurrences are left unchanged and their ancestor branches retained. Unavailable properties/components are reported; other usable instances can still be processed. The original DelayCompute value is restored in a finally block, including on failures. Preview never changes visibility or compute settings.
 
 Extract all four files from the ZIP into one folder, or publish/install through Macro Manager as **Solid Edge Macros**. Restart Solid Edge for the Hammill Add-ins ribbon button. No add-in registration or original BWH DLL is needed.
+
+Version 1.1 removes the branded heading and uses a compact 440 × 260 pixel content area. All 20 regression checks passed, including nested Show Only, No filters, and restoring All. The window was rendered and visually checked.
 
 Build with `Build.cmd`, test with `Test.cmd`. Source in `../Hammill Common` is compiled into the EXE. Regression checks use fake CAD objects and isolated project fixtures; live Solid Edge 2026 verification remains required.
 

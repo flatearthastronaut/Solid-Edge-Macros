@@ -29,6 +29,13 @@ internal static class Tests
         result=VisibilityEngine.Run(app,doc,0,true,false,false);Check(result.Changed==2 && result.Nested==0 && middle.Visible,"top-level option does not traverse children");
         app.DelayCompute=true;other.Fail=true;result=VisibilityEngine.Run(app,doc,0,true,false,true);Check(result.Errors.Count==1 && result.Changed==1 && app.DelayCompute,"per-instance failure reported while original compute mode restored");
         var bad=new SubOccurrence{ThisAsOccurrence=new object()};parent.SubOccurrences=new Items(bad,leaf);result=VisibilityEngine.Run(app,doc,1,true,true,null);Check(result.Errors.Count==1 && result.Matched==1,"unreadable nested property does not hide valid matches");
+        other.Fail=false;parent.SubOccurrences=new Items(middle);parent.Visible=false;middle.Visible=false;
+        result=VisibilityEngine.Run(app,doc,1,true,true,true,true);
+        Check(leaf.Visible && middle.Visible && parent.Visible && !other.Visible,"Show Only reveals nested matches and ancestors while hiding nonmatches");
+        result=VisibilityEngine.Run(app,doc,1,false,false,true,true);
+        Check(parent.Visible && other.Visible,"Show Only supports No filters at top level");
+        result=VisibilityEngine.Run(app,doc,0,true,true,true,true);
+        Check(parent.Visible && middle.Visible && leaf.Visible && other.Visible,"Show Only All restores visibility throughout selected scope");
         string work=Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"..",".work"));Directory.CreateDirectory(work);
         using(var form=new ViewerForm(app,doc)){form.ShowInTaskbar=false;form.StartPosition=FormStartPosition.Manual;form.Location=new Point(-32000,-32000);form.Show();Application.DoEvents();using(var bmp=new Bitmap(form.Width,form.Height)){form.DrawToBitmap(bmp,new Rectangle(Point.Empty,form.Size));bmp.Save(Path.Combine(work,"preview.png"));}form.Hide();}
         Check(true,"visibility window renders");Console.WriteLine(n+" checks passed.");return 0;
