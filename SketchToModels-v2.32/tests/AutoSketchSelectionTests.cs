@@ -1,125 +1,122 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Windows.Forms;
 using SketchToModels;
 
-// Simulate command preselection, not CAD projection. These tests deliberately
-// make no claim that Solid Edge consumes SelectSet in Project to Sketch; that
-// is the live acceptance test for this opt-in trial.
-public class Sketch { public int Type=1689979564; }
-public class Sketches
-{
-    public List<Sketch> Values=new List<Sketch>{new Sketch(),new Sketch()};
-    public int Count {get{return Values.Count;}}
-    public Sketch Item(int i){return Values[i-1];}
-}
-public class Selection
-{
-    public object Value;
-    public int Adds,Clears;
-    public bool Fail,Ignore;
-    public int Count {get{return Value==null?0:1;}}
-    public void RemoveAll(){Clears++;Value=null;}
-    public void Add(object value){Adds++;if(Fail)throw new InvalidOperationException("Selection rejected");if(!Ignore)Value=value;}
-}
-public class CountCollection { public int Count; }
-public class Constructions { public CountCollection RevolvedSurfaces=new CountCollection(); }
-public class Parent { public int Type=-1521484909; }
-public class Lines
-{
-    public int Count;
-    public object AddBy2Points(double a,double b,double c,double d){Count++;return new object();}
-}
-public class Relations { public void AddFix(object line){} }
-public class Axis
-{
-    public void StartPoint(ref Array a){a=new double[]{0,0,0};}
-    public void Direction(ref Array a){a=new double[]{0,0,1};}
-}
+public class Sketch {public int Type=1689979564;public object Profile=new object();}
+public class Sketches {public Sketch[] Values={new Sketch(),new Sketch()};public int Count{get{return Values.Length;}}public Sketch Item(int i){return Values[i-1];}}
+public class Selection {public int Clears;public void RemoveAll(){Clears++;}public void Add(object value){throw new Exception("Preselection must not be used.");}}
+public class CountCollection {public int Count;}
+public class Constructions {public CountCollection RevolvedSurfaces=new CountCollection();}
+public class Parent {public int Type=-1521484909;}
+public class Lines {public int Count;public object AddBy2Points(double a,double b,double c,double d){Count++;return new object();}}
+public class Relations {public void AddFix(object line){}}
+public class Axis {public void StartPoint(ref Array a){a=new double[]{0,0,0};}public void Direction(ref Array a){a=new double[]{0,0,1};}}
 public class Profile
 {
-    public int Type=1584866912;
-    public Parent Parent=new Parent();
-    public Lines Lines2d=new Lines();
-    public Relations Relations2d=new Relations();
+    public int Type=1584866912;public Parent Parent=new Parent();public Lines Lines2d=new Lines();public Relations Relations2d=new Relations();
     public object SetAxisOfRevolution(object line){return new Axis();}
     public void Convert3DCoordinate(double x,double y,double z,ref double u,ref double v){u=y;v=z;}
     public void Convert2DCoordinate(double u,double v,ref double x,ref double y,ref double z){x=0;y=u;z=v;}
 }
-public class App
+public class App {public Doc ActiveDocument;public int LastCommand=45000;public Viewport ActiveWindow;public int ProcessID{get{return System.Diagnostics.Process.GetCurrentProcess().Id;}}public void Activate(){}public void StartCommand(int command){LastCommand=command;}public int GetActiveCommand(){return LastCommand;}}
+public class Viewport {public long DrawHwnd;public View View=new View();}
+public class View
 {
-    public Doc ActiveDocument;
-    public object CommandSource;
-    public int LastCommand;
-    public void StartCommand(int command){LastCommand=command;CommandSource=ActiveDocument.SelectSet.Value;}
+    public void TransformModelToDC(double x,double y,double z,ref int px,ref int py)
+    {if(x!=.02 || y!=.03 || z!=.04)throw new Exception("Wrong model point.");px=80;py=90;}
+}
+public class Geometry {public bool Construction;}
+public class GeometryCollection
+{
+    public Geometry[] Values=new Geometry[0];public int Count{get{return Values.Length;}}public Geometry Item(int i){return Values[i-1];}
+}
+public class Curve
+{
+    public void GetParamExtents(ref double lo,ref double hi){lo=0;hi=1;}
+    public void GetPointAtParam(int count,ref Array parameter,ref Array points)
+    {if(count!=1 || (double)parameter.GetValue(0)!=.5)throw new Exception("Expected an interior curve point.");points=new double[]{.02,.03,.04};}
+}
+public class CurveBody {public CountCollection Curves=new CountCollection{Count=2};}
+public class SourceProfile
+{
+    public CurveBody CurveBody=new CurveBody();
+    public GeometryCollection Lines2d=new GeometryCollection{Values=new[]{new Geometry{Construction=true},new Geometry()}};
+    public GeometryCollection Arcs2d=new GeometryCollection(),Circles2d=new GeometryCollection(),Ellipses2d=new GeometryCollection(),EllipticalArcs2d=new GeometryCollection(),BSplineCurves2d=new GeometryCollection();
+    public bool IsConstructionElement(object value){return ((Geometry)value).Construction;}
+    public void MapGeometryToCurves(object value,ref int count,ref object mapped)
+    {if(((Geometry)value).Construction)throw new Exception("Construction geometry was mapped.");count=1;mapped=new object[]{new Curve()};}
 }
 public class Doc
 {
-    public string FullName="preselection-test.par";
-    public Sketches Sketches=new Sketches();
-    public Selection SelectSet=new Selection();
-    public CountCollection ProfileSets=new CountCollection{Count=1};
-    public Constructions Constructions=new Constructions();
-    public object ActiveSketch;
-    public App Application;
+    public string FullName="graphical-pick-test.par";public Sketches Sketches=new Sketches();public Selection SelectSet=new Selection();
+    public CountCollection ProfileSets=new CountCollection{Count=1};public Constructions Constructions=new Constructions();public object ActiveSketch=new Profile();public App Application;
     public Doc(){Application=new App{ActiveDocument=this};}
+}
+public class Picker : IOutlinePicker
+{
+    public int Calls;public object Source;public bool Fail;
+    public void Pick(object document,object sourceProfile){Calls++;Source=sourceProfile;if(Fail)throw new InvalidOperationException("Covered viewport");}
 }
 class AutoSketchSelectionTests
 {
     static void Check(bool value,string message){if(!value)throw new Exception(message);}
-    static object Call(object form,string method)
-    {return form.GetType().GetMethod(method,BindingFlags.NonPublic|BindingFlags.Instance).Invoke(form,null);}
+    static object Call(object target,string name){return target.GetType().GetMethod(name,BindingFlags.NonPublic|BindingFlags.Instance).Invoke(target,null);}
+    static void Set(object target,string name,object value){target.GetType().GetField(name,BindingFlags.NonPublic|BindingFlags.Instance).SetValue(target,value);}
     [STAThread] static void Main()
     {
-        var doc=new Doc();var selected=new object();doc.SelectSet.Value=selected;
-        var manual=new AutoSketchSelection(2,false);manual.Prepare(doc,2);
-        Check(doc.SelectSet.Value==selected && doc.SelectSet.Adds==0,"Manual mode touched selection.");
-        var auto=new AutoSketchSelection(2,true);auto.Prepare(doc,2);auto.Prepare(doc,2);
-        Check(doc.SelectSet.Value==doc.Sketches.Item(2) && doc.SelectSet.Adds==1,"Wrong source or repeated selection.");
-        Check(auto.Message.Contains("requested"),"Selection must not be called a completed projection.");
-        auto.UseManual(doc);auto.Prepare(doc,2);
-        Check(doc.SelectSet.Count==0 && doc.SelectSet.Adds==1 && !auto.Enabled,"Manual handoff reselected source.");
+        var doc=new Doc();var picker=new Picker();var auto=new AutoSketchSelection(2,true,picker);
+        auto.Prepare(doc,2);Check(picker.Calls==0 && doc.SelectSet.Clears==0,"Launch must not preselect or click.");
+        doc.Application.LastCommand=50011;auto.PickAfterChain(doc,2);auto.PickAfterChain(doc,2);
+        Check(picker.Calls==1 && picker.Source==doc.Sketches.Item(2).Profile,"Wrong source or repeated pick.");
+        Check(auto.Message.Contains("Check the highlighted preview"),"Click must not claim completed projection.");
+        auto.UseManual(doc);auto.PickAfterChain(doc,2);Check(picker.Calls==1 && !auto.Enabled,"Manual handoff retried click.");
+        picker=new Picker();auto=new AutoSketchSelection(2,false,picker);auto.PickAfterChain(doc,2);Check(picker.Calls==0,"Manual default clicked.");
+        foreach(int badIndex in new[]{0,3}){picker=new Picker();auto=new AutoSketchSelection(badIndex,true,picker);auto.PickAfterChain(doc,2);Check(!auto.Enabled && picker.Calls==0,"Invalid index clicked.");}
+        picker=new Picker();auto=new AutoSketchSelection(2,true,picker);auto.PickAfterChain(doc,3);Check(picker.Calls==0,"Changed sketch collection clicked.");
+        doc.Application.LastCommand=45000;picker=new Picker();auto=new AutoSketchSelection(2,true,picker);auto.PickAfterChain(doc,2);Check(picker.Calls==0,"Wrong native command clicked.");
+        doc.Application.LastCommand=50011;doc.ActiveSketch=new Profile{Parent=new Parent{Type=123}};picker=new Picker();auto=new AutoSketchSelection(2,true,picker);auto.PickAfterChain(doc,2);Check(picker.Calls==0,"Source sketch editing was accepted.");
+        doc.ActiveSketch=new Profile();picker=new Picker{Fail=true};auto=new AutoSketchSelection(2,true,picker);auto.PickAfterChain(doc,2);auto.PickAfterChain(doc,2);Check(!auto.Enabled && picker.Calls==1 && auto.Message.Contains("Covered viewport"),"Failed click retried or lost manual fallback.");
 
-        foreach(int badIndex in new[]{0,3}) {
-            doc=new Doc();doc.SelectSet.Value=selected;
-            auto=new AutoSketchSelection(badIndex,true);auto.Prepare(doc,2);
-            Check(!auto.Enabled && doc.SelectSet.Value==selected,"Invalid index altered existing selection.");
-        }
-        doc=new Doc();auto=new AutoSketchSelection(2,true);auto.Prepare(doc,3);
-        Check(!auto.Enabled && doc.SelectSet.Adds==0,"Changed source collection accepted.");
-        doc=new Doc();doc.Sketches.Item(2).Type=1584866912;
-        auto=new AutoSketchSelection(2,true);auto.Prepare(doc,2);
-        Check(!auto.Enabled && doc.SelectSet.Adds==0,"Destination profile accepted as source.");
-        foreach(bool throws in new[]{true,false}) {
-            doc=new Doc();doc.SelectSet.Fail=throws;doc.SelectSet.Ignore=!throws;
-            auto=new AutoSketchSelection(2,true);auto.Prepare(doc,2);auto.Prepare(doc,2);
-            Check(!auto.Enabled && doc.SelectSet.Count==0 && doc.SelectSet.Adds==1,"Rejected selection did not fall back once.");
-        }
-
-        // Verify command ordering in the actual prompt: original copied sketch
-        // is preselected BEFORE Project to Sketch starts, with no new geometry.
-        doc=new Doc();
+        // Exercise each actual timer handoff. The dropdown worker has completed
+        // successfully before the injected picker is allowed to see the source.
+        doc=new Doc();picker=new Picker();
         using(var form=new ProjectionPrompt(doc,new object(),2,true,2,true)) {
-            doc.ProfileSets.Count=2;doc.ActiveSketch=new Profile();Call(form,"StartProjection");
-            Check(doc.Application.LastCommand==50011 && doc.Application.CommandSource==doc.Sketches.Item(2),"Solid prompt did not preselect before command.");
+            Set(form,"autoSelection",new AutoSketchSelection(2,true,picker));doc.ProfileSets.Count=2;Call(form,"StartProjection");
+            Check(picker.Calls==0 && doc.Application.LastCommand==50011,"Solid prompt picked before command/chain.");
+            var job=new ChainSelectionJob(stop=>true);SpinWait.SpinUntil(()=>job.IsCompleted,2000);Set(form,"selectionJob",job);
+            var timer=typeof(ProjectionPrompt).GetField("timer",BindingFlags.NonPublic|BindingFlags.Instance).GetValue(form);
+            typeof(System.Windows.Forms.Timer).GetMethod("OnTick",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(timer,new object[]{EventArgs.Empty});
+            Check(picker.Calls==1 && picker.Source==doc.Sketches.Item(2).Profile,"Solid did not pick after Wireframe Chain.");
             Check(((Profile)doc.ActiveSketch).Lines2d.Count==0,"User-axis path created an axis.");
-            var button=form.Controls.OfType<Button>().Single(b=>b.Text=="Select manually");
-            typeof(Button).GetMethod("OnClick",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(button,new object[]{EventArgs.Empty});
-            Check(doc.Application.CommandSource==null && doc.SelectSet.Adds==1,"Manual button restarted automatic selection.");
         }
-        doc=new Doc();
+        doc=new Doc();picker=new Picker();
         using(var form=new BushingSurfacePrompt(doc,2,true)) {
-            doc.ActiveSketch=new Profile();Check((bool)Call(form,"StartSurfaceProjection"),"Surface projection not started.");
-            Check(doc.Application.LastCommand==50011 && doc.Application.CommandSource==doc.Sketches.Item(2),"Surface prompt did not preselect source.");
-            Check(((Profile)doc.ActiveSketch).Lines2d.Count==1,"Surface axis setup lost.");
-            Check(!(bool)Call(form,"StartSurfaceProjection") && doc.SelectSet.Adds==1,"Surface timer repeated selection.");
+            Set(form,"autoSelection",new AutoSketchSelection(2,true,picker));Call(form,"StartSurfaceProjection");
+            var job=new ChainSelectionJob(stop=>true);SpinWait.SpinUntil(()=>job.IsCompleted,2000);Set(form,"projectionJob",job);Call(form,"AssistProjection");
+            Check(picker.Calls==1 && ((Profile)doc.ActiveSketch).Lines2d.Count==1,"Surface pick/axis order failed.");
         }
         using(var form=new MainWindow()) {
             var check=(CheckBox)typeof(MainWindow).GetField("autoSelectSketch",BindingFlags.NonPublic|BindingFlags.Instance).GetValue(form);
             Check(!check.Checked,"Automatic mode must default off.");
         }
-        Console.WriteLine("PASS: opt-in default, exact copied source, pre-command selection, manual fallback, guards, no retries, surface/solid wiring and retained axis behavior. Live projection consumption not tested.");
+        // Real Windows messages, restricted to this test's own visible panel.
+        // This checks routing and guards; it does not claim CAD command success.
+        using(var window=new Form{Width=360,Height=260,TopMost=true,StartPosition=FormStartPosition.Manual,Location=new System.Drawing.Point(80,80)}) {
+            var panel=new Panel{Dock=DockStyle.Fill};window.Controls.Add(panel);
+            int downs=0,ups=0;panel.MouseDown+=(s,e)=>{if(e.X==80 && e.Y==90)downs++;};panel.MouseUp+=(s,e)=>{if(e.X==80 && e.Y==90)ups++;};
+            window.Show();window.Activate();Application.DoEvents();uint pid=(uint)System.Diagnostics.Process.GetCurrentProcess().Id;
+            Check(!NativeOutlinePicker.CanClick(panel.Handle,pid+1,80,90),"Wrong process accepted.");
+            Check(!NativeOutlinePicker.CanClick(panel.Handle,pid,-1,90),"Offscreen point accepted.");
+            NativeOutlinePicker.Click(panel.Handle,pid,80,90);Check(downs==1 && ups==1,"Native click was not delivered once at its target.");
+            int picked=0;panel.MouseDown+=(s,e)=>picked++;
+            doc=new Doc();doc.Application.LastCommand=50011;doc.Application.ActiveWindow=new Viewport{DrawHwnd=panel.Handle.ToInt64()};
+            new NativeOutlinePicker().Pick(doc,new SourceProfile());
+            Check(picked==1,"Curve-to-view mapping and native picker did not deliver a click.");
+            window.Hide();Check(!NativeOutlinePicker.CanClick(panel.Handle,pid,80,90),"Hidden viewport accepted.");
+        }
+        Console.WriteLine("PASS: post-chain graphical pick, no preselection/retries, exact source, manual fallback, prompt timing, retained axes and native viewport click guards. Live CAD selection still requires operator validation.");
     }
 }

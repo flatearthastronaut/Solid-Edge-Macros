@@ -1,6 +1,6 @@
 /* EXPLANATORY NOTE
-SKETCH TO MODELS -- DOCUMENTED v2.33 SOURCE
-Updated November 16, 2026. Adds optional automatic source-sketch preselection.
+SKETCH TO MODELS -- DOCUMENTED v2.34 SOURCE
+Updated November 16, 2026. Picks a source outline point after Wireframe Chain is active.
 SketchToModels.cs and SketchToModels-Commented.cs contain the same documented source.
 
 READING ORDER
@@ -29,7 +29,7 @@ O-ring Template.par -> default in-place placement -> associative sketch copy
 -> move existing Protrusion 6 immediately after the copied sketch -> color/save.
 No new protrusion is created. ORingWorkflow.cs owns template and reorder rules.
 
-Optional automatic selection preselects the freshly copied Sketch before the
+Optional automatic selection clicks the freshly copied sketch outline after the
 native Project to Sketch command. It is off by default and does not synthesize
 geometry or claim a successful projection from SelectSet membership. Both
 standard and bushing prompts retain manual fallback and final validation.
@@ -725,7 +725,7 @@ TopMost keeps instructions visible; timers allow normal form interaction.
             Text="Bushing Style - revolved surface";ClientSize=new Size(585,395);TopMost=true;StartPosition=FormStartPosition.CenterScreen;
             Controls.Add(new Label {Left=16,Top=16,Width=553,Height=200,Text=
                 "1  Create the revolved surface\nThe macro starts Revolved Surface and tries to select Feature's Plane in Create From. If needed, select Feature's Plane yourself.\n\n"+
-                (autoSelect ? "2  Select the plane, then check the outline\nClick the ORIGINAL copied sketch for Feature's Plane and enter the sketch. Z is set automatically. The macro tries to preselect the source for Project to Sketch. Check the preview and accept, or click Select manually.\n\n" :
+                (autoSelect ? "2  Select the plane, then check the outline\nClick the ORIGINAL copied sketch for Feature's Plane and enter the sketch. Z is set automatically. The macro clicks an outline point after Wireframe Chain starts. Check the preview and accept, or click Select manually.\n\n" :
                 "2  Select the copied sketch\nClick the ORIGINAL copied sketch to define the feature plane. Enter the feature sketch. The selected coordinate system's Z centerline is set automatically, then Project to Sketch / Wireframe Chain starts. Pick the outline and accept.\n\n")+
                 "3  Close Sketch and Finish\nUse a full 360-degree revolution and click Finish, then click Continue after Finish below. The macro starts Revolved Protrusion on Right (yz)."});
             var next=new Button {Left=16,Top=224,Width=275,Height=30,Text="Continue after Finish",Font=new Font(Font,FontStyle.Bold),ForeColor=Color.ForestGreen};
@@ -792,7 +792,15 @@ thread. The worker handles native controls. Do not recreate axes on every tick.
                 if(projectionJob!=null) {
                     if(!projectionJob.IsCompleted)return;
                     bool selected=projectionJob.Result;projectionJob=null;
-                    if(selected){projectionDone=true;status.Text=String.IsNullOrEmpty(autoSelection.Message)?"Wireframe Chain selected. Pick the original outline and accept. The Z centerline is already set. Close Sketch and Finish.":autoSelection.Message;return;}
+                    if(selected){
+                        // The graphical pick must occur AFTER this native
+                        // command has switched to Wireframe Chain. Hide the
+                        // topmost instructions briefly so they cannot cover it.
+                        bool shown=Visible;
+                        try {if(autoSelection.Enabled && shown)Hide();autoSelection.PickAfterChain(part,sourceSketchCount);}
+                        finally {if(shown && !Visible)Show();}
+                        projectionDone=true;status.Text=String.IsNullOrEmpty(autoSelection.Message)?"Wireframe Chain selected. Pick the original outline and accept. The Z centerline is already set. Close Sketch and Finish.":autoSelection.Message;return;
+                    }
                 }
                 if(part.ActiveSketch==null || (int)part.Application.GetActiveCommand()!=50011)return;
                 if(++projectionAttempts>8){projectionDone=true;status.Text="Project to Sketch is active. Select Wireframe Chain, pick the outline, and accept. The Z centerline is already set.";return;}
@@ -971,7 +979,7 @@ making the button appear to do nothing.
             if(userAxis) { words[1]="Project to Sketch starts automatically. Pick the outline you want to revolve and accept the projection. Sketch or select your centerline."; words[2]="Close Sketch, select your revolve axis, set 360 degrees, and click Finish. Click Continue here after Finish to save and proceed."; words[3]="After Finish, click Continue to save this part, close this window, and proceed to the next selected part."; }
             if(autoSelect) {
                 titles[1]="2  Check the automatically selected sketch";
-                words[1]="The macro tries to preselect the copied sketch for Project to Sketch. Check the outline preview and accept. If it is not selected, click Select manually and pick the original outline.";
+                words[1]="The macro clicks a point on the copied outline after Wireframe Chain is active. Check the highlighted chain and accept. If no chain is selected, click Select manually.";
             }
             for(int i=0;i<4;i++)
             {
@@ -1047,7 +1055,12 @@ making the button appear to do nothing.
                             return;
                         }
                         if(selected)
-                        {message.Text=String.IsNullOrEmpty(autoSelection.Message)?"Project to Sketch: Wireframe Chain selected. Click the original outline and accept.":autoSelection.Message;timer.Stop();}
+                        {
+                            bool shown=Visible;
+                            try {if(autoSelection.Enabled && shown)Hide();autoSelection.PickAfterChain(part,initialCount);}
+                            finally {if(shown && !Visible)Show();}
+                            message.Text=String.IsNullOrEmpty(autoSelection.Message)?"Project to Sketch: Wireframe Chain selected. Click the original outline and accept.":autoSelection.Message;timer.Stop();
+                        }
                         else if(++attempts>=12){message.Text="Automatic selection did not complete. Close any Project Options dialog and click Retry, or select Project to Sketch / Wireframe Chain in Solid Edge.";timer.Stop();}
                     }
                 }catch(Exception e){message.Text=e.Message;timer.Stop();}
@@ -1218,7 +1231,7 @@ Disable this form during a batch to prevent competing processing requests.
         string assemblyPath;
         public MainWindow()
         {
-            Text = "Sketch to Models v2.33 | Solid Edge 2026";
+            Text = "Sketch to Models v2.34 | Solid Edge 2026";
             Size = new Size(940, 650); MinimumSize = new Size(840, 580);
             StartPosition = FormStartPosition.CenterScreen;
             Font = new Font("Segoe UI", 10);
@@ -1353,7 +1366,7 @@ including both saves. An exception stops the batch; later rows do not run.
             catch (Exception e)
             {
                 // Preflight errors previously bypassed the detailed error log entirely.
-                try { File.AppendAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SketchToModels-error.txt"), "\r\n" + DateTime.Now.ToString("s") + " v2.33 ProcessSelection\r\n" + e.ToString() + "\r\n"); } catch { }
+                try { File.AppendAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SketchToModels-error.txt"), "\r\n" + DateTime.Now.ToString("s") + " v2.34 ProcessSelection\r\n" + e.ToString() + "\r\n"); } catch { }
                 status.Text = "Stopped: " + e.Message;
                 MessageBox.Show(this, e.Message + "\n\nPreviously completed parts remain saved. Existing filenames are blocked on retry.", "Processing stopped", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }

@@ -6,3 +6,6 @@ tests/*.pdb
 Compiled Executables/SketchToModels-*.txt
 Compiled Executables/oring-template.txt
 tests/oring-fixtures/
+# Local API experiments are not release sources or automated regression tests.
+tests/projection-diagnostics/
+tests/ProjectionApiProbe.cs
