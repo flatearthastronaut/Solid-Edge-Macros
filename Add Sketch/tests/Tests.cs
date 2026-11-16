@@ -50,6 +50,8 @@ internal static class Tests
         {
             form.ShowInTaskbar=false;form.StartPosition=FormStartPosition.Manual;form.Location=new Point(-32000,-32000);form.Show();Application.DoEvents();
             var list=form.Controls[0].Controls.OfType<ComboBox>().Single();var buttons=form.Controls[0].Controls.OfType<FlowLayoutPanel>().Single().Controls.OfType<Button>().ToArray();var add=buttons.Single(b=>b.Text=="Add sketches");var reload=buttons.Single(b=>b.Text=="Reload planes");
+            Check(form.Text=="Add Sketch" && form.Controls[0].Controls.OfType<Label>().All(l=>!l.Text.Contains("HAMMILL")),"compact window uses only the Add Sketch name");
+            Check(buttons.All(b=>b.Parent.ClientRectangle.Contains(b.Bounds)) && form.Controls[0].Controls.Cast<Control>().All(c=>c.Parent.ClientRectangle.Contains(c.Bounds)),"compact window keeps fields and action buttons inside their containers");
             Check(list.Items.Count==4 && ((PlaneChoice)list.SelectedItem).Name=="Right (yz)" && add.Enabled,"affected assembly pattern loads four named planes and enables Add");
             Check(form.Controls[0].Controls.OfType<Label>().Any(l=>l.Text.Contains("Skipped 27")),"window explains skipped entries instead of showing an empty list");
             using(var bmp=new Bitmap(form.Width,form.Height)){form.DrawToBitmap(bmp,new Rectangle(Point.Empty,form.Size));bmp.Save(Path.Combine(work,"preview.png"));}

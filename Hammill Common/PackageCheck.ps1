@@ -4,7 +4,7 @@ $work=[string](Join-Path $PSScriptRoot ('tests\.work\packages-'+[guid]::NewGuid(
 $source=[string](Join-Path $work 'Source');$local=[string](Join-Path $work 'Installed')
 New-Item -ItemType Directory -Path $source,$local|Out-Null
 foreach($name in @('O-Ring Finder','Add Sketch','Occurrence Viewer','Batch Approval Export')){
-    $version=if($name -eq 'Add Sketch'){'1.1'}else{'1.0'}
+    $version=if($name -eq 'Add Sketch'){'1.2'}else{'1.0'}
     Copy-Item -LiteralPath (Join-Path $root ($name+'\Compiled Executables\'+$name+' v'+$version+'.zip')) -Destination $source
 }
 $manager=[Reflection.Assembly]::LoadFrom((Join-Path $root 'Macro-Addin-Manager\Compiled Executables\SE Macro Manager v1.14.exe'))
@@ -22,9 +22,9 @@ foreach($name in @('O-Ring Finder','Add Sketch','Occurrence Viewer','Batch Appro
 }
 if(-not(Test-Path -LiteralPath (Join-Path $local 'O-Ring Finder\Oring_table.txt'))){throw 'O-ring table missing.'}
 $sketchExe=Join-Path $local 'Add Sketch\Add Sketch.exe'
-if([Diagnostics.FileVersionInfo]::GetVersionInfo($sketchExe).FileVersion -ne '1.1.0.0'){throw 'Stable Add Sketch target must contain the v1.1 repair.'}
+if([Diagnostics.FileVersionInfo]::GetVersionInfo($sketchExe).FileVersion -ne '1.2.0.0'){throw 'Stable Add Sketch target must contain the v1.2 compact window.'}
 $sketchBuilds=$manager.GetType('CoopManager.BuildCatalog').GetMethod('Scan').Invoke($null,[object[]]@([string](Join-Path $root 'Add Sketch\Compiled Executables')))
-if($sketchBuilds.Count -ne 1 -or $sketchBuilds[0].Path -notlike '*v1.1.zip'){throw 'Publisher must offer one latest Add Sketch v1.1 package.'}
+if($sketchBuilds.Count -ne 1 -or $sketchBuilds[0].Path -notlike '*v1.2.zip'){throw 'Publisher must offer one latest Add Sketch v1.2 package.'}
 $xml=New-Object Xml.XmlDocument;$xml.LoadXml('<settings><local /></settings>');$xml.DocumentElement.SelectSingleNode('local').InnerText=$local
 $settings=Join-Path $work 'settings.xml';$xml.Save($settings)
 $addinFolder=[string](Join-Path $root 'Add-ins\Hammill-Macro-Launcher\Compiled Executables')
