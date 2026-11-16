@@ -14,14 +14,14 @@ rem Embed the existing multi-size ICO so Explorer and shortcuts use the macro ic
 "%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /win32icon:"SketchToModels.ico" /target:winexe /platform:x64 /link:"%SEPART%" /r:"%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\WPF\UIAutomationClient.dll" /r:"%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\WPF\UIAutomationTypes.dll" /r:"%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\WPF\WindowsBase.dll" /r:Microsoft.CSharp.dll /r:System.Windows.Forms.dll /r:System.Drawing.dll /out:"Compiled Executables\SketchToModels.exe" SketchToModels.cs ComSupport.cs ORingWorkflow.cs AutoSketchSelection.cs
 if errorlevel 1 exit /b 1
 rem Bundle the template setting and matching ribbon images beside the executable.
-copy /y "Compiled Executables\SketchToModels.exe" "Compiled Executables\SketchToModels-v2.34.exe" >nul
+copy /y "Compiled Executables\SketchToModels.exe" "Compiled Executables\SketchToModels-v2.35.exe" >nul
 if errorlevel 1 exit /b 1
 copy /y "template.txt" "Compiled Executables\template.txt" >nul
 if errorlevel 1 exit /b 1
 copy /y "SketchToModels.png" "Compiled Executables\SketchToModels.png" >nul
 if errorlevel 1 exit /b 1
-copy /y "SketchToModels-v2.34.png" "Compiled Executables\SketchToModels-v2.34.png" >nul
+copy /y "SketchToModels-v2.35.png" "Compiled Executables\SketchToModels-v2.35.png" >nul
 if errorlevel 1 exit /b 1
 copy /y "SketchToModels.ico" "Compiled Executables\SketchToModels.ico" >nul
 if errorlevel 1 exit /b 1
-echo Built Compiled Executables\SketchToModels-v2.34.exe
+echo Built Compiled Executables\SketchToModels-v2.35.exe

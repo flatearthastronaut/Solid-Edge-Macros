@@ -1,16 +1,20 @@
-# Sketch to Models v2.34 — optional automatic sketch selection
+# Sketch to Models v2.35 — close completed parts
 
-Adds an opt-in graphical sketch-selection option to the working v2.32 macro. Standard, Bushing Style and O-ring workflows, color rules, the embedded icon, and the end-of-batch COM cleanup are retained. The maintained source folder is still named SketchToModels-v2.32; older versioned executables remain available.
+Closes each successfully completed part after saving it and the assembly, before continuing to the next row. The optional graphical sketch-selection feature is retained. Standard, Bushing Style and O-ring workflows, color rules, the embedded icon, and the end-of-batch COM cleanup are retained. The maintained source folder is still named SketchToModels-v2.32; older versioned executables remain available.
 
 ## Run
 
-Close older macro instances. With a saved assembly active in Solid Edge 2026, run `Compiled Executables/SketchToModels-v2.34.exe`. Update the ribbon button to this executable if it points at an earlier version. Its matching PNG is included.
+Close older macro instances. With a saved assembly active in Solid Edge 2026, run `Compiled Executables/SketchToModels-v2.35.exe`. Update the ribbon button to this executable if it points at an earlier version. Its matching PNG is included.
 
 The assembly filename must contain exactly one isolated five-digit drawing number. Output remains `<sketch name> <number>.par` beside the assembly. Existing files are blocked, never overwritten.
 
+## Closing completed parts
+
+Standard, Bushing Style and O-ring parts all close automatically after their modeling, validation, coloring and final saves succeed. The assembly stays open and its component occurrences remain in place. Only the newly generated part document is closed; other open documents are not closed. Failed or canceled work stays open for inspection. If closing itself fails, the batch stops and reports that stage. The close operation uses SaveChanges=true and runs only on the success path, never in error cleanup.
+
 ## Optional automatic selection
 
-**Try automatic sketch selection for revolves** is unchecked at each launch. With it off, use the established manual Project to Sketch / Wireframe Chain workflow. With it on, v2.34 waits until Wireframe Chain is selected, computes a point on a non-construction curve of the newly copied sketch, and sends one graphical click to Solid Edge's drawing window. This replaces v2.33's ineffective SelectSet preselection.
+**Try automatic sketch selection for revolves** is unchecked at each launch. With it off, use the established manual Project to Sketch / Wireframe Chain workflow. With it on, v2.35 waits until Wireframe Chain is selected, computes a point on a non-construction curve of the newly copied sketch, and sends one graphical click to Solid Edge's drawing window. This replaces v2.33's ineffective SelectSet preselection.
 
 The instruction popup briefly hides to uncover the drawing. Model coordinates are converted using the current view; the target window, owning process, visible bounds and active command are checked before clicking. Physical-pixel coordinates are used on scaled monitors. Covered/offscreen curves and the predefined Z axis are avoided. There are no repeated click attempts after an input failure. Keep the outline visible and allow the short automatic pick to finish before moving the pointer.
 
@@ -18,7 +22,7 @@ The instruction popup briefly hides to uncover the drawing. Model coordinates ar
 
 Bushing Style uses the same graphical pick in both the surface and solid profile. You still pick the copied sketch for the surface's Feature's Plane step. Its Z axis remains automatic; the solid's axis remains user-selected. O-ring parts ignore this option.
 
-All twelve regression programs passed, including both prompt handoffs and native mouse-message delivery to a test panel, process/bounds/visibility guards, manual fallback and default-off behavior. Full live Solid Edge graphical selection still requires an operator test. A direct API projection alternative was tested in disposable CAD parts and rejected because the projected outline failed the source-update check; it is not used by this release.
+All twelve regression programs passed, including save-before-close ordering, preserving open parts on modeling/cancellation/save errors, stopping on a close error, and both prompt handoffs and native mouse-message delivery to a test panel, process/bounds/visibility guards, manual fallback and default-off behavior. Full live Solid Edge graphical selection still requires an operator test. A direct API projection alternative was tested in disposable CAD parts and rejected because the projected outline failed the source-update check; it is not used by this release.
 
 ## O-ring
 

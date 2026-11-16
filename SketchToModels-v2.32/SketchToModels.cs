@@ -1,6 +1,6 @@
 /* EXPLANATORY NOTE
-SKETCH TO MODELS -- DOCUMENTED v2.34 SOURCE
-Updated November 16, 2026. Picks a source outline point after Wireframe Chain is active.
+SKETCH TO MODELS -- DOCUMENTED v2.35 SOURCE
+Updated November 16, 2026. Closes successfully saved parts after modeling; graphical sketch selection retained.
 SketchToModels.cs and SketchToModels-Commented.cs contain the same documented source.
 
 READING ORDER
@@ -400,7 +400,8 @@ and aligns it to the system the user selects in the assembly. Only that new
 occurrence's grounding is adjusted.
 
 After modeling, verify the interpart link, apply an existing color style, and
-save the part and assembly. Preserve failed/canceled parts for inspection;
+save the part and assembly, then close only this newly generated part's editing
+document. Its occurrence remains in the assembly. Preserve failed/canceled parts for inspection;
 deleting a file may break an assembly reference. Earlier completed parts stay
 saved when a later part fails. Do not retry blindly over existing filenames.
 */
@@ -472,6 +473,15 @@ saved when a later part fails. Do not retry blindly over existing filenames.
                 SaveWritable(part);
                 stage = "saving the assembly after modeling";
                 SaveWritable(assembly);
+                // This success-only step is shared by standard, Bushing Style
+                // and O-ring workflows. Never close in finally: a failed save
+                // or canceled feature must leave the part available to inspect.
+                // SaveChanges=true also preserves any pending changes Solid Edge
+                // made during its final updates. Close the explicit part object,
+                // not ActiveDocument (which is now the assembly).
+                stage = "closing the completed part";
+                part.Close(true);
+                part = null; // Do not reuse an editing-document RCW after Close.
             }
             catch (Exception error)
             {
@@ -1231,7 +1241,7 @@ Disable this form during a batch to prevent competing processing requests.
         string assemblyPath;
         public MainWindow()
         {
-            Text = "Sketch to Models v2.34 | Solid Edge 2026";
+            Text = "Sketch to Models v2.35 | Solid Edge 2026";
             Size = new Size(940, 650); MinimumSize = new Size(840, 580);
             StartPosition = FormStartPosition.CenterScreen;
             Font = new Font("Segoe UI", 10);
@@ -1366,7 +1376,7 @@ including both saves. An exception stops the batch; later rows do not run.
             catch (Exception e)
             {
                 // Preflight errors previously bypassed the detailed error log entirely.
-                try { File.AppendAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SketchToModels-error.txt"), "\r\n" + DateTime.Now.ToString("s") + " v2.34 ProcessSelection\r\n" + e.ToString() + "\r\n"); } catch { }
+                try { File.AppendAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SketchToModels-error.txt"), "\r\n" + DateTime.Now.ToString("s") + " v2.35 ProcessSelection\r\n" + e.ToString() + "\r\n"); } catch { }
                 status.Text = "Stopped: " + e.Message;
                 MessageBox.Show(this, e.Message + "\n\nPreviously completed parts remain saved. Existing filenames are blocked on retry.", "Processing stopped", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
