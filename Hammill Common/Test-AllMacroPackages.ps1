@@ -4,7 +4,7 @@ $work=[string](Join-Path $PSScriptRoot ('tests\.work\ap-'+[guid]::NewGuid().ToSt
 $source=[string](Join-Path $work 'Source');$local=[string](Join-Path $work 'Installed')
 New-Item -ItemType Directory -Path $source,$local | Out-Null
 $manager=[Reflection.Assembly]::LoadFrom((Join-Path $root 'Macro-Addin-Manager\Compiled Executables\SE Macro Manager v1.14.exe'))
-$folders=@('Turbo Callouts','Turbo Hole Table Callouts','Bolt Circle Holes','Dual Dimension Toggle','Fill Background Toggle','SketchToModels-v2.32','Populate SHCS','Resize Base Planes','RightClickConvert','Add Sketch','Occurrence Viewer','Batch Approval Export','O-Ring Finder')
+$folders=@('Turbo Callouts','Turbo Hole Table Callouts','Bolt Circle Holes','Dual Dimension Toggle','Fill Background Toggle','SketchToModels-v2.32','Populate SHCS','Resize Base Planes','RightClickConvert','Add Sketch','Occurrence Viewer','Batch Approval Export','O-Ring Finder','Update Dimension Styles')
 foreach($folder in $folders){
     $output=[string](Join-Path $root ($folder+'\Compiled Executables'))
     $builds=$manager.GetType('CoopManager.BuildCatalog').GetMethod('Scan').Invoke($null,[object[]]@($output))
@@ -16,7 +16,7 @@ if($packages.Count -ne $folders.Count){throw 'Some package families collided.'}
 foreach($package in $packages){
     [void]$manager.GetType('CoopManager.Installer').GetMethod('Install').Invoke($null,[object[]]@($package,$source,$local,$null))
 }
-foreach($file in @('SketchToModels\template.txt',"BoltCircleHoles\C'bore Chart.xls",'O-Ring Finder\Oring_table.txt','Turbo Callouts\Turbo Callouts.png')){
+foreach($file in @('SketchToModels\template.txt',"BoltCircleHoles\C'bore Chart.xls",'O-Ring Finder\Oring_table.txt','Turbo Callouts\Turbo Callouts.png','Update Dimension Styles\normal (new design).dft')){
     if(-not(Test-Path -LiteralPath (Join-Path $local $file))){throw ('Installed dependency missing: '+$file)}
 }
 $settings=[string](Join-Path $work 'settings.xml')
