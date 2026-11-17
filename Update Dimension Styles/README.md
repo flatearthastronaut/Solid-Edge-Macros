@@ -10,7 +10,7 @@ This checks presence, not whether existing styles have the latest formatting. Ex
 
 ## Master cleanup
 
-On November 17, 2026, the supplied project master was backed up and these highlighted styles were removed using Solid Edge's native collection method: **ANSImm, BSI, DIN, ISO, JIS**. Save/reopen confirmed the removals. Solid Edge returned E_FAIL for **ANSI, GRINDSTOCK, Z1**; those were retained. **Fraction** was not highlighted and was retained. The active style and the 12 configured cycle styles were preserved. The correct vertical two-place name in this master is **3 2 place (vert)**.
+On November 17, 2026, the supplied project master was backed up and these highlighted styles were removed using Solid Edge's native collection method: **ANSImm, BSI, DIN, ISO, JIS**. Save/reopen confirmed the removals. Solid Edge initially returned E_FAIL for **ANSI, GRINDSTOCK, Z1**. Subsequently, eight grouped surface-finish symbols on **Notes To Copy** were reassigned from Z1 to ANSI at Greg's request, and **Z1 was removed**. ANSI and GRINDSTOCK remain. GRINDSTOCK still resisted removal in disposable copies after clearing drawing objects, blocks, most sheets and tables, then saving/reopening; its exact dependency remains unresolved. **Fraction** was not highlighted and was retained. The active style and the 12 configured cycle styles were preserved. The correct vertical two-place name in this master is **3 2 place (vert)**.
 
 `Backups/normal (new design) before cleanup.dft` preserves the original supplied master. The cleaned copy at the repository root and the bundled copy contain the same styles. This does not replace the company's production template on its network share.
 
@@ -21,3 +21,4 @@ Build with `Build.cmd`; install **Compiled Executables/Update Dimension Styles v
 `Test.ps1` runs isolated regression tests. `Test.ps1 -Live` repairs a disposable project-local copy of the master, verifies preserved existing formatting, native vertical style precision, save/reopen, and a no-op rerun. It never edits or saves the user's open drawing. `tests/AuditMaster.ps1` reports styles; its explicit `-Clean` option performs the requested eight-name cleanup only on the supplied project master, backing it up first.
 
 API basis: Siemens DraftDocument.ImportStyles2 with igDimensionStyle=0 and bReplace=false, DimensionStyles.Remove, and the bundled SDK COM lifetime/message-filter pattern. The master supplies complete native style formatting; the macro does not infer it from a name.
+
