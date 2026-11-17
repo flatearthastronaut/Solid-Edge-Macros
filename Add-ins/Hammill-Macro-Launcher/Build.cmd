@@ -1,12 +1,12 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-set "HAMMILL_OUTPUT=Compiled Executables\Hammill-Macro-Launcher-v0.8"
+set "HAMMILL_OUTPUT=Compiled Executables\Hammill-Macro-Launcher-v0.9"
 if not exist "%HAMMILL_OUTPUT%" mkdir "%HAMMILL_OUTPUT%"
 if errorlevel 1 exit /b 1
 set "HAMMILL_CSC=%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
 set "HAMMILL_REFS=/r:System.Core.dll /r:System.Xml.Linq.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:Microsoft.CSharp.dll"
-"%HAMMILL_CSC%" /nologo /target:library /platform:x64 /optimize+ %HAMMILL_REFS% /r:"lib\Interop.SolidEdgeFramework.dll" /out:"%HAMMILL_OUTPUT%\Hammill.MacroLauncher.dll" Catalog.cs VideoTooltip.cs RibbonState.cs IconResources.cs Addin.cs ComponentDisplay.cs LimitToleranceCycle.cs DimensionStyleCycle\*.cs "..\..\Hammill Common\ComSupport.cs"
+"%HAMMILL_CSC%" /nologo /target:library /platform:x64 /optimize+ %HAMMILL_REFS% /r:"lib\Interop.SolidEdgeFramework.dll" /out:"%HAMMILL_OUTPUT%\Hammill.MacroLauncher.dll" Catalog.cs VideoTooltip.cs RibbonState.cs IconResources.cs Addin.cs ComponentDisplay.cs LimitToleranceCycle.cs DimensionStyleCycle\*.cs "..\..\Update Dimension Styles\StyleRepair.cs" "..\..\Update Dimension Styles\MasterDocument.cs" "..\..\Hammill Common\ComSupport.cs"
 if errorlevel 1 exit /b 1
 "%HAMMILL_CSC%" /nologo /target:library /platform:x64 /optimize+ /out:"%HAMMILL_OUTPUT%\Hammill.MacroLauncher.Resources.dll" ResourceTemplate.cs
 if errorlevel 1 exit /b 1
@@ -24,6 +24,8 @@ if not exist "%HAMMILL_OUTPUT%\Shared Configuration" mkdir "%HAMMILL_OUTPUT%\Sha
 if errorlevel 1 exit /b 1
 copy /y DimensionStyleCycle\Hammill.DimensionStyles.txt "%HAMMILL_OUTPUT%\Shared Configuration\Hammill.DimensionStyles.txt" >nul
 if errorlevel 1 exit /b 1
+copy /y "..\..\normal (new design).dft" "%HAMMILL_OUTPUT%\normal (new design).dft" >nul
+if errorlevel 1 exit /b 1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File Package.ps1
 if errorlevel 1 exit /b 1
-echo Built Hammill Macro Launcher v0.8.
+echo Built Hammill Macro Launcher v0.9.

@@ -36,6 +36,7 @@ public sealed class CycleTestStyles
 public sealed class CycleTestSelection
 {
     public object[] Values;
+    public void Add(object value) { Values = Values.Concat(new[] { value }).ToArray(); }
     public int Count { get { return Values.Length; } }
     public object Item(int index) { return Values[index - 1]; }
 }
@@ -101,6 +102,38 @@ internal static class StyleCycleTests
     internal static void Run(string run, Action<bool, string> check)
     {
         var sequence = StyleSequence.Parse(Configuration);
+        var repaired = Document();
+        var selected = (CycleTestDimension)repaired.SelectSet.Item(1);
+        repaired.DimensionStyles.Values.Remove("I4");
+        int imports = 0;
+        Action<string> importer = name => {
+            imports++;
+            repaired.DimensionStyles.Values.Add(name, new CycleTestStyle(name));
+            repaired.SelectSet.Values = new object[0];
+        };
+        check(CycleEngine.Run(repaired, sequence, new StyleIndex(), importer) == "I4" && imports == 1,
+            "missing style is imported and applied on the same click");
+        check(repaired.SelectSet.Item(1) == selected && selected.SuffixString == " B.C" && selected.PrimaryLowerTolerance == "-.006",
+            "import restores selection and preserves dimension engineering text and tolerance");
+        CycleEngine.Run(repaired, sequence, new StyleIndex(), importer);
+        check(imports == 1, "existing styles never invoke the importer");
+        repaired = Document(); selected = (CycleTestDimension)repaired.SelectSet.Item(1);
+        repaired.DimensionStyles.Values.Remove("I4");
+        Fails(() => CycleEngine.Run(repaired, sequence, new StyleIndex(), name => {
+            repaired.SelectSet.Values = new object[0]; throw new IOException("Missing master");
+        }), "unavailable master reports an error", check);
+        check(selected.Style.Name == "I2" && repaired.SelectSet.Item(1) == selected, "failed import preserves source style and restores selection");
+        Fails(() => CycleEngine.Run(repaired, sequence, new StyleIndex(), name => { }), "import must actually supply the missing style", check);
+        repaired = Document(); repaired.DimensionStyles.Values.Add("I4 ", new CycleTestStyle("I4 "));
+        Fails(() => CycleEngine.Run(repaired, sequence, new StyleIndex(), name => { imports++; }), "ambiguous style does not trigger repair", check);
+        check(imports == 1, "duplicate-name errors cannot invoke import");
+        string shared = Path.Combine(run, "master-shared"), bundled = Path.Combine(run, "master-bundled");
+        Directory.CreateDirectory(shared); Directory.CreateDirectory(bundled);
+        string list = Path.Combine(shared, "Hammill.DimensionStyles.txt");
+        File.WriteAllText(Path.Combine(bundled, MissingStyleImport.MasterName), "fixture");
+        check(MissingStyleImport.Resolve(list, bundled) == Path.Combine(bundled, MissingStyleImport.MasterName), "packaged master works without standalone repair macro");
+        File.WriteAllText(Path.Combine(shared, MissingStyleImport.MasterName), "fixture");
+        check(MissingStyleImport.Resolve(list, bundled) == Path.Combine(shared, MissingStyleImport.MasterName), "shared master takes precedence over bundled template");
         var index = new StyleIndex();
         check(sequence.Next("I2") == "I4" && sequence.Next("I4") == "I3" && sequence.Next("I3") == "I2", "style order follows the text file and wraps");
         foreach (string prefix in new[] { "D", "V", "VD" })

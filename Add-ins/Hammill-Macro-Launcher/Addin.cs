@@ -15,8 +15,8 @@ using Environment = System.Environment;
 [assembly: AssemblyTitle("Hammill Add-ins")]
 [assembly: AssemblyCompany("Hammill")]
 [assembly: AssemblyProduct("Hammill Add-ins")]
-[assembly: AssemblyVersion("0.8.0.0")]
-[assembly: AssemblyFileVersion("0.8.0.0")]
+[assembly: AssemblyVersion("0.9.0.0")]
+[assembly: AssemblyFileVersion("0.9.0.0")]
 [assembly: ComVisible(false)]
 
 namespace Hammill.MacroLauncher
@@ -188,7 +188,8 @@ namespace Hammill.MacroLauncher
             using (var scope = new ComScope())
             {
                 object document = scope.Own(((dynamic)application).ActiveDocument);
-                return CycleEngine.Run(document, sequence, index);
+                return CycleEngine.Run(document, sequence, index, name =>
+                    MissingStyleImport.Apply(application, document, name, configuration.Path));
             }
         }
 

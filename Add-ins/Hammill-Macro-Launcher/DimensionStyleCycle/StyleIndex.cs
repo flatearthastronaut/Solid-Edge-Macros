@@ -35,8 +35,11 @@ namespace Hammill.DimensionStyleCycle
                 if (rebuilt) break;
                 Rebuild(collection, currentCount); rebuilt = true;
             }
-            throw new InvalidOperationException("The next style, '" + requested + "', is missing or has duplicate names in this draft. Check Hammill.DimensionStyles.txt and the draft's styles. The dimension was not changed.");
+            if (!indexes.ContainsKey(requested.Trim())) throw new MissingStyleException(requested);
+            throw new InvalidOperationException("The next style, '" + requested + "', has duplicate names in this draft. The dimension was not changed.");
         }
+
+        internal void Invalidate() { count = -1; }
 
         private void Rebuild(object collection, int currentCount)
         {
@@ -54,5 +57,10 @@ namespace Hammill.DimensionStyleCycle
             }
             count = currentCount;
         }
+    }
+
+    internal sealed class MissingStyleException : InvalidOperationException
+    {
+        internal MissingStyleException(string name) : base("The next style, '" + name + "', is missing from this draft.") { }
     }
 }

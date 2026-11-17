@@ -11,7 +11,7 @@ namespace Hammill.DimensionStyleCycle
         // ObjectType.igDimension, verified from the bundled SDK framework interop.
         internal const int DimensionObjectType = 488188096;
 
-        public static string Run(object document, StyleSequence sequence, StyleIndex index)
+        public static string Run(object document, StyleSequence sequence, StyleIndex index, Action<string> importMissing = null)
         {
             // The caller owns document. This scope owns only getter/Item results;
             // never FinalReleaseComObject or keep COM references between clicks.
@@ -31,7 +31,20 @@ namespace Hammill.DimensionStyleCycle
                 string source = (string)style.Name;
                 dynamic definitions = scope.Own(((dynamic)document).DimensionStyles);
                 string target = sequence.Next(source);
-                dynamic targetDefinition = scope.Own(index.Find((object)definitions, target));
+                object found;
+                try { found = index.Find((object)definitions, target); }
+                catch (MissingStyleException)
+                {
+                    if (importMissing == null) throw;
+                    // Only a genuinely absent name triggers I/O. Ambiguous names
+                    // and invalid selections must never open or import a master.
+                    // Restore selection even if the source cannot supply a style.
+                    try { importMissing(target); }
+                    finally { if ((int)selection.Count == 0) selection.Add((object)dimension); }
+                    index.Invalidate();
+                    found = index.Find((object)definitions, target);
+                }
+                dynamic targetDefinition = scope.Own(found);
                 target = (string)targetDefinition.Name;
                 // A misplaced entry in the text file must not silently switch
                 // inch/dual units or reverse the primary/secondary unit order.
