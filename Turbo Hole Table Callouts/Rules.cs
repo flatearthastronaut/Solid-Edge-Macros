@@ -158,7 +158,7 @@ namespace HoleTableFormatter
             return value;
         }
 
-        internal Decision Match(HoleFacts hole, bool variableShcsDepth = false)
+        internal Decision Match(HoleFacts hole, bool variableShcsDepth = false, bool variableDowelDepth = false)
         {
             bool possibleFaceSeal=(hole.Type==2 || hole.Type==5) && Near(hole.BoreDepth,.052) && PortThread(hole.Thread)==0;
             var hits = new List<Preset>();
@@ -173,8 +173,13 @@ namespace HoleTableFormatter
                     // Compare the seat dimensions in either representation.
                     double seat=preset.Kind=="CounterDrill"?preset.Bore:preset.Diameter;
                     double seatDepth=preset.Kind=="CounterDrill"?preset.BoreDepth:preset.Depth;
-                    if (hole.Type == 1) match = Near(hole.Diameter,seat) && Near(hole.Depth,seatDepth);
-                    else if (hole.Type == 7) match = Near(hole.Bore,seat) && Near(hole.BoreDepth,seatDepth);
+                    // Turbo Callouts identifies every PF/SF size from its exact
+                    // saved seat diameter; Greg permits part-specific positive
+                    // finite seat depths for simple and relieved dowels. Relief
+                    // drilling does not identify the finished fit. Opt in here
+                    // so the hole-table caller retains its prior depth policy.
+                    if (hole.Type == 1) match = Near(hole.Diameter,seat) && DowelDepth(hole.Depth,seatDepth,variableDowelDepth);
+                    else if (hole.Type == 7) match = Near(hole.Bore,seat) && DowelDepth(hole.BoreDepth,seatDepth,variableDowelDepth);
                 }
                 else if (preset.Family == "Koenig plug" && !threaded && hole.Type == 7)
                     // CV is the former name for Koenig. Greg changes seat depth
@@ -234,6 +239,8 @@ namespace HoleTableFormatter
             return Decision.Review("No verified standard-hole match. Leave unchanged.");
         }
         static bool Positive(double? value){return value.HasValue&&value.Value>0;}
+        static bool DowelDepth(double? actual,double saved,bool variable)
+        {return Near(actual,saved)||(variable&&Positive(actual)&&!Double.IsInfinity(actual.Value));}
 
         internal static int PortThread(string thread)
         {

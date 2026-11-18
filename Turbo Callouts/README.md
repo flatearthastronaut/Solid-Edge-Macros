@@ -1,10 +1,12 @@
-# Turbo Callouts v1.7
+# Turbo Callouts v1.8
 
 The application and its current package are named **Turbo Callouts**. Existing drawing styles and native annotation identifiers retain their original spelling so previous notes and bolt-circle annotations remain recognized.
 
 One macro provides both **Without bolt circles** and **With bolt circles**, sharing hole recognition and inch/dual machining formats. It incorporates the validated bolt-circle engine from Turbo Callout & B.C. Macro v0.5; that separate project is archived under `!OLD-OBS/Turbo Callout & B.C. Macro`. Earlier Turbo Callout executables are under `!OLD-OBS/Turbo Callout`. Use `Turbo Callouts/Build.cmd` and the single executable below for future releases.
 
 The menu uses the existing navy/yellow application icon and illustrated mode cards: a rectangular six-hole plate without bolt circles and a circular pattern with bolt circles. The previews show the matching quantity wording and change with the unit selection. Selecting a card does not run the macro; **Run Turbo Callouts** starts the selected operation.
+
+v1.8 permits part-specific positive finite seat depths for every P.F./S.F. dowel size, inch or metric. Recognition retains exact saved/chart seat diameters, actual linked depths, fit limits, and purpose lines. Both simple holes and relieved dowels are covered; conflicting families and fits remain for review. The shared hole-table caller retains its prior depth policy. The saved .474-inch 12 mm S.F. dowel diameter overlaps the 12 mm Koenig seat: a counterdrilled .474 seat is left for review, while the simple-hole S.F. representation is recognized.
 
 v1.7 adds native Fast Pattern support. Repeated holes in these patterns share combined result geometry instead of separate Hole features. The macro now uses the pattern's model edges plus its seed hole, checks the complete occurrence count and circular layout, and creates the linked B.C., projection marks, diameter, and angle. Fast patterns with multiple seed features remain for review. It also verifies generated angular axes from their actual native line geometry when Solid Edge reports an inconsistent projection-angle property.
 
@@ -17,7 +19,7 @@ Standard threaded-hole notes show only the native thread designation and Smart T
 ## Use
 
 1. Activate the drawing in Solid Edge.
-2. Run `Compiled Executables/Turbo Callouts v1.7.exe`.
+2. Run `Compiled Executables/Turbo Callouts v1.8.exe`.
 3. Select **Without bolt circles** or **With bolt circles**.
 4. Select **Inch only** or **Dual (metric [inch])**.
 5. Click **Run Turbo Callouts**.
@@ -73,6 +75,8 @@ The native callout evaluator provides the associated hole type, diameter, depths
 
 Supported special families follow the shared rules: chart/saved dowel pin seats, 3/8-inch press-fit spring pin, Koenig/CV plug seats, saved face-seal recesses, SAE ports #2/#4/#6/#8, saved SHCS counterbores, and standard threaded holes. After special-family recognition, an otherwise unmatched native simple drilled hole uses the complete saved `HC -DRILL` note for inch-only or `HC -DRILL M[I]` for dual dimensions, including its linked quantity wording. Both blind and through holes retain native Smart Depth. Conflicting special-family matches, inconsistent geometry, unsupported non-simple holes, and unresolved attachments remain blank for review. This fallback is specific to standalone callouts; the hole-table recognition rules are unchanged.
 
+For dowels, a saved seat diameter identifies the pin size and P.F./S.F. fit independently of the positive finite seat depth. For example, the quarter-inch P.F. saved .249 seat is recognized at .42 depth as well as .38, retaining .2500/.2495 finished limits. Relief-drill dimensions and seat depth remain model-linked; native type and conflicting identities are checked before generating a note. This rule applies to all saved inch/metric dowel sizes and their chart nominals, without changing the hole-table defaults.
+
 For standalone SHCS counterbores, both the drill and recess diameters must match a saved size, but a positive finite recess depth may differ from the preset. The note retains the actual model-linked depth. For example, the M8 pair .34/.53 is recognized at .35 depth as well as the saved .34 depth. Unknown diameter pairs, conflicting families, and unidentified .052-inch face-seal recesses still require review. The hole-table caller retains its existing depth-matching policy.
 
 Notes retain native drilling/depth fields and Smart Depth behavior, dowel fit limits and P.F./S.F. lines, face-seal depth limits, and the separate Koenig `(DO NOT CHAMFER HOLE)` line. The fixed higher-precision dual values are described below. The saved 12 mm Koenig entry supplies its bracketed inch limits when only a dual entry exists. Standard threaded holes retain the native thread designation and depth, with the tap-drill line omitted. Spotface-only SAE features use the size-specific saved thread designation/depth; modeled threaded entrances use their native thread fields. #8 uses the shared rule's saved thread-depth standard. Review the saved standard note if the separate thread feature is later changed.
@@ -119,6 +123,8 @@ Writes are checked and placement is verified. A failed fill restores the previou
 
 ## Build and tests
 
+`DowelDepthTest.cmd [saved-fixture.dft]` checks the previously blank quarter-inch P.F. callout at .42 seat depth in disposable copies of the active 21931-01 draft (or a supplied fixture). It tests all four menu combinations, native evaluated fit limits and actual depth, quantity-one omission, model attachment, placement, reruns, and save/reopen.
+
 Run `FastPatternTest.cmd` with the 21931-01 base-plate fixture active (or pass a saved fixture path). It writes only disposable copies under `Inspection` and checks the 12-hole Fast Pattern in both unit modes, all seed/result attachments, projection marks, native diameter/angle, reruns, save/reopen, view movement/scale, and preservation when B.C. is disabled.
 
 - `BoltCircleAngleTest.cmd <saved-manual-angle-sample.dft>`: test both unit modes in disposable copies, native projection/axis parents, 42/40-degree sample values, on-axis skips, reruns, manual-angle preservation, save/reopen, view movement/scaling, and Without bolt circles preservation.
@@ -130,6 +136,8 @@ Run `FastPatternTest.cmd` with the 21931-01 base-plate fixture active (or pass a
 - `BoltCircleViewTest.cmd`: use a disposable copy of the active sample to verify native circle/projection creation at half scale, preservation of manual projections, v0.1 circle repair, missing/disabled projection repair, conflicting-mark protection, shared circles for multiple callouts, unchanged custom notes and leaders, movement with the view, saved references, rerun reuse, and isometric exclusion.
 - `Inspect.cmd`: inspect native fields of blank callouts; diagnostic probes are removed immediately. `Inspect.cmd --alignment` reads direction and justification without adding probes.
 - `Preview.cmd`: render the initial window to `Inspection/window.png`.
+
+v1.8 verified November 18, 2026: 9,192 callout regression checks, 218 shared recognition checks, 68 hole-table UI checks, and 80 live dowel-depth checks passed. Every saved/chart inch and metric P.F./S.F. size was tested at changed depths in simple and relieved representations, with explicit review for the overlapping .474 counterdrill. The 21931-01 quarter-inch P.F. sample filled in all four menu combinations, displayed .2500/.2495 limits and its actual .42 depth, retained native machining fields and the original leader attachment/placement, omitted quantity one, and survived reruns and save/reopen. Existing B.C. conflicts in that drawing were retained for review. All live writes were confined to disposable draft copies.
 
 v1.7 verified November 18, 2026: 8,251 rules checks, 28 menu checks, 528 live Fast Pattern checks, and 154 existing native angular checks passed. Inch and dual copies of the 21931-01 base plate created one 12-hole B.C., all 12 native radial projections, a two-place inch diameter (7.30 inches), and a native 15-degree angle from the nearest vertical axis. All 12 seed/result attachments reused the same circle. Save/reopen, reruns, disabled B.C. mode, view movement/scale, and the existing correct machining text passed. The unrelated unmatched hole and noncircular group remain for review. The source draft was not modified.
 

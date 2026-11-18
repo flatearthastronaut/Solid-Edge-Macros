@@ -250,6 +250,17 @@ internal static class Tests
             foreach(Preset preset in book.Presets)
             {
                 HoleFacts facts=Facts(preset);Decision decision=book.Match(facts);if(decision.Slot==0)continue;
+                // The saved .474 Simple 12mm SF size and .474 Counterdrill
+                // Koenig size overlap once dowel depths may vary. Until native
+                // type is explicitly authorized as the tie-breaker, neither
+                // label may be guessed for that counterdrilled geometry.
+                if(facts.Type==7&&RuleBook.Near(facts.Bore,.474))
+                {
+                    Check(book.Match(facts,variableDowelDepth:true).Reason=="Conflicting saved preset matches.","Real 12mm dowel/Koenig overlap is explicitly reviewed");
+                    foreach(bool dual in new[]{false,true})
+                    {bool blocked=false;try{Notes.Build(book,facts,dual);}catch(InvalidOperationException){blocked=true;}Check(blocked,"Ambiguous .474 counterdrill receives no guessed machining note");}
+                    continue;
+                }
                 Check(Notes.InchPlaces(decision,facts,"HD")==2&&Notes.InchPlaces(decision,facts,"TD")==2,"Drilling and thread depths use two inch places");
                 Check(Notes.InchPlaces(decision,facts,"BD")== (decision.Family=="O-ring face seal"?3:2),"Only face-seal recess depth uses three inch places");
                 if(decision.IsDowel)Check(Notes.InchPlaces(decision,facts,facts.Type==1?"HS":"BS")==4,"Dowel diameter uses four inch places");
@@ -316,6 +327,8 @@ internal static class Tests
             foreach(Preset p in book.Presets.Where(p=>p.Family=="Koenig plug"))
             {
                 var h=Facts(p);h.BoreDepth=.27;
+                if(RuleBook.Near(h.Bore,.474))
+                {Check(book.Match(h,variableDowelDepth:true).Slot==0,"Changed Koenig depth does not resolve overlapping .474 dowel identity");continue;}
                 foreach(bool dual in new[]{false,true})
                 {
                     var n=Notes.Build(book,h,dual);Typical(n);Check(n.Text.Split('\r').Count(s=>s==LinkedCallouts.KoenigNote)==1,"Exactly one Koenig caution");
@@ -375,6 +388,69 @@ internal static class Tests
                 Check(blocked,"A conflicting counterbore is never assigned a generic saved note");
             }
             finally{book.Presets.Remove(counterboreCollision);}
+            // 21931-01: native quarter-inch PF counterdrill with a .42 seat
+            // instead of the preset's .38. Preserve its modeled machining
+            // depths and chart limits; never identify PF from depth or name.
+            var deeperDowel=new HoleFacts{Type=7,Diameter=.18800001,Depth=.38000001,
+                Bore=.24900001,BoreDepth=.42000001,Angle=118.00000001};
+            Check(book.Match(deeperDowel).Slot==0,"Changed dowel depth leaves hole-table default recognition unchanged");
+            var dowelChoice=Notes.Recognize(book,deeperDowel);
+            Check(dowelChoice.IsDowel&&dowelChoice.Pin=="1/4 inch"&&dowelChoice.Fit=="PF"&&
+                RuleBook.Near(dowelChoice.Minimum,.2495)&&RuleBook.Near(dowelChoice.Maximum,.25),"Saved diameter pair identifies quarter-inch PF with exact chart limits");
+            foreach(bool dual in new[]{false,true})foreach(bool bc in new[]{false,true})
+            {
+                var note=Notes.Build(book,deeperDowel,dual,bc);
+                Check(note.Text.Contains(dual?"%{%BD/DU/@1}":"%{%BD/@2}"),"Changed dowel seat depth remains a two-inch/one-metric-place native field");
+                Check(note.Text.Contains("%HS")&&note.Text.Contains("%ZH"),"Pilot diameter and smart drill depth stay parametric");
+                Check(note.Text.Contains("MAX P.F. FOR 1/4 DOWEL"),"Saved quarter-inch PF manufacturing note is retained");
+                Check(dual?note.Text.Contains(".2500^.2495"):note.Text.Contains("%BS/LT"),"Dual fixed and inch linked four-place fit limits retained");
+                Check(!Notes.ApplyQuantity(new[]{note.Text},bc,1)[0].Contains("%QC"),"Single dowel omits the complete quantity line in either menu mode");
+            }
+            foreach(Preset p in book.Presets.Where(p=>p.Family=="Dowel"))
+            foreach(int type in new[]{1,7})
+            foreach(double factor in new[]{.75,1.5})
+            {
+                double seat=p.Kind=="CounterDrill"?p.Bore:p.Diameter;
+                double seatDepth=(p.Kind=="CounterDrill"?p.BoreDepth:p.Depth)*factor;
+                var h=new HoleFacts{Type=type,Diameter=type==1?seat:.123,Depth=type==1?seatDepth:2,
+                    Bore=type==7?(double?)seat:null,BoreDepth=type==7?(double?)seatDepth:null};
+                if(type==7&&RuleBook.Near(h.Bore,.474))
+                {Check(book.Match(h,variableDowelDepth:true).Reason=="Conflicting saved preset matches.","Counterdrilled .474 dowel aliases remain reviewed against the Koenig family");continue;}
+                var choice=Notes.Recognize(book,h);
+                Check(choice.IsDowel&&choice.Pin==p.Pin&&choice.Fit==p.Fit,"All inch/metric PF/SF saved and chart diameters keep their identity at changed simple/relieved depths");
+                Check(RuleBook.Near(choice.Minimum,p.Minimum)&&RuleBook.Near(choice.Maximum,p.Maximum),"Changing depth preserves exact finished fit limits");
+                foreach(bool dual in new[]{false,true})
+                {
+                    var plan=Notes.Build(book,h,dual);
+                    Check(plan.Text.Contains(type==1?"%ZH":dual?"%{%BD/DU/@1}":"%{%BD/@2}"),"All dowel depths remain native after variable-depth recognition");
+                }
+            }
+            foreach(double? depth in new double?[]{null,0,-.42,Double.NaN,Double.PositiveInfinity,Double.NegativeInfinity})
+            {
+                var h=new HoleFacts{Type=7,Diameter=.188,Bore=.249,BoreDepth=depth};
+                bool blocked=false;try{Notes.Build(book,h,false);}catch(InvalidOperationException){blocked=true;}
+                Check(blocked,"Missing or invalid dowel seat depth stays for review");
+                h=new HoleFacts{Type=1,Diameter=.24975,Depth=depth};
+                Check(!book.Match(h,variableDowelDepth:true).IsDowel,"Simple dowels also require a positive finite seat depth");
+            }
+            foreach(var h in new[]{new HoleFacts{Type=1,Diameter=.2491,Depth=.42},
+                new HoleFacts{Type=7,Diameter=.188,Bore=.2491,BoreDepth=.42},
+                new HoleFacts{Type=7,Diameter=.188,Bore=.249,BoreDepth=.42,Thread="1/4-20 UNC"},
+                new HoleFacts{Type=1,Diameter=.24975,Depth=.42,Thread="1/4-20 UNC"},
+                new HoleFacts{Type=8,Diameter=.188,Bore=.249,BoreDepth=.42},
+                new HoleFacts{Type=2,Diameter=.188,Bore=.249,BoreDepth=.42}})
+            {
+                Check(!book.Match(h,variableDowelDepth:true).IsDowel,"Variable dowel depth still requires exact seat diameter and unthreaded simple/counterdrill type");
+            }
+            var springCollision=new Preset{Family="Spring pin",Kind="Simple",Diameter=.31325,Depth=.50,Slot=1};
+            book.Presets.Add(springCollision);
+            try{Check(book.Match(new HoleFacts{Type=1,Diameter=.31325,Depth=.50},variableDowelDepth:true).Reason=="Conflicting saved preset matches.",
+                "A known spring-pin combination conflicting with a dowel seat stays for review");}
+            finally{book.Presets.Remove(springCollision);}
+            var plugCollision=new Preset{Family="Koenig plug",Kind="CounterDrill",Bore=.249,Slot=3};
+            book.Presets.Add(plugCollision);
+            try{Check(book.Match(deeperDowel,variableDowelDepth:true).Reason=="Conflicting saved preset matches.","Variable-depth dowel still rejects conflicting families");}
+            finally{book.Presets.Remove(plugCollision);}
             foreach(double? threadDepth in new double?[]{.88,null})
             foreach(bool dual in new[]{false,true})
             {

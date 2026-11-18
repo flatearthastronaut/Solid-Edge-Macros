@@ -124,7 +124,10 @@ namespace TurboCallout
             // never for a conflicting pin match or another review condition.
             // A counterbore's two saved diameters identify the screw clearance;
             // its actual recess depth remains a native field in the saved note.
-            Decision choice = rules.Match(hole, variableShcsDepth: true);
+            // PF/SF dowels in either native representation permit a different
+            // finite seat depth; exact seat diameters and fit conflicts still
+            // determine recognition, never feature names or a rounded value.
+            Decision choice = rules.Match(hole, variableShcsDepth: true, variableDowelDepth: true);
             if (choice.Slot == 0 && choice.Reason == "No verified standard-hole match. Leave unchanged." && IsPlainDrill(hole))
                 choice = new Decision { Category = "Simple drilled hole", Family = "Simple drill", Slot = 1 };
             if (choice.Slot == 0) throw new InvalidOperationException(choice.Reason);
