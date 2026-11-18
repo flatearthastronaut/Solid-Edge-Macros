@@ -230,6 +230,12 @@ namespace CoopManager
         }
     }
     internal interface IRegistrar { void Run(string directory, bool unregister); void CheckClosed(); }
+    // Distinguish a script that never started (for example, a canceled UAC prompt) from
+    // one that ran and failed. Only the latter can have partially changed registration.
+    internal sealed class RegistrationNotStartedException : IOException
+    {
+        public RegistrationNotStartedException(string message,Exception inner):base(message,inner){}
+    }
     internal sealed class ScriptRegistrar : IRegistrar
     {
         public void CheckClosed()
@@ -240,19 +246,41 @@ namespace CoopManager
         }
         public void Run(string directory, bool unregister)
         {
-            CheckClosed();
             string name = unregister ? "UNRegister.cmd" : "Register.cmd";
             string script = System.IO.Path.Combine(directory, name);
+            try
+            {
+                CheckClosed();
+                if (!File.Exists(script)) throw new IOException("Required registration script missing: " + script);
+            }
+            catch(IOException ex){throw new RegistrationNotStartedException(ex.Message,ex);}
             Diagnostics.Info("REGISTRATION START script=" + script + " elevation=requested");
-            if (!File.Exists(script)) throw new IOException("Required registration script missing: " + script);
             // Run the vendor's script in its own directory, elevated. No guessed RegAsm/CLSID settings.
             var info = new ProcessStartInfo(script) { WorkingDirectory = directory, UseShellExecute = true, Verb = "runas", WindowStyle = ProcessWindowStyle.Normal };
-            using (var process = Process.Start(info))
+            using (var process = StartScript(info,Process.Start))
             {
                 process.WaitForExit();
                 Diagnostics.Info("REGISTRATION EXIT script=" + script + " exitCode=" + process.ExitCode);
                 if (process.ExitCode != 0) throw new IOException(name + " failed with exit code " + process.ExitCode + ".");
             }
+        }
+        internal static Process StartScript(ProcessStartInfo info,Func<ProcessStartInfo,Process> start)
+        {
+            // Keep this boundary around launch only. Wait/exit failures after a process starts
+            // must retain the conservative rollback behavior, including re-registration.
+            try
+            {
+                var process=start(info);
+                if(process==null)throw new RegistrationNotStartedException("Registration script did not start.",null);
+                return process;
+            }
+            catch(System.ComponentModel.Win32Exception ex)
+            {
+                throw new RegistrationNotStartedException(ex.NativeErrorCode==1223?
+                    "Administrator permission was canceled. No registration script was started.":
+                    "Registration script could not start: "+ex.Message,ex);
+            }
+            catch(InvalidOperationException ex){throw new RegistrationNotStartedException("Registration script could not start: "+ex.Message,ex);}
         }
     }
     internal static class Installer
@@ -405,7 +433,12 @@ namespace CoopManager
                 }
                 journal();
                 Diagnostics.Info("RECOVERY JOURNAL SAVED transaction=" + txn);
-                if (oldRegDir != null) { oldUnregistered = true; registrar.Run(oldRegDir, true); }
+                if (oldRegDir != null)
+                {
+                    oldUnregistered = true;
+                    try{registrar.Run(oldRegDir, true);}
+                    catch(RegistrationNotStartedException){oldUnregistered=false;throw;}
+                }
                 foreach (string r in touched.Distinct(StringComparer.OrdinalIgnoreCase))
                 {
                     string dest = Files.Child(local, r), save = Files.Child(backup, r);
@@ -418,7 +451,12 @@ namespace CoopManager
                     }
                 }
                 foreach (string r in payload) { applied.Add(r); Files.Copy(Files.Child(stage, r), Files.Child(local, r)); }
-                if (regDir != null) { registrationAttempted = true; registrar.Run(regDir, false); }
+                if (regDir != null)
+                {
+                    registrationAttempted = true;
+                    try{registrar.Run(regDir, false);}
+                    catch(RegistrationNotStartedException){registrationAttempted=false;throw;}
+                }
                 var manifest = new XElement("package", new XAttribute("version", p.Release.Version), new XAttribute("sourceHash", p.Kind == "ZIP" ? Files.Hash(p.Path) : ""),new XAttribute("stableCopies",stable?"1":"0"),
                     payload.Select(r => new XElement("file", new XAttribute("path", r), new XAttribute("hash", Files.Hash(Files.Child(local, r))),copies.ContainsKey(r)?new XAttribute("derivedFrom",copies[r]):null)));
                 applied.Add(manifestRel);

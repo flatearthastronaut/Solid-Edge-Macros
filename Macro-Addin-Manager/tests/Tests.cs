@@ -295,6 +295,7 @@ internal static partial class Tests
         });
         PublishingCases();
         PublicationRecoveryCases();
+        RegistrationCancellationCases();
         StableMacroCases();
         ImplementationHelpCases();
         FrameLayoutCases();

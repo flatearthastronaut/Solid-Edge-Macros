@@ -1,9 +1,9 @@
-# Solid Edge Macro & Add-in Manager v1.14
+# Solid Edge Macro & Add-in Manager v1.15
 
 Run either executable on 64-bit Windows with .NET Framework 4.x. No Solid Edge interop DLLs are needed by the manager itself.
 
-- **User:** `Compiled Executables/SE Macro Manager v1.14.exe` installs and updates programs from the shared folder. Categories are read-only; the category lock/unlock button has been removed.
-- **Admin:** `Compiled Executables/SE Macro Manager Admin v1.14.exe` publishes local builds and assigns **Solid Edge Macros**, **Solid Edge Add-ins**, or **Windows Programs** in the table's Category dropdown. Changes are saved to the shared catalog immediately.
+- **User:** `Compiled Executables/SE Macro Manager v1.15.exe` installs and updates programs from the shared folder. Categories are read-only; the category lock/unlock button has been removed.
+- **Admin:** `Compiled Executables/SE Macro Manager Admin v1.15.exe` publishes local builds and assigns **Solid Edge Macros**, **Solid Edge Add-ins**, or **Windows Programs** in the table's Category dropdown. Changes are saved to the shared catalog immediately.
 
 Both executables compile the same `ManagerForm` in `Program.cs`, artwork, category frames, grids, icon handling, path controls, and status footer. The `ADMIN` build flag selects publishing actions and different defaults; it does not fork the interface. Build both whenever changing the UI.
 
@@ -119,6 +119,8 @@ The supplied `Addin Help.docx` describes running `UNRegister.cmd` before changin
 The SDK examples reviewed were `SDK_2026_2510_English/SDK/Advanced/samples/Addins/VC/regSeAddin.cpp` and the VB.NET `SEAddIn/SEAddIn/Addin.vb` sample. They demonstrate that SE registration includes component categories and class/environment metadata, not simply copying DLLs. This manager does not attach to SE or retain COM objects; file, ZIP, hash, process, and installation-lock handles are disposed deterministically.
 
 ## Copy, cleanup, and recovery
+
+In v1.15, canceling the Windows administrator prompt before an add-in script starts is distinguished from a script that ran and failed. If the old unregister script never started, the manager removes its staged update without requesting a second prompt to re-register the untouched old version. If the old registration was already removed and the new registration prompt is canceled, the manager restores the old files and still requests the old version's required registration. Canceling that necessary recovery step leaves the transaction for review. Scripts that actually start and fail retain the existing conservative rollback behavior.
 
 New files are staged under the local `.se-manager` directory and verified with SHA-256 before registration. An exclusive installation lock prevents simultaneous manager instances from writing the same destination. Existing files and clearly older matching versions are moved to transaction backups, then new files are installed and registered. Successful transactions delete those backups, removing the older versions.
 

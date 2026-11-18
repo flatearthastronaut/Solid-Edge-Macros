@@ -9,7 +9,7 @@ namespace CoopManager
 {
     internal static class AppInfo
     {
-        public const string Version = "1.14";
+        public const string Version = "1.15";
 #if ADMIN
         public static readonly bool Admin = true;
 #else
