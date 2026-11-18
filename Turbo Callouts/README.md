@@ -1,10 +1,12 @@
-# Turbo Callouts v1.6
+# Turbo Callouts v1.7
 
 The application and its current package are named **Turbo Callouts**. Existing drawing styles and native annotation identifiers retain their original spelling so previous notes and bolt-circle annotations remain recognized.
 
 One macro provides both **Without bolt circles** and **With bolt circles**, sharing hole recognition and inch/dual machining formats. It incorporates the validated bolt-circle engine from Turbo Callout & B.C. Macro v0.5; that separate project is archived under `!OLD-OBS/Turbo Callout & B.C. Macro`. Earlier Turbo Callout executables are under `!OLD-OBS/Turbo Callout`. Use `Turbo Callouts/Build.cmd` and the single executable below for future releases.
 
 The menu uses the existing navy/yellow application icon and illustrated mode cards: a rectangular six-hole plate without bolt circles and a circular pattern with bolt circles. The previews show the matching quantity wording and change with the unit selection. Selecting a card does not run the macro; **Run Turbo Callouts** starts the selected operation.
+
+v1.7 adds native Fast Pattern support. Repeated holes in these patterns share combined result geometry instead of separate Hole features. The macro now uses the pattern's model edges plus its seed hole, checks the complete occurrence count and circular layout, and creates the linked B.C., projection marks, diameter, and angle. Fast patterns with multiple seed features remain for review. It also verifies generated angular axes from their actual native line geometry when Solid Edge reports an inconsistent projection-angle property.
 
 v1.6 adds a native angular dimension for each verified off-axis callout hole in **With bolt circles** mode. The angle runs from the nearest horizontal or vertical axis to the hole's radial projection line. Axis-aligned holes are skipped; exact 45-degree ties use the horizontal axis. Angles use the standard .125-inch text and whole degrees in either note unit mode.
 
@@ -15,7 +17,7 @@ Standard threaded-hole notes show only the native thread designation and Smart T
 ## Use
 
 1. Activate the drawing in Solid Edge.
-2. Run `Compiled Executables/Turbo Callouts v1.6.exe`.
+2. Run `Compiled Executables/Turbo Callouts v1.7.exe`.
 3. Select **Without bolt circles** or **With bolt circles**.
 4. Select **Inch only** or **Dual (metric [inch])**.
 5. Click **Run Turbo Callouts**.
@@ -31,7 +33,7 @@ The selected option B icon (white note lines and hole leader, yellow lightning b
 
 All attached native callouts are considered, including existing custom notes; the bolt-circle pass does not rewrite their text or leaders. In face-on orthographic views, the macro identifies the referenced physical hole and its native circular pattern or multi-profile Hole group. It creates one native `BoltHoleCircle` linked to the hole-center references and adds all verified members. It does not construct a loose sketch circle.
 
-Recognition uses model-feature membership rather than feature names, note wording, or similar-looking holes. Both newer circular-pattern data and legacy Ordered `CircularPattern2d` definitions are supported. All required holes must have matching face-on circular edges in the same view and component. Concentric front/back or counterbore edges are counted once per physical center. Groups that span different circles or have missing/overlapping members require review.
+Recognition uses model-feature membership rather than feature names, note wording, or similar-looking holes. Smart and Fast circular patterns are supported. Fast patterns require one verified seed Hole; membership uses body-scoped native edge IDs, never feature names or proximity. Siemens documents the combined Fast Pattern occurrences in its [GetOccurrence API](https://support.industrysoftware.automation.siemens.com/trainings/se/106/api/SolidEdgePart~Pattern~GetOccurrence.html). Both newer circular-pattern data and legacy Ordered `CircularPattern2d` definitions are supported. All required holes must have matching face-on circular edges in the same view and component. Concentric front/back or counterbore edges are counted once per physical center. Groups that span different circles or have missing/overlapping members require review.
 
 Explicit circular patterns use three or more non-collinear centers, or two centers when the native spacing confirms a diametrically opposite pair. Native multi-profile Hole groups require at least three equally spaced centers on one complete circle. Rectangular patterns, single holes, side views, and isometric views receive no new bolt circle. This initial version resolves pattern ownership in linked part documents; assembly and other model-document types are left for review.
 
@@ -117,6 +119,8 @@ Writes are checked and placement is verified. A failed fill restores the previou
 
 ## Build and tests
 
+Run `FastPatternTest.cmd` with the 21931-01 base-plate fixture active (or pass a saved fixture path). It writes only disposable copies under `Inspection` and checks the 12-hole Fast Pattern in both unit modes, all seed/result attachments, projection marks, native diameter/angle, reruns, save/reopen, view movement/scale, and preservation when B.C. is disabled.
+
 - `BoltCircleAngleTest.cmd <saved-manual-angle-sample.dft>`: test both unit modes in disposable copies, native projection/axis parents, 42/40-degree sample values, on-axis skips, reruns, manual-angle preservation, save/reopen, view movement/scaling, and Without bolt circles preservation.
 - `Build.cmd`: compile the standalone executable into `Compiled Executables`.
 - `Test.cmd`: pure recognition/note and existing-text protection tests.
@@ -126,6 +130,8 @@ Writes are checked and placement is verified. A failed fill restores the previou
 - `BoltCircleViewTest.cmd`: use a disposable copy of the active sample to verify native circle/projection creation at half scale, preservation of manual projections, v0.1 circle repair, missing/disabled projection repair, conflicting-mark protection, shared circles for multiple callouts, unchanged custom notes and leaders, movement with the view, saved references, rerun reuse, and isometric exclusion.
 - `Inspect.cmd`: inspect native fields of blank callouts; diagnostic probes are removed immediately. `Inspect.cmd --alignment` reads direction and justification without adding probes.
 - `Preview.cmd`: render the initial window to `Inspection/window.png`.
+
+v1.7 verified November 18, 2026: 8,251 rules checks, 28 menu checks, 528 live Fast Pattern checks, and 154 existing native angular checks passed. Inch and dual copies of the 21931-01 base plate created one 12-hole B.C., all 12 native radial projections, a two-place inch diameter (7.30 inches), and a native 15-degree angle from the nearest vertical axis. All 12 seed/result attachments reused the same circle. Save/reopen, reruns, disabled B.C. mode, view movement/scale, and the existing correct machining text passed. The unrelated unmatched hole and noncircular group remain for review. The source draft was not modified.
 
 v1.5 verified November 13, 2026: 6,362 regression checks, 28 menu checks, and 38 isolated Solid Edge checks passed. All four mode/unit combinations filled the seven sample notes using only their selected quantity format. Save/reopen and repeated runs passed. Existing notes successfully switched B.C -> TYP -> B.C in both unit formats, preserving their original units, machining text, leaders, circles, projection marks, and dimensions. Quantity-one omission, native model updates, fixed dual limits, and style reuse passed. The rectangular/circular menu previews were visually checked in inch and dual. The original open drawing and the known overlapping-pattern B.C review remained unchanged.
 

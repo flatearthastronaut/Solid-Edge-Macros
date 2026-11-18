@@ -57,12 +57,18 @@ namespace TurboCallout
         sealed class HoleGroup
         {
             internal readonly HashSet<long> Owners=new HashSet<long>();
+            internal readonly HashSet<string> Edges=new HashSet<string>();
+            internal int FastCount;
+            internal string Problem;
             internal bool Circular,AllowPair,RegularRequired;
+            internal bool Contains(CircleGraphic circle)
+            {return FastCount>0?Edges.Contains(circle.Edge):Owners.Contains(circle.Owner);}
         }
         sealed class CircleGraphic
         {
             internal object Graphic;
             internal long Owner;
+            internal string Edge;
             internal CirclePoint Center;
             internal double Radius;
         }
@@ -82,6 +88,21 @@ namespace TurboCallout
             foreach(object feature in features)
             {Keep(feature);if((int)((dynamic)feature).Type==HoleType)group.Owners.Add(Identity(feature));}
         }
+        string EdgeIdentity(object edge)
+        {
+            // Parasolid IDs are unique within a body, not across all bodies in
+            // a part. Retain the body RCW for the lifetime of this run/cache.
+            object body=Keep(((dynamic)edge).Body);
+            return Identity(body)+"/"+Convert.ToString(((dynamic)edge).ID,CultureInfo.InvariantCulture);
+        }
+        void AddEdges(HoleGroup group,object feature)
+        {
+            // Consume the collection immediately: SE reuses topology-query
+            // collections on the next Edges/Faces query (SDK igQueryAll = 1).
+            object edges=Keep(((dynamic)feature).Edges[1]);
+            for(int i=1;i<=(int)((dynamic)edges).Count;i++)
+                group.Edges.Add(EdgeIdentity(Keep(((dynamic)edges).Item(i))));
+        }
         List<HoleGroup> Groups(object part)
         {
             long id=Identity(part);List<HoleGroup> cached;if(groups.TryGetValue(id,out cached))return cached;
@@ -93,7 +114,22 @@ namespace TurboCallout
                 {
                     object pattern=Keep(((dynamic)patterns).Item(i));var group=new HoleGroup();
                     int total=(int)((dynamic)pattern).NumberOfOccurrences;
-                    for(int n=1;n<=total;n++)
+                    if((int)((dynamic)pattern).PatternType==1) // seFastPattern
+                    {
+                        // Fast patterns have only a seed occurrence and one
+                        // combined result, despite NumberOfOccurrences reporting
+                        // all visible holes. Result edges need not have a Hole
+                        // Parent at all. Use their native feature membership;
+                        // never infer a pattern from nearby equal-size circles.
+                        group.FastCount=total;
+                        AddEdges(group,pattern);
+                        Array seed=new object[0];((IBcPattern)pattern).GetOccurrence(1,ref seed);
+                        AddOwners(group,seed);
+                        if(seed.Length==1&&group.Owners.Count==1)
+                            AddEdges(group,seed.GetValue(0));
+                        else group.Problem="B.C. needs review: the fast pattern does not have one verified seed hole.";
+                    }
+                    else for(int n=1;n<=total;n++)
                     {Array features=new object[0];((IBcPattern)pattern).GetOccurrence(n,ref features);AddOwners(group,features);}
                     try
                     {
@@ -120,7 +156,7 @@ namespace TurboCallout
                             }
                         }
                     }
-                    if(group.Owners.Count>1)result.Add(group);
+                    if(group.Owners.Count>1||group.FastCount>1)result.Add(group);
                 }
                 object userPatterns=Keep(((dynamic)model).UserDefinedPatterns);
                 for(int i=1;i<=(int)((dynamic)userPatterns).Count;i++)
@@ -135,14 +171,20 @@ namespace TurboCallout
             }
             groups.Add(id,result);return result;
         }
-        object Owner(object graphic,object part)
+        object PhysicalEdge(object graphic,object part)
         {
             string file="";Array key=new byte[0];int size=0;
             ((dynamic)graphic).GetReferenceKey(ref file,ref key,ref size);
             if(!String.Equals(Path.GetFullPath(file),Path.GetFullPath((string)((dynamic)part).FullName),StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("Projected hole belongs to a different model component.");
-            object edge;((IBcPart)part).BindKeyToObject(ref key,out edge);Keep(edge);
-            return Keep(((dynamic)edge).Parent);
+            object edge;((IBcPart)part).BindKeyToObject(ref key,out edge);return Keep(edge);
+        }
+        long HoleOwner(object edge)
+        {
+            object owner;
+            try{owner=Keep(((dynamic)edge).Parent);}
+            catch(InvalidCastException){return 0;} // Fast-pattern result topology has no individual Hole parent.
+            return owner!=null&&(int)((dynamic)owner).Type==HoleType?Identity(owner):0;
         }
         List<CircleGraphic> Circles(object view,object part,object member)
         {
@@ -153,9 +195,9 @@ namespace TurboCallout
                 object circle=Keep(((dynamic)circles).Item(i));
                 try
                 {
-                    object owner=Owner(circle,part);if((int)((dynamic)owner).Type!=HoleType)continue;
+                    object edge=PhysicalEdge(circle,part);long owner=HoleOwner(edge);
                     double x,y;((dynamic)circle).GetCenterPoint(out x,out y);
-                    result.Add(new CircleGraphic{Graphic=circle,Owner=Identity(owner),Center=new CirclePoint(x,y),Radius=(double)((dynamic)circle).Radius});
+                    result.Add(new CircleGraphic{Graphic=circle,Owner=owner,Edge=EdgeIdentity(edge),Center=new CirclePoint(x,y),Radius=(double)((dynamic)circle).Radius});
                 }
                 catch(ArgumentException) { /* Generated/non-model circles have no bindable physical edge. */ }
                 catch(COMException) { /* A missing member makes the complete-pattern check below fail safely. */ }
@@ -180,24 +222,27 @@ namespace TurboCallout
             ((dynamic)draft).Activate();
             if((int)((dynamic)part).Type!=1)
             {detail="B.C. needs review: the linked model is not a part document.";return BoltCircleResult.Review;}
-            object owner=Owner(graphic,part);if((int)((dynamic)owner).Type!=HoleType)return BoltCircleResult.Skipped;
-            long ownerId=Identity(owner);var matches=Groups(part).Where(g=>g.Owners.Contains(ownerId)).ToList();
+            object attachedEdge=PhysicalEdge(graphic,part);
+            var attachment=new CircleGraphic{Owner=HoleOwner(attachedEdge),Edge=EdgeIdentity(attachedEdge)};
+            var matches=Groups(part).Where(g=>g.Contains(attachment)).ToList();
             if(matches.Count==0)return BoltCircleResult.Skipped;
             if(matches.Count!=1)
             {detail="B.C. needs review: the hole belongs to more than one pattern.";return BoltCircleResult.Review;}
-            HoleGroup group=matches[0];if(!group.Circular)
+            HoleGroup group=matches[0];if(group.Problem!=null){detail=group.Problem;return BoltCircleResult.Review;}
+            if(!group.Circular)
             {detail="B.C. skipped: the native pattern is not circular.";return BoltCircleResult.Skipped;}
             object member=Keep(((dynamic)graphic).ModelMember);double radius=(double)((dynamic)graphic).Radius;
-            var candidates=Circles(view,part,member).Where(c=>group.Owners.Contains(c.Owner)&&Math.Abs(c.Radius-radius)<=BoltCircleGeometry.Tolerance).ToList();
+            var candidates=Circles(view,part,member).Where(c=>group.Contains(c)&&Math.Abs(c.Radius-radius)<=BoltCircleGeometry.Tolerance).ToList();
             var selected=new List<CircleGraphic>();
             foreach(CircleGraphic candidate in candidates)
             {
                 var coincident=selected.FirstOrDefault(c=>BoltCircleGeometry.Distance(c.Center,candidate.Center)<=BoltCircleGeometry.Tolerance);
                 if(coincident==null)selected.Add(candidate);
-                else if(coincident.Owner!=candidate.Owner)
+                else if(group.FastCount==0&&coincident.Owner!=candidate.Owner)
                 {detail="B.C. needs review: different pattern holes overlap in this view.";return BoltCircleResult.Review;}
             }
-            if(selected.Count!=group.Owners.Count||selected.Select(c=>c.Owner).Distinct().Count()!=group.Owners.Count)
+            if(group.FastCount>0?selected.Count!=group.FastCount:
+                selected.Count!=group.Owners.Count||selected.Select(c=>c.Owner).Distinct().Count()!=group.Owners.Count)
             {detail="B.C. needs review: not all pattern holes have a matching face-on edge in this view.";return BoltCircleResult.Review;}
             var points=selected.Select(c=>c.Center).ToList();CircleFit fit=BoltCircleGeometry.Fit(points,group.AllowPair);
             if(fit==null||(group.RegularRequired&&!BoltCircleGeometry.EquallySpaced(points,fit)))

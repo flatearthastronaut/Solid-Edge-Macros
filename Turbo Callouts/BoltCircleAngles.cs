@@ -122,10 +122,21 @@ namespace TurboCallout
             return extent;
         }
 
-        static bool Matches(object d,BoltAnglePlan plan)
+        static bool Matches(object d,BoltAnglePlan plan,object axis)
         {
             if(!String.IsNullOrEmpty((string)((dynamic)d).OverrideString)||
                 Math.Abs((double)((dynamic)d).Value-plan.Angle)>1e-7)return false;
+            if((int)((dynamic)axis).Type==760091584&&Tagged(axis,AxisTag))
+            {
+                // Some views report ProjectionLineAngle1=0 for a native upward
+                // vertical axis even though the measured angle is correct.
+                // Verify our actual associated, constrained line instead of
+                // that display property. The caller separately verifies the
+                // radial parent, center attachment and physical text sector.
+                double sx,sy,ex,ey;((dynamic)axis).GetStartPoint(out sx,out sy);((dynamic)axis).GetEndPoint(out ex,out ey);
+                return Math.Sqrt((ex-sx)*(ex-sx)+(ey-sy)*(ey-sy))>Height&&
+                    LineDifference(Math.Atan2(ey-sy,ex-sx),plan.AxisAngle)<1e-7;
+            }
             double a=(double)((dynamic)d).ProjectionLineAngle1,b=(double)((dynamic)d).ProjectionLineAngle2;
             return (LineDifference(a,plan.AxisAngle)<1e-7&&LineDifference(b,plan.HoleAngle)<1e-7)||
                 (LineDifference(b,plan.AxisAngle)<1e-7&&LineDifference(a,plan.HoleAngle)<1e-7);
@@ -212,7 +223,7 @@ namespace TurboCallout
                         if(existing.Count==1)
                         {
                             object d=existing[0],axis=OtherParent(d,radial,held);
-                            if(!Matches(d,plan)||!CenterAt(axis,cx,cy)||!InSector(d,plan,cx,cy))
+                            if(!Matches(d,plan,axis)||!CenterAt(axis,cx,cy)||!InSector(d,plan,cx,cy))
                                 throw new InvalidOperationException("Existing angle differs from the nearest-axis rule; retained for review.");
                             report.BcAnglesExisting++;continue;
                         }
@@ -266,7 +277,7 @@ namespace TurboCallout
                                 {
                                     ((dynamic)created).AngleCompliment=false;((dynamic)created).OriginLineDirection=origin;
                                     ((dynamic)created).MeasureLineDirection=measure;((dynamic)created).AngleClockwise=clockwise;
-                                    if(Matches(created,plan)&&InSector(created,plan,cx,cy)){selected=true;break;}
+                                    if(Matches(created,plan,createdAxis)&&InSector(created,plan,cx,cy)){selected=true;break;}
                                 }
                                 if(selected)break;
                             }
