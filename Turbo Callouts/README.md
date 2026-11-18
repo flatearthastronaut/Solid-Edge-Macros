@@ -1,4 +1,4 @@
-# Turbo Callouts v1.8
+# Turbo Callouts v1.9
 
 The application and its current package are named **Turbo Callouts**. Existing drawing styles and native annotation identifiers retain their original spelling so previous notes and bolt-circle annotations remain recognized.
 
@@ -6,7 +6,9 @@ One macro provides both **Without bolt circles** and **With bolt circles**, shar
 
 The menu uses the existing navy/yellow application icon and illustrated mode cards: a rectangular six-hole plate without bolt circles and a circular pattern with bolt circles. The previews show the matching quantity wording and change with the unit selection. Selecting a card does not run the macro; **Run Turbo Callouts** starts the selected operation.
 
-v1.8 permits part-specific positive finite seat depths for every P.F./S.F. dowel size, inch or metric. Recognition retains exact saved/chart seat diameters, actual linked depths, fit limits, and purpose lines. Both simple holes and relieved dowels are covered; conflicting families and fits remain for review. The shared hole-table caller retains its prior depth policy. The saved .474-inch 12 mm S.F. dowel diameter overlaps the 12 mm Koenig seat: a counterdrilled .474 seat is left for review, while the simple-hole S.F. representation is recognized.
+v1.9 resolves the saved .474-inch overlap using Greg's native-type rule: **Simple = 12 mm S.F. dowel; Counterdrill = 12 mm Koenig/CV plug**. Valid seat depth may vary. Notes retain their family-specific fit limits, manufacturing instructions, linked depths, quantity wording, and B.C. precision. Other family/fit conflicts remain for review, and the hole-table caller is unchanged.
+
+v1.8 permits part-specific positive finite seat depths for every P.F./S.F. dowel size, inch or metric. Recognition retains exact saved/chart seat diameters, actual linked depths, fit limits, and purpose lines. Both simple holes and relieved dowels are covered; conflicting families and fits remain for review. The shared hole-table caller retains its prior depth policy.
 
 v1.7 adds native Fast Pattern support. Repeated holes in these patterns share combined result geometry instead of separate Hole features. The macro now uses the pattern's model edges plus its seed hole, checks the complete occurrence count and circular layout, and creates the linked B.C., projection marks, diameter, and angle. Fast patterns with multiple seed features remain for review. It also verifies generated angular axes from their actual native line geometry when Solid Edge reports an inconsistent projection-angle property.
 
@@ -19,7 +21,7 @@ Standard threaded-hole notes show only the native thread designation and Smart T
 ## Use
 
 1. Activate the drawing in Solid Edge.
-2. Run `Compiled Executables/Turbo Callouts v1.8.exe`.
+2. Run `Compiled Executables/Turbo Callouts v1.9.exe`.
 3. Select **Without bolt circles** or **With bolt circles**.
 4. Select **Inch only** or **Dual (metric [inch])**.
 5. Click **Run Turbo Callouts**.
@@ -136,6 +138,8 @@ Run `FastPatternTest.cmd` with the 21931-01 base-plate fixture active (or pass a
 - `BoltCircleViewTest.cmd`: use a disposable copy of the active sample to verify native circle/projection creation at half scale, preservation of manual projections, v0.1 circle repair, missing/disabled projection repair, conflicting-mark protection, shared circles for multiple callouts, unchanged custom notes and leaders, movement with the view, saved references, rerun reuse, and isometric exclusion.
 - `Inspect.cmd`: inspect native fields of blank callouts; diagnostic probes are removed immediately. `Inspect.cmd --alignment` reads direction and justification without adding probes.
 - `Preview.cmd`: render the initial window to `Inspection/window.png`.
+
+v1.9 verified November 18, 2026: 9,377 callout regression checks, 218 shared recognition checks, and 68 hole-table UI checks passed. The .474 Simple and Counterdrill cases were tested at .27, .52, .60, and .91 seat depths, in both unit formats and both quantity modes. Tests verify the correct family instructions, linked depth fields, four-place dowel versus three-place Koenig B.C. precision, unchanged hole-table defaults, and continued review of unrelated conflicts. This recognition-only update was verified with regression tests; no live drawing was modified.
 
 v1.8 verified November 18, 2026: 9,192 callout regression checks, 218 shared recognition checks, 68 hole-table UI checks, and 80 live dowel-depth checks passed. Every saved/chart inch and metric P.F./S.F. size was tested at changed depths in simple and relieved representations, with explicit review for the overlapping .474 counterdrill. The 21931-01 quarter-inch P.F. sample filled in all four menu combinations, displayed .2500/.2495 limits and its actual .42 depth, retained native machining fields and the original leader attachment/placement, omitted quantity one, and survived reruns and save/reopen. Existing B.C. conflicts in that drawing were retained for review. All live writes were confined to disposable draft copies.
 

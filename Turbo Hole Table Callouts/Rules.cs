@@ -180,6 +180,12 @@ namespace HoleTableFormatter
                     // so the hole-table caller retains its prior depth policy.
                     if (hole.Type == 1) match = Near(hole.Diameter,seat) && DowelDepth(hole.Depth,seatDepth,variableDowelDepth);
                     else if (hole.Type == 7) match = Near(hole.Bore,seat) && DowelDepth(hole.BoreDepth,seatDepth,variableDowelDepth);
+                    // Greg's explicit tie-breaker for the saved .474 overlap:
+                    // native Simple is the 12 mm SF dowel; Counterdrill is the
+                    // Koenig/CV seat. Exclude only this dowel candidate, leaving
+                    // all other family conflicts and hole-table defaults intact.
+                    if(variableDowelDepth&&hole.Type==7&&Near(hole.Bore,.474)&&
+                        preset.Pin=="12 mm"&&preset.Fit=="SF")match=false;
                 }
                 else if (preset.Family == "Koenig plug" && !threaded && hole.Type == 7)
                     // CV is the former name for Koenig. Greg changes seat depth

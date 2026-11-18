@@ -250,17 +250,6 @@ internal static class Tests
             foreach(Preset preset in book.Presets)
             {
                 HoleFacts facts=Facts(preset);Decision decision=book.Match(facts);if(decision.Slot==0)continue;
-                // The saved .474 Simple 12mm SF size and .474 Counterdrill
-                // Koenig size overlap once dowel depths may vary. Until native
-                // type is explicitly authorized as the tie-breaker, neither
-                // label may be guessed for that counterdrilled geometry.
-                if(facts.Type==7&&RuleBook.Near(facts.Bore,.474))
-                {
-                    Check(book.Match(facts,variableDowelDepth:true).Reason=="Conflicting saved preset matches.","Real 12mm dowel/Koenig overlap is explicitly reviewed");
-                    foreach(bool dual in new[]{false,true})
-                    {bool blocked=false;try{Notes.Build(book,facts,dual);}catch(InvalidOperationException){blocked=true;}Check(blocked,"Ambiguous .474 counterdrill receives no guessed machining note");}
-                    continue;
-                }
                 Check(Notes.InchPlaces(decision,facts,"HD")==2&&Notes.InchPlaces(decision,facts,"TD")==2,"Drilling and thread depths use two inch places");
                 Check(Notes.InchPlaces(decision,facts,"BD")== (decision.Family=="O-ring face seal"?3:2),"Only face-seal recess depth uses three inch places");
                 if(decision.IsDowel)Check(Notes.InchPlaces(decision,facts,facts.Type==1?"HS":"BS")==4,"Dowel diameter uses four inch places");
@@ -327,8 +316,6 @@ internal static class Tests
             foreach(Preset p in book.Presets.Where(p=>p.Family=="Koenig plug"))
             {
                 var h=Facts(p);h.BoreDepth=.27;
-                if(RuleBook.Near(h.Bore,.474))
-                {Check(book.Match(h,variableDowelDepth:true).Slot==0,"Changed Koenig depth does not resolve overlapping .474 dowel identity");continue;}
                 foreach(bool dual in new[]{false,true})
                 {
                     var n=Notes.Build(book,h,dual);Typical(n);Check(n.Text.Split('\r').Count(s=>s==LinkedCallouts.KoenigNote)==1,"Exactly one Koenig caution");
@@ -415,7 +402,7 @@ internal static class Tests
                 var h=new HoleFacts{Type=type,Diameter=type==1?seat:.123,Depth=type==1?seatDepth:2,
                     Bore=type==7?(double?)seat:null,BoreDepth=type==7?(double?)seatDepth:null};
                 if(type==7&&RuleBook.Near(h.Bore,.474))
-                {Check(book.Match(h,variableDowelDepth:true).Reason=="Conflicting saved preset matches.","Counterdrilled .474 dowel aliases remain reviewed against the Koenig family");continue;}
+                {Check(Notes.Recognize(book,h).Family=="Koenig plug","Native Counterdrill resolves .474 to Koenig at every tested seat depth");continue;}
                 var choice=Notes.Recognize(book,h);
                 Check(choice.IsDowel&&choice.Pin==p.Pin&&choice.Fit==p.Fit,"All inch/metric PF/SF saved and chart diameters keep their identity at changed simple/relieved depths");
                 Check(RuleBook.Near(choice.Minimum,p.Minimum)&&RuleBook.Near(choice.Maximum,p.Maximum),"Changing depth preserves exact finished fit limits");
@@ -451,6 +438,35 @@ internal static class Tests
             book.Presets.Add(plugCollision);
             try{Check(book.Match(deeperDowel,variableDowelDepth:true).Reason=="Conflicting saved preset matches.","Variable-depth dowel still rejects conflicting families");}
             finally{book.Presets.Remove(plugCollision);}
+            // User-approved exception: native type distinguishes the .474
+            // 12mm SF dowel from the 12mm Koenig seat, independent of depth.
+            foreach(double depth in new[]{.27,.52,.60,.91})
+            foreach(int type in new[]{1,7})
+            {
+                var h=new HoleFacts{Type=type,Diameter=type==1?.474:.375,Depth=type==1?depth:2,
+                    Bore=type==7?(double?).474:null,BoreDepth=type==7?(double?)depth:null};
+                var choice=Notes.Recognize(book,h);bool dowel=type==1;
+                Check(dowel?choice.IsDowel&&choice.Pin=="12 mm"&&choice.Fit=="SF":choice.Family=="Koenig plug",
+                    "Exact .474 seat uses native Simple=dowel, Counterdrill=Koenig");
+                Check(BoltCircleDimensions.InchPlaces(choice)==(dowel?4:3),"Resolved family supplies the correct B.C diameter precision");
+                foreach(bool dual in new[]{false,true})foreach(bool bc in new[]{false,true})
+                {
+                    var plan=Notes.Build(book,h,dual,bc);
+                    Check(plan.Text.Contains(dowel?"S.F. FOR 12mm DOWEL":LinkedCallouts.KoenigNote),"Resolved note retains its family's manufacturing instruction");
+                    Check(!plan.Text.Contains(dowel?LinkedCallouts.KoenigNote:"DOWEL"),"Other family's instruction is never mixed into the note");
+                    Check(plan.Text.Contains(dowel?"%ZH":dual?"%{%BD/DU/@1}":"%{%BD/@2}"),"Actual resolved seat depth remains parametric in either unit mode");
+                    Check(bc?plan.Text.Contains(equalSpacing)&&!Notes.HasTypical(plan.Text):Notes.HasTypical(plan.Text)&&!plan.Text.Contains("PLC'S"),"Native-type rule preserves both quantity modes");
+                }
+            }
+            Check(book.Match(new HoleFacts{Type=7,Diameter=.375,Bore=.474,BoreDepth=.60}).Slot==0,
+                "Hole-table default keeps its previous .60-depth overlap review");
+            // Resolving this specific dowel alias must not suppress a third,
+            // genuinely conflicting family at the same diameter.
+            var overlappingDowel=new Preset{Family="Dowel",Kind="Simple",Pin="Different pin",Fit="PF",Diameter=.474,Depth=.52,Slot=2};
+            book.Presets.Add(overlappingDowel);
+            try{Check(book.Match(new HoleFacts{Type=7,Diameter=.375,Bore=.474,BoreDepth=.52},variableDowelDepth:true).Reason=="Conflicting saved preset matches.",
+                "Native-type exception remains specific to the approved 12mm SF overlap");}
+            finally{book.Presets.Remove(overlappingDowel);}
             foreach(double? threadDepth in new double?[]{.88,null})
             foreach(bool dual in new[]{false,true})
             {
