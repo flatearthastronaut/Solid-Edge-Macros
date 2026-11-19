@@ -53,6 +53,10 @@ internal static class Tests
     {
         try
         {
+            Check(new RunReport().ToString().StartsWith("0 blank callouts found."),"Completed empty scan reports zero blanks");
+            var failedReport=new RunReport{Incomplete=true,Errors=1};failedReport.Details.Add("Missing definitions");
+            Check(failedReport.ToString().Contains("Missing definitions")&&!failedReport.ToString().Contains("0 blank callouts found."),
+                "Incomplete run keeps its diagnostic without claiming an empty drawing");
             for(int degrees=-179;degrees<=180;degrees++)
             {
                 double radians=degrees*Math.PI/180;
@@ -246,7 +250,14 @@ internal static class Tests
             Check(NoteAlignment.ForBreakline(true,true,99)==null,"Unknown direction keeps alignment");
             Check(NoteAlignment.ForBreakline(false,true,0)==null,"Leaderless note keeps alignment");
             Check(NoteAlignment.ForBreakline(true,false,2)==null,"No-breakline note keeps alignment");
-            RuleBook book=RuleBook.Load("..\\Turbo Hole Table Callouts\\Custom.xml");
+            RuleBook book=TurboCallout.Automation.LoadRules();
+            RuleBook reference=RuleBook.Load("..\\Turbo Hole Table Callouts\\Custom.xml");
+            Check(book.Presets.Count==reference.Presets.Count,"Packaged rules retain every validated preset");
+            var presetFields=typeof(Preset).GetFields(System.Reflection.BindingFlags.Instance|
+                System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Public);
+            for(int i=0;i<book.Presets.Count;i++)
+                Check(presetFields.All(f=>Object.Equals(f.GetValue(book.Presets[i]),f.GetValue(reference.Presets[i]))),
+                    "Packaged preset retains all native geometry, family identities and fit limits: "+reference.Presets[i].Name);
             foreach(Preset preset in book.Presets)
             {
                 HoleFacts facts=Facts(preset);Decision decision=book.Match(facts);if(decision.Slot==0)continue;

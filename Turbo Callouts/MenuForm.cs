@@ -123,7 +123,7 @@ namespace TurboCallout
         {
             runner=runAction;reportViewer=showReport;
             AutoScaleMode=AutoScaleMode.None;ClientSize=new Size(624,552);BackColor=Color.FromArgb(249,251,253);
-            Font=new Font("Segoe UI",10);Text="Turbo Callouts v1.9";
+            Font=new Font("Segoe UI",10);Text="Turbo Callouts v1.10";
             FormBorderStyle=FormBorderStyle.FixedDialog;MaximizeBox=false;MinimizeBox=false;StartPosition=FormStartPosition.CenterScreen;
             using(var s=typeof(MainForm).Assembly.GetManifestResourceStream("TurboCallout.Icon"))Icon=new Icon(s);
             using(var s=typeof(MainForm).Assembly.GetManifestResourceStream("TurboCallout.Image"))using(var loaded=Image.FromStream(s))logo=new Bitmap(loaded);
@@ -162,13 +162,14 @@ namespace TurboCallout
                 using(new BusyFilter())report=runner(useDual,circles,text=>{statusText=text;Invalidate();Update();});
             }
             catch(Exception error)
-            {report=new RunReport{Errors=1,BoltCirclesEnabled=circles};report.Details.Add(error.Message);}
+            {report=new RunReport{Errors=1,BoltCirclesEnabled=circles,Incomplete=true};report.Details.Add(error.Message);}
             finally
             {
                 running=false;UseWaitCursor=false;
                 foreach(Control c in Controls)if(c is Button)c.Enabled=true;
             }
-            statusText="Finished: "+report.Filled+" filled, "+report.UpdatedExisting+" updated, "+report.Review+" for review, "+report.Errors+" errors.";
+            statusText=report.Incomplete ? "Run stopped. See the error details." :
+                "Finished: "+report.Filled+" filled, "+report.UpdatedExisting+" updated, "+report.Review+" for review, "+report.Errors+" errors.";
             Invalidate();
             if(reportViewer!=null){reportViewer(report);return;}
             using(var results=new Form())

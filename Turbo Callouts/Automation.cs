@@ -387,11 +387,19 @@ namespace TurboCallout
         internal int BoltCirclesCreated, BoltCirclesExisting, BoltCirclesSkipped, BoltCirclesReview;
         internal int ProjectionMarksCreated, ProjectionMarksUpdated;
         internal bool BoltCirclesEnabled;
+        // A fatal exception has no trustworthy completed count. Do not present
+        // the default zero fields as evidence that the drawing contains no blanks.
+        internal bool Incomplete;
         internal int BcDimensionsCreated, BcDimensionsUpdated, BcDimensionsExisting, BcDimensionsReview;
         internal int BcAnglesCreated, BcAnglesExisting, BcAnglesSkipped, BcAnglesRemoved, BcAnglesReview;
         internal readonly List<string> Details = new List<string>();
         public override string ToString()
         {
+            if (Incomplete)
+                return "Turbo Callouts could not complete the run.\r\n" +
+                    "No completed blank-callout count is available.\r\n\r\n" +
+                    String.Join("\r\n", Details) +
+                    "\r\n\r\nIf any annotations changed before the error, review them before retrying.";
             return String.Format("{0} blank callouts found.\r\n{1} filled; {4} existing notes aligned; {5} existing notes updated; {6} old styles removed; {2} need review; {3} errors.\r\n\r\nReview the drawing, then save it in Solid Edge.\r\n", Blank, Filled, Review, Errors, AlignedExisting, UpdatedExisting, StylesRemoved) +
                 (BoltCirclesEnabled?String.Format("Bolt circles: {0} created; {1} already present; {2} need review.\r\n",BoltCirclesCreated,BoltCirclesExisting,BoltCirclesReview)+
                 String.Format("Projection marks: {0} added; {1} restored.\r\n",ProjectionMarksCreated,ProjectionMarksUpdated)+
@@ -403,6 +411,24 @@ namespace TurboCallout
 
     internal static class Automation
     {
+        internal static RuleBook LoadRules()
+        {
+            // Recognition is a released company standard, just like the embedded
+            // saved notes and dowel chart. Parameter 63 belongs to this workstation:
+            // stock/missing Custom.xml there must not change recognition or prevent
+            // scanning the same drawing. Never merge in unvalidated local presets.
+            // Keep the shared hole-table loader and its validation policy unchanged.
+            using (var stream = typeof(Automation).Assembly.GetManifestResourceStream("TurboCallout.HolePresets.xml"))
+            {
+                if (stream == null)
+                    throw new InvalidOperationException("The packaged hole definitions are missing. Reinstall the complete Turbo Callouts release.");
+                var settings = new System.Xml.XmlReaderSettings
+                { DtdProcessing = System.Xml.DtdProcessing.Prohibit, XmlResolver = null };
+                using (var reader = System.Xml.XmlReader.Create(stream, settings))
+                    return RuleBook.Read(System.Xml.Linq.XDocument.Load(reader), "Packaged Turbo Callouts hole definitions");
+            }
+        }
+
         internal static bool IsCallout(object note)
         { return (int)((dynamic)note).Callout != 0 && !(bool)((dynamic)note).DisplayByItemNumber && !(bool)((dynamic)note).LinkToPartsList; }
         internal static bool IsBlank(object note)
@@ -414,6 +440,8 @@ namespace TurboCallout
 
         internal static RunReport Run(bool dual, Action<string> progress, bool includeBoltCircles=true)
         {
+            // Validate the complete packaged rules before acquiring or editing a draft.
+            RuleBook rules = LoadRules();
             object app = null, draft = null;
             try
             {
@@ -421,10 +449,7 @@ namespace TurboCallout
                 catch (COMException error) { throw new InvalidOperationException("Open Solid Edge and activate a draft before running Turbo Callouts.", error); }
                 draft = ((dynamic)app).ActiveDocument;
                 if (draft == null || (int)((dynamic)draft).Type != 2) throw new InvalidOperationException("Activate a Solid Edge draft (.dft).");
-                object setting; ((dynamic)app).GetGlobalParameter(63, out setting);
-                string path = Convert.ToString(setting);
-                if (String.IsNullOrWhiteSpace(path)) throw new InvalidOperationException("Configure Solid Edge's Custom Settings File first.");
-                return FillDocument(draft, RuleBook.Load(path), dual, progress, includeBoltCircles);
+                return FillDocument(draft, rules, dual, progress, includeBoltCircles);
             }
             finally { Com.Release(draft); Com.Release(app); }
         }

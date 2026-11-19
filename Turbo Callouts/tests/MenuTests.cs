@@ -44,6 +44,8 @@ internal static class MenuTests
                 }
                 fail=true;form.RunSelection();
                 Check(form.ChoicesEnabled&&displayed.Errors==1&&displayed.Details.Contains("Test failure"),"Failure reported and menu recovers");
+                Check(displayed.Incomplete&&displayed.ToString().Contains("No completed blank-callout count"),"Fatal failure explicitly reports an unavailable count");
+                Check(!displayed.ToString().Contains("0 blank callouts found")&&!displayed.ToString().Contains("then save"),"Startup failure does not claim a completed empty scan or request saving");
                 Check(calls==5,"One automation invocation per click");
             }
             Console.WriteLine(checks+" menu checks passed.");return 0;
