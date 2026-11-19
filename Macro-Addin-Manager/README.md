@@ -1,11 +1,23 @@
-# Solid Edge Macro & Add-in Manager v1.15
+# Solid Edge Macro & Add-in Manager v1.16
 
 Run either executable on 64-bit Windows with .NET Framework 4.x. No Solid Edge interop DLLs are needed by the manager itself.
 
-- **User:** `Compiled Executables/SE Macro Manager v1.15.exe` installs and updates programs from the shared folder. Categories are read-only; the category lock/unlock button has been removed.
-- **Admin:** `Compiled Executables/SE Macro Manager Admin v1.15.exe` publishes local builds and assigns **Solid Edge Macros**, **Solid Edge Add-ins**, or **Windows Programs** in the table's Category dropdown. Changes are saved to the shared catalog immediately.
+- **User:** `Compiled Executables/SE Macro Manager v1.16.exe` installs and updates programs from the shared folder. Categories are read-only; the category lock/unlock button has been removed.
+- **Admin:** `Compiled Executables/SE Macro Manager Admin v1.16.exe` publishes local builds and assigns **Solid Edge Macros**, **Solid Edge Add-ins**, or **Windows Programs** in the table's Category dropdown. Changes are saved to the shared catalog immediately.
 
 Both executables compile the same `ManagerForm` in `Program.cs`, artwork, category frames, grids, icon handling, path controls, and status footer. The `ADMIN` build flag selects publishing actions and different defaults; it does not fork the interface. Build both whenever changing the UI.
+
+## Supporting text files (v1.16)
+
+Publishing **Hammill Macro Launcher v0.6 or later** now automatically creates `Hammill.DimensionStyles.txt` at the root of the **Shared publish folder**, using the package's `Shared Configuration` copy. This works with ZIP and folder distributions. If the launcher is already published but this file is absent, its admin row shows **Supporting files missing** and is included in **Publish / clean all**. Existing shared lists are preserved because administrators may have edited the shop's style order there; new launcher defaults never silently replace those edits. To change the active order, edit that shared text file.
+
+The user manager copies the live shared list to `Hammill.DimensionStyles.txt` at the root of its configured **Local folder** (normally the user's Documents/Add-ins). This local snapshot is installed and verified in the same transaction as the launcher, with backup and rollback. A shared text edit produces **Update available** even if the launcher version is unchanged; a missing or altered installed copy offers repair. Updating replaces the local snapshot with the authoritative shared list. If the shared file is missing, the user row shows **Shared configuration missing**: first publish the launcher using Admin v1.16, then refresh the user manager and install/update it with Solid Edge closed.
+
+Cycle Places v0.6–v0.9 still reads the shared list on each click; the local snapshot does not change its lookup behavior or provide an offline fallback. Publishing the root shared file fixes the missing-file error, including for a custom mapped source such as `Z:\Macros and Add-ins`. No hard-coded drive mapping is introduced.
+
+**O-Ring Finder v1.1** already includes `Oring_table.txt` in its ZIP. Publish that ZIP as **Solid Edge Macros**. Installation copies its table beside both the numbered EXE and stable `O-Ring Finder\O-Ring Finder.exe`; the macro reads the adjacent table. Missing/modified managed table files offer repair. Updates/repairs replace the packaged table, so keep any authoritative custom table outside the package if using the macro's `--table` option. Regression tests publish and install the actual launcher v0.9 and O-Ring Finder v1.1 ZIPs in isolated local folders with simulated registration, and verify table hashes and repair behavior.
+
+Shared style-list creation is part of the publication recovery journal. Failed publication removes only its unchanged newly created list; an existing list is never overwritten. Committed recovery cleanup verifies the published supporting-file hash as well as the package hash. Exclude discovery rules, latest-release cleanup, stable macro copies, categories, and shared UI are unchanged.
 
 The v1.14 layout reserves one complete data row for **Solid Edge Add-ins** and two for **Windows Programs**, including space for frame titles, table headers, the Windows help button and any horizontal scrollbar. **Solid Edge Macros** uses the remaining space. Additional entries scroll within their category; catalog refreshes and category changes no longer squeeze the smaller frames. Both editions retain the default 1140 × 850 window size.
 

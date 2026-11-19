@@ -75,12 +75,13 @@ namespace CoopManager
                     string target=Files.Child(shared,Publisher.OutputName(p));
                     if(!File.Exists(target) || old.Any(x=>ReleaseName.Compare(x.Release,p.Release)==0 && !Files.Full(x.Path).Equals(Files.Full(target),StringComparison.OrdinalIgnoreCase)))state="Conflicting shared format";
                     else if(!Publisher.Matches(p,target))state="Published content differs";
+                    else if(SupportingFiles.MissingShared(p,shared))state="Supporting files missing";
                     else if(Publisher.Obsolete(old,p).Any())state="Cleanup available";
                 }
                 if(same.Count>1)state="Ambiguous local builds";
                 rows.Add(new Entry{Available=p,PackageKey=p.Release.Key,Name=p.Release.Name,Category=Categories.Detect(p),AvailableVersion=p.Release.Version==""?"Unversioned":p.Release.Version,
                     InstalledVersion=old.Count==0?"—":string.Join(", ",old.Select(x=>x.Release.Version==""?"Unversioned":x.Release.Version)),Status=state,
-                    Actionable=state=="Not published"||state=="New build available"||state=="Published content differs"||state=="Cleanup available",
+                    Actionable=state=="Not published"||state=="New build available"||state=="Published content differs"||state=="Cleanup available"||state=="Supporting files missing",
                     Details=p.Path+"\r\nPublish to: "+Path.Combine(shared,Publisher.OutputName(p))+(same.Count>1?"\r\nResolve duplicate build sources:\r\n"+string.Join("\r\n",same.Select(x=>x.Path)):"")});
             }
             foreach(var family in published.Where(p=>!available.Any(a=>a.Release.Key==p.Key)).GroupBy(p=>p.Key))
@@ -182,6 +183,12 @@ namespace CoopManager
             string destination=SharedJournalPath(shared,(string)journal.Attribute("destination"));
             if(!File.Exists(destination) || Files.Hash(destination)!=(string)journal.Attribute("publishedHash"))
                 throw new IOException("Published build does not match its recovery record: "+destination+". Backups retained at "+txn);
+            foreach(var support in journal.Elements("support"))
+            {
+                string pathToCheck=SharedJournalPath(shared,(string)support.Attribute("path"));
+                if(!File.Exists(pathToCheck) || Files.Hash(pathToCheck)!=(string)support.Attribute("hash"))
+                    throw new IOException("Published supporting file changed or is missing: "+pathToCheck+". Review backups at "+txn);
+            }
             foreach(var obsolete in journal.Elements("obsolete"))
             {
                 string original=SharedJournalPath(shared,(string)obsolete.Attribute("path"));
@@ -248,22 +255,30 @@ namespace CoopManager
                 foreach(var item in obsolete)CheckRemovable(item.Path);
                 var previous=CategoryPreferences.ReadShared(shared);var next=CategoryPreferences.ReadShared(shared);
                 next.Set(new Entry{PackageKey=p.Release.Key},category);
+                string stylePath=SupportingFiles.UsesStyles(p)?Files.Child(shared,SupportingFiles.Styles):null;
+                bool seedStyles=SupportingFiles.MissingShared(p,shared),stylesPublished=false;
                 string control=Files.Child(shared,ControlFolder),txn=Files.Child(control,"transaction-"+Guid.NewGuid().ToString("N"));
                 Directory.CreateDirectory(txn);
                 string staged=Path.Combine(txn,"payload"),backup=Path.Combine(txn,"previous-build"),categoryPath=Files.Child(shared,CategoryPreferences.FileName);
                 bool existed=File.Exists(destination),hadCategories=File.Exists(categoryPath),categoryWritten=false,published=false;
+                string styleStage=Path.Combine(txn,"styles");
                 var moved=new List<KeyValuePair<string,string>>();
                 try
                 {
                     Stage(p,staged);
+                    if(seedStyles)SupportingFiles.StageSeed(p,styleStage);
                     if(hadCategories)Files.Copy(categoryPath,Path.Combine(txn,"previous-categories.xml"));
                     var recovery=new XElement("publication",new XAttribute("destination",destination),new XAttribute("previousBuild",existed),new XAttribute("publishedHash",Files.Hash(staged)),
                         new XAttribute("previousCategories",hadCategories),new XAttribute("categoryFile",categoryPath),
                         obsolete.Select((item,index)=>new XElement("obsolete",new XAttribute("path",item.Path),new XAttribute("backup",Files.Child(txn,"obsolete-"+index)))));
+                    if(seedStyles)recovery.Add(new XElement("support",new XAttribute("path",stylePath),new XAttribute("hash",Files.Hash(styleStage))));
                     WriteJournal(txn,recovery);
                     // Publish a complete file by rename/replace on the destination filesystem. A user
                     // can see the previous or new complete build, never a partially copied ZIP/EXE.
                     next.WriteShared(shared);categoryWritten=true;
+                    // Move without overwrite: even a concurrent manual creation must
+                    // never be replaced with the package's rollout default.
+                    if(seedStyles){File.Move(styleStage,stylePath);stylesPublished=true;}
                     if(existed)File.Replace(staged,destination,backup);else File.Move(staged,destination);
                     published=true;
                     // Old releases move into the private transaction only after the new file is
@@ -292,6 +307,14 @@ namespace CoopManager
                             if(File.Exists(destination))File.Replace(backup,destination,null);else File.Move(backup,destination);
                         }
                         else if(published && !existed && File.Exists(destination))File.Delete(destination);
+                        if(stylesPublished && File.Exists(stylePath))
+                        {
+                            // Preserve a concurrent administrator edit for review instead
+                            // of deleting data that no longer matches this transaction.
+                            var record=XDocument.Load(Path.Combine(txn,"recovery.xml")).Root.Element("support");
+                            if(Files.Hash(stylePath)!=(string)record.Attribute("hash"))throw new IOException("Shared style list changed during rollback; keep it for review.");
+                            File.Delete(stylePath);
+                        }
                         if(categoryWritten){if(hadCategories)previous.WriteShared(shared);else if(File.Exists(categoryPath))File.Delete(categoryPath);}
                         CleanupTransaction(control,txn);
                     }

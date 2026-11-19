@@ -30,14 +30,14 @@ internal static partial class Tests
         // Keep fixture paths short enough for .NET Framework's legacy MAX_PATH limit even
         // when testing nested release ZIPs under a long checked-out workspace directory.
         string folder="c"+(++caseCount);
-        string s = Path.Combine(root, folder, "source"), l = Path.Combine(root, folder, "local");
+        string s = Path.Combine(root, folder, "s"), l = Path.Combine(root, folder, "l");
         Directory.CreateDirectory(s); Directory.CreateDirectory(l); test(s, l); Console.WriteLine("PASS " + name);
     }
     static IEnumerable<Control> Descendants(Control parent)
     { foreach (Control child in parent.Controls) { yield return child; foreach (var nested in Descendants(child)) yield return nested; } }
     [STAThread] static void Main()
     {
-        root = Path.GetFullPath(Path.Combine("tests", "work", Guid.NewGuid().ToString("N").Substring(0,12))); Directory.CreateDirectory(root);
+        root = Path.GetFullPath(Path.Combine("tests", "work", Guid.NewGuid().ToString("N").Substring(0,8))); Directory.CreateDirectory(root);
         Diagnostics.Initialize(Path.Combine(root, "logs"));
         Assert(AppInfo.SourceSetting(null)==@"H:\Coop\internal\Macros and Add-ins", "New default source");
         Assert(AppInfo.SourceSetting(@"H:\solid_edge\Coop\internal\Macros and Add-ins\")==AppInfo.DefaultSource, "Old default migrated");
@@ -294,6 +294,7 @@ internal static partial class Tests
             Assert(!Catalog.Compare(s,l).Single(e=>e.Available!=null && e.Available.Bundle).Details.Contains("Exclude"),"Excluded folder absent from suite details");
         });
         PublishingCases();
+        SupportingFileCases();
         PublicationRecoveryCases();
         RegistrationCancellationCases();
         StableMacroCases();
