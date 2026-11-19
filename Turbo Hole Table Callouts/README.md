@@ -1,11 +1,11 @@
-# Turbo Hole Table Callouts v0.9
+# Turbo Hole Table Callouts v0.10
 
 Preview and apply native `%F1`–`%F4` selections to recognized hole-table rows in a Solid Edge 2026 draft. Separate native linked expressions handle port precision, pin fits, and required notes when shared definitions cannot represent their standards. Unmatched holes, conflicting matches, and custom notes remain unchanged.
 
 ## Use
 
 1. Open and activate a saved draft in Solid Edge.
-2. Run `Compiled Executables/Turbo Hole Table Callouts v0.9.exe` (the selected table-and-lightning icon A).
+2. Run `Compiled Executables/Turbo Hole Table Callouts v0.10.exe` (the selected table-and-lightning icon A).
 3. Click **Scan active draft**. Each native table opens in its own window, labeled with its **Title text**. The main window lists those titles so you can return to any table. Table numbers disambiguate duplicate or blank titles.
 4. Review rows in natural hole order (A.2 before A.10). **Already Set** rows are green; **Hole type found** rows are yellow; unmatched/review rows are red, including selected cells. Uncheck any proposed changes you do not want, then click **Apply selected formats** in that table's window. Only that table is changed. Successfully applied rows turn green. The Format column identifies separate expressions as **Linked F2 fit**, **Linked spring pin**, **Linked #6**, or **Linked #8**.
 5. After splitting mixed hole-letter groups or editing the draft in Solid Edge, click **Refresh** in any table window or the main window. It scans the same open draft, including unsaved changes, and updates all open previews in place. Hole letters, titles, statuses, red outlines, and warnings are recalculated. Review the fresh checkbox selections before applying; old selections are not transferred to renamed rows. Use **Scan active draft** to switch to a different drawing.
@@ -22,7 +22,7 @@ When a hole-letter group contains multiple types, the entire group receives a co
 | Category | Format | Evidence |
 | --- | --- | --- |
 | Standard threaded hole or matching SHCS counterbore | `%F1` | Native thread or matching saved SHCS dimensions |
-| Dowel pin (slip fit / press fit) | `%F2` or linked F2 fit | Exact saved dowel diameter/depth or chart midpoint/depth; finished chart fit limits and four-place inch precision |
+| Dowel pin (slip fit / press fit) | `%F2` or linked F2 fit | Exact saved/chart seat diameter with native simple/counterdrill type and a positive finite seat depth; finished chart fit limits and four-place inch precision |
 | 3/8-inch spring pin, press fit | Linked spring pin | Exact `.378` diameter / `.62` depth preset; `.382/.375` limits and pin note from `SP 375 PF` |
 | #2 SAE port | `%F2` | Saved spotface diameter and native type, or threaded entrance diameter plus matching thread |
 | Koenig (formerly CV) plug seat | `%F3` or linked callout | Saved `CV Hole- …mm Plug` seat diameter with unthreaded counterdrill type; separate `(DO NOT CHAMFER HOLE)` line required |
@@ -34,9 +34,9 @@ SAE thread identification is 5/16-24 for #2, 7/16-20 for #4, 9/16-18 for #6, and
 
 The `.052`-inch face-seal recess is for a 1/16-inch O-ring cross section. An unthreaded counterbore must also match one of the saved `Face Seal-` recess diameters (.375, .440, or .500 in the supplied XML). Its inlet drilling may be blind or through. The existing F3 counterbore definition is used only when it retains linked diameters and the saved .054/.050 depth limits. A .052 recess with an unknown diameter stays red for review; a known SAE spotface diameter can still identify a port at .052 depth. Depth alone does not identify either family.
 
-The executable includes the approved dowel, spring-pin, face-seal, port, SHCS, and Koenig presets. Each workstation uses the same definitions for scanning and refreshing tables. No preset names are used to classify model features; the preset names identify the approved source families, and matching uses native dimensions. **CV/Koenig seat depths and SAE-port counterbore/entrance depths may differ from the saved preset.** Only a positive modeled recess depth is required for those families, not an exact depth match. Passage length and diameter may also vary. Dowel and supported spring-pin recognition require an exact saved-preset or chart diameter/depth combination. Native callout fields retain the actual model dimensions.
+The executable includes the approved dowel, spring-pin, face-seal, port, SHCS, and Koenig presets. Each workstation uses the same definitions for scanning and refreshing tables. No preset names are used to classify model features; the preset names identify the approved source families, and matching uses native dimensions. **Dowel, CV/Koenig, and SAE-port seat depths may differ from the saved preset.** P.F./S.F. dowels in both inch and metric sizes require exact saved/chart seat diameters, native simple or relieved-hole type, and positive finite seat depth. The actual depth remains linked through `%HD`/Smart Depth for simple holes or `%BD` for relieved seats. Relief passage dimensions do not identify the dowel fit. The shared `.474` standard follows Turbo Callouts: native Simple identifies the 12 mm S.F. dowel, and native Counterdrill identifies the Koenig seat. Other conflicting identities stay for review. Supported spring-pin recognition still requires the saved diameter/depth combination; SHCS depth rules are unchanged.
 
-The build embeds the supplied `Custom.xml` with its 110 saved hole entries. To install on another workstation, extract the release ZIP and point the macro shortcut at `Turbo Hole Table Callouts v0.9.exe`. The presets, saved callouts, and dowel chart travel inside the EXE. Rebuild and distribute a new release when the approved presets change. All 25 saved dowel-pin presets (12 SF/slip fit and 13 PF/press fit) and all three face-seal presets are covered by tests. Categories display **Dowel pin (slip fit)** or **Dowel pin (press fit)** explicitly. Only families listed above have format-selection rules; other saved types remain for review.
+The build embeds the supplied `Custom.xml` with its 110 saved hole entries. To install on another workstation, extract the release ZIP and point the macro shortcut at `Turbo Hole Table Callouts v0.10.exe`. The presets, saved callouts, and dowel chart travel inside the EXE. Rebuild and distribute a new release when the approved presets change. All 25 saved dowel-pin presets (12 SF/slip fit and 13 PF/press fit) and all three face-seal presets are covered by tests. Categories display **Dowel pin (slip fit)** or **Dowel pin (press fit)** explicitly. Only families listed above have format-selection rules; other saved types remain for review.
 
 Greg supplied `DraftCallout.txt`, the UTF-16 Solid Edge saved-callout library containing 79 entries. It is embedded unchanged. The approved separate #6 fallback reads its `SAE Port #6` entry and uses native hole/pocket depth fields with inch precision. Saved display metadata is excluded. The other shared `%F1`–`%F4` definitions remain unchanged. Rebuild after updating the packaged reference file.
 
@@ -53,6 +53,7 @@ Dowel callouts keep their four-place diameter limits and add the saved size-spec
 - Dowel limits must match the chart. A generic ±.00025 around a fit endpoint or drill-stock diameter produces the wrong finished limits. **Linked F2 fit** adjusts native tolerance offsets and retains four decimal places.
 - This version supports inch-primary `HoleTables2` tables with one `%F` callout column and unique hole labels. Metric-primary, legacy `HoleTables`, ambiguous labels, and multiple callout columns are left unchanged.
 - Solid Edge can reorder rows and normalize old cached whitespace during a table refresh. The macro checks hole identities and evaluated results. It does not reposition tables; review spacing and pagination before saving.
+- An apply/preview mismatch still triggers rollback; its error now includes both expected and actual callout strings. The reported VM D.4 mismatch was not reproduced on the locally opened copy: D.4 passed both an isolated assignment and the full apply/save/reopen regression. The VM-specific cause remains unverified.
 - Separate row expressions link numeric dimensions to their holes. If a hole later changes between blind and through, review/update its separate row text: the THRU wording is selected during the scan. A rescan offers only verified standard revisions; changes are written only after **Apply selected formats**.
 
 ## Build and verification
@@ -60,6 +61,10 @@ Dowel callouts keep their four-place diameter limits and add the saved size-spec
 Run `Build.cmd` to compile the standalone x64 .NET Framework executable into `Compiled Executables`. No installed interop DLL needs to be distributed with it.
 
 Run `Test.cmd` for the recognition, finished fits, saved-callout parsing, title, sorting, status-color, and table-selection tests. `LiveTest.cmd` uses the active saved draft (which must have at least one eligible change) to create an isolated project copy and checks native titles, scan preservation, rollback, application one table at a time, save/reopen, retained `%F` associations, and reevaluation of separate linked expressions. It never applies changes to the original drawing. Temporary reports and test copies are under the ignored `Inspection` directory.
+
+v0.10 automated validation: 1,408 recognition/template checks and 69 UI checks passed. Changed-depth coverage exercises every packaged/chart dowel seat in simple and relieved forms at shorter and deeper depths, preserves its fit limits and P.F./S.F. note, and requires the correct native depth field. Missing/zero/negative/nonfinite depths, nearby nonstandard diameters, threaded holes, and conflicting fits remain for review. Apply-mismatch diagnostics retain the exact comparison and report both strings.
+
+The shared Turbo Callouts suite also passed all 9,472 checks. The local one-table/34-row drawing passed native scan preservation, rollback, 14 format assignments (including D.4), save/reopen, refresh recognition, and preservation of custom notes. All nine separate expressions retained their native model-field links. Tests used disposable copies; the original drawing stayed unchanged.
 
 v0.8 validation: 218 recognition/template checks and 68 UI checks passed. Coverage includes inch-only fit amounts for all 25 saved dowel presets, exact saved inch limits, bracket removal, preserved pin designations, and recognition of v0.7 notes for updates and rollback. The live regression updated six prior dual-unit dowel notes on a disposable copy; rollback, apply by table, save/reopen, model links, fresh-scan recognition, and custom-row preservation all passed. The original drawing stayed unchanged.
 
@@ -72,7 +77,7 @@ v0.5 validation: 168 recognition/template checks and 38 UI behavior checks passe
 For a read-only machine-readable scan:
 
 ```text
-"Turbo Hole Table Callouts v0.9.exe" --scan "absolute path to an open draft.dft" "absolute report path.xml"
+"Turbo Hole Table Callouts v0.10.exe" --scan "absolute path to an open draft.dft" "absolute report path.xml"
 ```
 
 COM work stays on the STA thread, releases acquired references, uses the SDK's bounded busy-message filter pattern, and preflights all selected cells before writing. A changed source row or format definition requires another scan. Failed writes attempt to restore the original native column expressions.

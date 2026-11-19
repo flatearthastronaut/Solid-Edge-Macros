@@ -80,6 +80,9 @@ internal static class RulesTests
         string linkedTen=LinkedCallouts.For(ten,tenFacts,counterdrillF2);
         Check(linkedTen.Contains("%{%BS/LT0.0005^0")&&linkedTen.Contains("THRU"),"Endpoint callout must retain its native size and correct asymmetric limits.");
         Check(RuleBook.TemplateProblem(ten,tenFacts,linkedTen)==null,"Adapted fit callout must satisfy the same validation as an F2 definition.");
+        Check(RuleBook.TemplateProblem(ten,tenFacts,linkedTen.Replace("%{%BD/@2/NU}",".60"))!=null,"Reject a relieved-dowel template that substitutes a fixed seat depth.");
+        string simpleLinked=LinkedCallouts.For(smallPin,new HoleFacts{Type=1,Diameter=.31475,Depth=.91},"%DI %{%HS/LT.00025^-.00025/NU/@4} DIA %{%HD/NU/@2} DP.");
+        Check(simpleLinked!=null&&RuleBook.TemplateProblem(smallPin,new HoleFacts{Type=1,Diameter=.31475,Depth=.91},simpleLinked.Replace("%{%HD/NU/@2}",".47"))!=null,"Reject a simple-dowel template that substitutes the saved depth.");
         var quarterFacts=new HoleFacts{Type=7,Diameter=.188,Bore=.249,BoreDepth=.38};
         var quarter=rules.Match(quarterFacts);
         Check(quarter.Slot==2&&RuleBook.Near(quarter.Minimum,.2495)&&RuleBook.Near(quarter.Maximum,.25),"Sample D.1/D.2/D.3 modeled drill stock must retain the finished chart limits.");
@@ -98,6 +101,38 @@ internal static class RulesTests
         var actual=RuleBook.LoadPackaged();
         var allSaved=actual.Presets.Where(p=>p.Family=="Dowel"&&p.Name.StartsWith("Pin, Dowel-",StringComparison.Ordinal)).ToList();
         Check(allSaved.Count==25&&allSaved.Count(p=>p.Fit=="SF")==12,"All 25 saved dowels, including all 12 slip-fit presets, must be loaded.");
+        foreach(Preset saved in actual.Presets.Where(p=>p.Family=="Dowel"))
+        foreach(int type in new[]{1,7})
+        foreach(double factor in new[]{.75,1.5})
+        {
+            double diameter=saved.Kind=="CounterDrill"?saved.Bore:saved.Diameter;
+            double depth=(saved.Kind=="CounterDrill"?saved.BoreDepth:saved.Depth)*factor;
+            var hole=new HoleFacts{Type=type,Diameter=type==1?diameter:.123,Depth=type==1?depth:3.7,
+                Bore=type==7?(double?)diameter:null,BoreDepth=type==7?(double?)depth:null};
+            var match=actual.MatchForHoleTable(hole);
+            if(type==7&&RuleBook.Near(diameter,.474))
+            {Check(match.Family=="Koenig plug","The shared .474 counterdrill distinction remains the Koenig seat.");continue;}
+            Check(match.IsDowel&&match.Pin==saved.Pin&&match.Fit==saved.Fit,"Table accepts changed depth for every inch/metric PF/SF seat: "+saved.Name);
+            Check(RuleBook.Near(match.Minimum,saved.Minimum)&&RuleBook.Near(match.Maximum,saved.Maximum),"Depth changes must not alter finished diameter limits.");
+            string format=type==1?"%DI%{%HS/LT.00025^-.00025/NU/@4} DIA %{%HD/NU/@2} DP.":counterdrillF2;
+            string linked=LinkedCallouts.For(match,hole,format);
+            Check(linked!=null&&RuleBook.TemplateProblem(match,hole,linked)==null&&linked.Contains(type==1?"%HD":"%BD"),"Changed seat depth retains its native HD/BD field.");
+            Check(linked!=null&&linked.Contains(LinkedCallouts.DowelFitNote(match)),"PF/SF purpose line survives changed depths.");
+            Check(type==1?hole.Depth==depth:hole.BoreDepth==depth,"Recognition and formatting preserve the actual model depth.");
+        }
+        foreach(int type in new[]{1,7})
+        foreach(double? depth in new double?[]{null,0,-.42,Double.NaN,Double.PositiveInfinity,Double.NegativeInfinity})
+        {
+            var hole=new HoleFacts{Type=type,Diameter=type==1?.24975:.188,Depth=type==1?depth:2,Bore=.249,BoreDepth=depth};
+            Check(!actual.MatchForHoleTable(hole).IsDowel,"A dowel seat requires positive finite depth in both representations.");
+        }
+        Check(actual.MatchForHoleTable(new HoleFacts{Type=1,Diameter=.2491,Depth=.42}).Slot==0,"Changed depth must not loosen diameter matching.");
+        Check(!actual.MatchForHoleTable(new HoleFacts{Type=7,Bore=.249,BoreDepth=.42,Thread="1/4-20 UNC"}).IsDowel,"Threaded geometry cannot be a dowel seat.");
+        Check(actual.MatchForHoleTable(new HoleFacts{Type=2,Diameter=.28,Bore=.41,BoreDepth=.43}).Slot==0,"Dowel change must not enable varying SHCS depth in tables.");
+        var conflictingDowel=new Preset{Family="Dowel",Kind="Simple",Pin="conflicting pin",Fit="SF",Slot=2,Diameter=.24975,Depth=2};
+        actual.Presets.Add(conflictingDowel);
+        Check(actual.MatchForHoleTable(new HoleFacts{Type=1,Diameter=.24975,Depth=.42}).Slot==0,"Conflicting pin/fit identities stay for review at changed depths.");
+        actual.Presets.Remove(conflictingDowel);
         foreach(Preset saved in allSaved)
         {
             var hole=new HoleFacts{Type=saved.Kind=="Simple"?1:7,Diameter=saved.Diameter,Depth=saved.Depth,Bore=saved.Bore,BoreDepth=saved.BoreDepth};

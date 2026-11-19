@@ -173,6 +173,11 @@ namespace HoleTableFormatter
             return value;
         }
 
+        // The table now opts into the same dowel seat policy as Turbo Callouts.
+        // Keep SHCS and the other families' independent recognition policies.
+        internal Decision MatchForHoleTable(HoleFacts hole)
+        {return Match(hole,variableDowelDepth:true);}
+
         internal Decision Match(HoleFacts hole, bool variableShcsDepth = false, bool variableDowelDepth = false)
         {
             bool possibleFaceSeal=(hole.Type==2 || hole.Type==5) && Near(hole.BoreDepth,.052) && PortThread(hole.Thread)==0;
@@ -191,14 +196,15 @@ namespace HoleTableFormatter
                     // Turbo Callouts identifies every PF/SF size from its exact
                     // saved seat diameter; Greg permits part-specific positive
                     // finite seat depths for simple and relieved dowels. Relief
-                    // drilling does not identify the finished fit. Opt in here
-                    // so the hole-table caller retains its prior depth policy.
+                    // drilling does not identify the finished fit. Both macros
+                    // explicitly opt into this policy; legacy strict comparisons
+                    // remain available to callers that do not opt in.
                     if (hole.Type == 1) match = Near(hole.Diameter,seat) && DowelDepth(hole.Depth,seatDepth,variableDowelDepth);
                     else if (hole.Type == 7) match = Near(hole.Bore,seat) && DowelDepth(hole.BoreDepth,seatDepth,variableDowelDepth);
                     // Greg's explicit tie-breaker for the saved .474 overlap:
                     // native Simple is the 12 mm SF dowel; Counterdrill is the
                     // Koenig/CV seat. Exclude only this dowel candidate, leaving
-                    // all other family conflicts and hole-table defaults intact.
+                    // all other family conflicts intact.
                     if(variableDowelDepth&&hole.Type==7&&Near(hole.Bore,.474)&&
                         preset.Pin=="12 mm"&&preset.Fit=="SF")match=false;
                 }
@@ -251,7 +257,7 @@ namespace HoleTableFormatter
                     Category = preset.Family=="Dowel"?"Dowel pin ("+(preset.Fit=="SF"?"slip fit":"press fit")+")":preset.Family=="Spring pin"?"Spring pin (3/8 inch)":preset.Family + (preset.Port == 0 ? "" : " #" + preset.Port), Slot = preset.Slot,
                     ThreadDepth=threadDepths.Count==1?(double?)threadDepths[0]:null,
                     Port = preset.Port, HalfWidth=preset.HalfWidth,Minimum=preset.Minimum,Maximum=preset.Maximum, Reason = "Matches " + preset.Name +
-                        (preset.Family=="Koenig plug"||preset.Family=="SAE port"?" diameter/type; seat depth may vary.":"") };
+                        (preset.Family=="Koenig plug"||preset.Family=="SAE port"||(preset.Family=="Dowel"&&variableDowelDepth)?" diameter/type; seat depth may vary.":"") };
             }
             if(possibleFaceSeal)return Decision.Review("Shallow recess does not match a saved face-seal diameter; leave unchanged.");
             if (PortThread(hole.Thread) != 0) return Decision.Review("Port-size thread: entrance/spotface does not match a verified preset. May be an older port.");
@@ -261,7 +267,7 @@ namespace HoleTableFormatter
         }
         static bool Positive(double? value){return value.HasValue&&value.Value>0;}
         static bool DowelDepth(double? actual,double saved,bool variable)
-        {return Near(actual,saved)||(variable&&Positive(actual)&&!Double.IsInfinity(actual.Value));}
+        {return variable?Positive(actual)&&!Double.IsInfinity(actual.Value):Near(actual,saved);}
 
         internal static int PortThread(string thread)
         {
@@ -292,6 +298,8 @@ namespace HoleTableFormatter
             }
             if (choice.IsDowel)
             {
+                if(!Regex.IsMatch(template,hole.Type==1?@"%(HD|ZH)\b":@"%BD\b"))
+                    return "Dowel seat depth must remain model-linked.";
                 string field=hole.Type==1?"HS":"BS";
                 if(!LinkedLimitsMatch(template,field,hole.Type==1?hole.Diameter:hole.Bore,choice.Minimum,choice.Maximum,4))
                     return "Dowel F2 precision/fit limits do not match the pin-size chart. Preserve for review.";

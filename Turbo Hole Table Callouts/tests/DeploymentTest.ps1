@@ -7,7 +7,7 @@ $inspection = Join-Path $project 'Inspection'
 $runId = [guid]::NewGuid().ToString('N')
 $testFolder = Join-Path $inspection ('deployment-' + $runId)
 $fixturePath = (Resolve-Path -LiteralPath $Fixture).Path
-$release = 'Turbo Hole Table Callouts v0.9'
+$release = 'Turbo Hole Table Callouts v0.10'
 $zip = Join-Path $project ("Compiled Executables\$release.zip")
 $exe = Join-Path $testFolder ($release + '.exe')
 New-Item -ItemType Directory -Path $testFolder | Out-Null

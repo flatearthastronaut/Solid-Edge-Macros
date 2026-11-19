@@ -80,6 +80,12 @@ internal static class UiTests
     [STAThread] static int Main()
     {
         Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
+        var verification=new RowPlan{Label="D.4",After=".054/.050 DP."};
+        Automation.VerifyAppliedCallout(verification,verification.After);
+        bool mismatchReported=false;
+        try{Automation.VerifyAppliedCallout(verification,".05 DP.");}
+        catch(InvalidOperationException error){mismatchReported=error.Message.Contains("D.4")&&error.Message.Contains("Expected: .054/.050 DP.")&&error.Message.Contains("Actual: .05 DP.");}
+        Check(mismatchReported,"Apply mismatch must preserve rejection and report both expected and actual callouts.");
         Check(Automation.ReadTitle(new FakeTable())=="HOLE TABLE - TOP"+Environment.NewLine+"SECOND LINE","Read actual title values, not the internal name.");
         var scan=new ScanResult{Document="sample.dft",TableCount=2};
         var top=new TableInfo{Index=1,TitleText="HOLE TABLE - TOP"};var side=new TableInfo{Index=2,TitleText="HOLE TABLE - SIDE"};
@@ -143,7 +149,7 @@ internal static class UiTests
         Check(Presentation.MixedHoleGroups(new[]{press,slip}).Contains("A"),"Different fits count as different hole types even with the same native shape.");
         using(var main=new MainForm())
         {
-            main.LoadScan(scan,false);Check(main.Text=="Turbo Hole Table Callouts v0.9","Renamed macro title must include current version.");
+            main.LoadScan(scan,false);Check(main.Text=="Turbo Hole Table Callouts v0.10","Renamed macro title must include current version.");
             Check(main.Controls.OfType<ListBox>().Single().Items.Count==2,"Controller must list each native table.");
         }
         RefreshChecks();

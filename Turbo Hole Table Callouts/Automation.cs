@@ -217,7 +217,7 @@ namespace HoleTableFormatter
                     try
                     {
                         plan.Facts=HoleFacts.Parse(facts[plan.Label][0],facts[plan.Label][1]);
-                        plan.Decision=rules.Match(plan.Facts);plan.Category=plan.Decision.Category;plan.Reason=plan.Decision.Reason;
+                        plan.Decision=rules.MatchForHoleTable(plan.Facts);plan.Category=plan.Decision.Category;plan.Reason=plan.Decision.Reason;
                         if(plan.Decision.Slot>0)
                         {
                             plan.Template=GetTemplate(original,plan.Decision.Slot,plan.Facts.Type);
@@ -355,8 +355,7 @@ namespace HoleTableFormatter
                         }
                         ((dynamic)table).Update();
                         foreach(RowPlan plan in group)
-                            if(CellText(table,FindLabel(table,plan),plan.ColumnIndex)!=plan.After)
-                                throw new InvalidOperationException("Solid Edge did not retain the previewed callout for "+plan.Label+".");
+                            VerifyAppliedCallout(plan,CellText(table,FindLabel(table,plan),plan.ColumnIndex));
                     }
                     finally{Com.Release(table);}
                 }
@@ -401,6 +400,15 @@ namespace HoleTableFormatter
         }
         internal static List<RowPlan> SelectedRows(ScanResult scan,int? tableIndex)
         {return scan.Rows.Where(r=>r.Eligible&&r.Selected&&(!tableIndex.HasValue||r.TableIndex==tableIndex.Value)).ToList();}
+        internal static void VerifyAppliedCallout(RowPlan plan,string actual)
+        {
+            // Keep the exact comparison: a changed limit, precision or native
+            // formatting field must still trigger rollback. Include both strings
+            // so a remote-workstation failure can be reproduced without guessing.
+            if(actual!=plan.After)throw new InvalidOperationException(
+                "Solid Edge did not retain the previewed callout for "+plan.Label+"."+Environment.NewLine+
+                "Expected: "+plan.After+Environment.NewLine+"Actual: "+actual);
+        }
         static void Validate(object tables,RowPlan plan)
         {
             object table=null,rows=null,columns=null,column=null,cell=null;
