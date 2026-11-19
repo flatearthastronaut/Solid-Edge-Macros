@@ -35,6 +35,7 @@ public class CadFeature
 }
 public class Part
 {
+    public int Type = 1; // Framework DocumentTypeConstants.igPartDocument.
     public FaceStyles FaceStyles = new FaceStyles();
     public EmptyModels Models = new EmptyModels();
     public object BaseStyle;

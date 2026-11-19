@@ -1,6 +1,6 @@
 /* EXPLANATORY NOTE
-SKETCH TO MODELS -- DOCUMENTED v2.35 SOURCE
-Updated November 16, 2026. Closes successfully saved parts after modeling; graphical sketch selection retained.
+SKETCH TO MODELS -- DOCUMENTED v2.36 SOURCE
+Updated November 19, 2026. Verifies opened parts across Windows path aliases; closes completed parts.
 SketchToModels.cs and SketchToModels-Commented.cs contain the same documented source.
 
 READING ORDER
@@ -39,7 +39,7 @@ reviews/accepts source geometry and finishes features. A feature's internal Prof
 is expected; a second standalone Sketch is not.
 
 BUILDING
-Build.cmd compiles SketchToModels.cs, ComSupport.cs, ORingWorkflow.cs and AutoSketchSelection.cs together.
+Build.cmd compiles SketchToModels.cs, ComSupport.cs, ORingWorkflow.cs, AutoSketchSelection.cs and DocumentPaths.cs together.
 To compile the alternate copy, substitute its input filename and a
 different output EXE name. Do not compile both source copies together: they define
 the same classes. Earlier versioned executables and ZIP files remain available.
@@ -84,8 +84,10 @@ These conventions differ from screen units and normal zero-based C# arrays.
 /* EXPLANATORY NOTE
 Opening an in-context part can ask to open its parent assembly. Temporarily
 suppress alerts for this Open only, then restore the prior setting in finally.
-Check FullName so a redirected open cannot send subsequent edits to the wrong
-document. This is not blanket suppression of save errors or application prompts.
+Check document type and Windows path identity so a redirected open cannot send
+subsequent edits to the wrong document. FullName can use a UNC or short path
+instead of the original mapped-drive spelling on another workstation.
+This is not blanket suppression of save errors or application prompts.
 */
         public static object OpenPartQuietly(dynamic app, string path)
         {
@@ -97,9 +99,18 @@ document. This is not blanket suppression of save errors or application prompts.
                 opened = app.Documents.Open(path);
             }
             finally { app.DisplayAlerts = previous; }
+            if (opened == null)
+                throw new InvalidOperationException("Solid Edge did not return a document. Requested part: " + path);
             dynamic document = opened;
-            if (!String.Equals((string)document.FullName, path, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException("Solid Edge opened a different document instead of the requested part: " + path);
+            string actualPath = (string)document.FullName;
+            // DocumentTypeConstants: igPartDocument=1, igSyncPartDocument=8.
+            // Reject an assembly even if a provider happens to report its path
+            // incorrectly. Do not activate/model/close an unverified document.
+            int documentType = Convert.ToInt32(document.Type);
+            if ((documentType != 1 && documentType != 8) || !DocumentPaths.SameFile(path, actualPath))
+                throw new InvalidOperationException("Solid Edge did not return the requested part.\nRequested: " + path
+                    + "\nReturned: " + (actualPath ?? "<no path>") + "\nDocument type: " + documentType
+                    + ". No modeling commands were sent to that document.");
             return opened;
         }
 /* EXPLANATORY NOTE
@@ -1241,7 +1252,7 @@ Disable this form during a batch to prevent competing processing requests.
         string assemblyPath;
         public MainWindow()
         {
-            Text = "Sketch to Models v2.35 | Solid Edge 2026";
+            Text = "Sketch to Models v2.36 | Solid Edge 2026";
             Size = new Size(940, 650); MinimumSize = new Size(840, 580);
             StartPosition = FormStartPosition.CenterScreen;
             Font = new Font("Segoe UI", 10);
@@ -1376,7 +1387,7 @@ including both saves. An exception stops the batch; later rows do not run.
             catch (Exception e)
             {
                 // Preflight errors previously bypassed the detailed error log entirely.
-                try { File.AppendAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SketchToModels-error.txt"), "\r\n" + DateTime.Now.ToString("s") + " v2.35 ProcessSelection\r\n" + e.ToString() + "\r\n"); } catch { }
+                try { File.AppendAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SketchToModels-error.txt"), "\r\n" + DateTime.Now.ToString("s") + " v2.36 ProcessSelection\r\n" + e.ToString() + "\r\n"); } catch { }
                 status.Text = "Stopped: " + e.Message;
                 MessageBox.Show(this, e.Message + "\n\nPreviously completed parts remain saved. Existing filenames are blocked on retry.", "Processing stopped", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }

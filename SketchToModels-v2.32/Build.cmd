@@ -11,20 +11,20 @@ if not exist "%SEPART%" (
   exit /b 1
 )
 rem Embed the existing multi-size ICO so Explorer and shortcuts use the macro icon.
-"%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /win32icon:"SketchToModels.ico" /target:winexe /platform:x64 /link:"%SEPART%" /r:"%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\WPF\UIAutomationClient.dll" /r:"%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\WPF\UIAutomationTypes.dll" /r:"%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\WPF\WindowsBase.dll" /r:Microsoft.CSharp.dll /r:System.Windows.Forms.dll /r:System.Drawing.dll /out:"Compiled Executables\SketchToModels.exe" SketchToModels.cs ComSupport.cs ORingWorkflow.cs AutoSketchSelection.cs
+"%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /win32icon:"SketchToModels.ico" /target:winexe /platform:x64 /link:"%SEPART%" /r:"%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\WPF\UIAutomationClient.dll" /r:"%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\WPF\UIAutomationTypes.dll" /r:"%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\WPF\WindowsBase.dll" /r:Microsoft.CSharp.dll /r:System.Windows.Forms.dll /r:System.Drawing.dll /out:"Compiled Executables\SketchToModels.exe" SketchToModels.cs ComSupport.cs ORingWorkflow.cs AutoSketchSelection.cs DocumentPaths.cs
 if errorlevel 1 exit /b 1
 rem Bundle the template setting and matching ribbon images beside the executable.
-copy /y "Compiled Executables\SketchToModels.exe" "Compiled Executables\SketchToModels-v2.35.exe" >nul
+copy /y "Compiled Executables\SketchToModels.exe" "Compiled Executables\SketchToModels-v2.36.exe" >nul
 if errorlevel 1 exit /b 1
 copy /y "template.txt" "Compiled Executables\template.txt" >nul
 if errorlevel 1 exit /b 1
 copy /y "SketchToModels.png" "Compiled Executables\SketchToModels.png" >nul
 if errorlevel 1 exit /b 1
-copy /y "SketchToModels-v2.35.png" "Compiled Executables\SketchToModels-v2.35.png" >nul
+copy /y "SketchToModels-v2.36.png" "Compiled Executables\SketchToModels-v2.36.png" >nul
 if errorlevel 1 exit /b 1
 copy /y "SketchToModels.ico" "Compiled Executables\SketchToModels.ico" >nul
 if errorlevel 1 exit /b 1
-echo Built Compiled Executables\SketchToModels-v2.35.exe
+echo Built Compiled Executables\SketchToModels-v2.36.exe
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "..\Hammill Common\Package-CompiledMacro.ps1" -Project . -Executable "Compiled Executables\SketchToModels-v2.35.exe" -Icon "SketchToModels.ico" -Image "SketchToModels.png" -DataFiles "template.txt" -OptionalFiles "Compiled Executables\oring-template.txt"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "..\Hammill Common\Package-CompiledMacro.ps1" -Project . -Executable "Compiled Executables\SketchToModels-v2.36.exe" -Icon "SketchToModels.ico" -Image "SketchToModels.png" -DataFiles "template.txt" -OptionalFiles "Compiled Executables\oring-template.txt"
 exit /b %errorlevel%
