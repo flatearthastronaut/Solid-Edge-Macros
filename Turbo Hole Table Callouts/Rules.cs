@@ -68,9 +68,24 @@ namespace HoleTableFormatter
 
         internal static RuleBook Load(string path)
         {
-            var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null };
             using (var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-            using (var reader = XmlReader.Create(file, settings)) return Read(XDocument.Load(reader), path);
+                return Load(file, path);
+        }
+        internal static RuleBook LoadPackaged()
+        {
+            // Use the released company presets on every workstation. The same
+            // draft must not acquire different row recommendations from local settings.
+            using (var stream = typeof(RuleBook).Assembly.GetManifestResourceStream("HoleTableFormatter.HolePresets.xml"))
+            {
+                if (stream == null)
+                    throw new InvalidDataException("The Turbo Hole Table Callouts executable is missing its hole presets. Reinstall the release.");
+                return Load(stream, "Packaged Turbo Hole Table Callouts hole presets");
+            }
+        }
+        static RuleBook Load(Stream stream, string source)
+        {
+            var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null };
+            using (var reader = XmlReader.Create(stream, settings)) return Read(XDocument.Load(reader), source);
         }
         internal static RuleBook Read(XDocument document, string source)
         {
@@ -133,7 +148,7 @@ namespace HoleTableFormatter
                 preset.HalfWidth=chart.HalfWidth;preset.Minimum=chart.Minimum;preset.Maximum=chart.Maximum;
             }
             if (!book.Presets.Any(p => p.Family == "Koenig plug") || !book.Presets.Any(p => p.Family == "SAE port"))
-                throw new InvalidDataException("The configured custom settings do not contain the expected CV plug and SAE port families.");
+                throw new InvalidDataException(source + " does not contain the expected CV plug and SAE port families.");
             return book;
         }
         static bool PinAlias(string chart,string token)

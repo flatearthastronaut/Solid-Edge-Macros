@@ -22,14 +22,14 @@ namespace HoleTableFormatter
     }
     internal sealed class ScanResult
     {
-        internal string Document, SettingsPath;
+        internal string Document, PresetSource;
         internal int TableCount;
         internal readonly List<TableInfo> Tables = new List<TableInfo>();
         internal readonly List<RowPlan> Rows = new List<RowPlan>();
         internal readonly List<string> Notes = new List<string>();
         internal void Save(string path)
         {
-            var xml = new XElement("HoleTableScan", new XAttribute("document",Document), new XAttribute("settings",SettingsPath),
+            var xml = new XElement("HoleTableScan", new XAttribute("document",Document), new XAttribute("settings",PresetSource),
                 new XAttribute("tables",TableCount), new XAttribute("eligible",Rows.Count(r=>r.Eligible)),
                 Tables.Select(t=>new XElement("Table",new XAttribute("index",t.Index),new XElement("Title",t.TitleText))),
                 Notes.Select(n=>new XElement("Note",n)), Rows.Select(r=>new XElement("Row",
@@ -71,10 +71,8 @@ namespace HoleTableFormatter
                 result.Document=(string)((dynamic)source).FullName;
                 if(!String.Equals(Path.GetExtension(result.Document),".dft",StringComparison.OrdinalIgnoreCase))
                     throw new InvalidOperationException("Open a saved Solid Edge draft before running this macro.");
-                object settings;
-                ((dynamic)app).GetGlobalParameter(63,out settings); result.SettingsPath=Convert.ToString(settings);
-                if(String.IsNullOrWhiteSpace(result.SettingsPath))throw new InvalidOperationException("Solid Edge has no Custom Settings File configured.");
-                RuleBook rules=RuleBook.Load(result.SettingsPath);
+                RuleBook rules=RuleBook.LoadPackaged();
+                result.PresetSource=rules.Source;
                 sourceTables=((dynamic)source).HoleTables2; result.TableCount=(int)((dynamic)sourceTables).Count;
                 if(result.TableCount==0)throw new InvalidOperationException("This draft has no supported native HoleTables2 tables.");
                 Directory.CreateDirectory(scratchFolder);

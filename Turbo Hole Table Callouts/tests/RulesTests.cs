@@ -94,11 +94,8 @@ internal static class RulesTests
         Check(!sixLinked.Contains("[00]")&&!sixLinked.Contains("CW]]"),"Saved-callout metadata must not enter manufacturing text.");
         Check(LinkedCallouts.For(six,new HoleFacts{Type=2},"#4 7/16-20").Contains("THRU"),"Through ports must not receive an empty depth expression.");
         Check(LinkedCallouts.For(new Decision{Port=4},new HoleFacts{Type=2},"#4 7/16-20")==null,"Separate #6 fallback must not change #4 definitions.");
-        // Exercise every real saved dowel preset, not just hand-picked examples.
-        // The local XML is Greg's supplied snapshot; production still reads SE's
-        // configured file so subsequent approved preset edits are picked up.
-        string fixture=Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,@"..\..\Custom.xml"));
-        var actual=RuleBook.Load(fixture);
+        // Exercise the same embedded presets and saved notes as the Scan command.
+        var actual=RuleBook.LoadPackaged();
         var allSaved=actual.Presets.Where(p=>p.Family=="Dowel"&&p.Name.StartsWith("Pin, Dowel-",StringComparison.Ordinal)).ToList();
         Check(allSaved.Count==25&&allSaved.Count(p=>p.Fit=="SF")==12,"All 25 saved dowels, including all 12 slip-fit presets, must be loaded.");
         foreach(Preset saved in allSaved)

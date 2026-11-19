@@ -1,11 +1,11 @@
-# Turbo Hole Table Callouts v0.8
+# Turbo Hole Table Callouts v0.9
 
 Preview and apply native `%F1`–`%F4` selections to recognized hole-table rows in a Solid Edge 2026 draft. Separate native linked expressions handle port precision, pin fits, and required notes when shared definitions cannot represent their standards. Unmatched holes, conflicting matches, and custom notes remain unchanged.
 
 ## Use
 
 1. Open and activate a saved draft in Solid Edge.
-2. Run `Compiled Executables/Turbo Hole Table Callouts v0.8.exe` (the selected table-and-lightning icon A).
+2. Run `Compiled Executables/Turbo Hole Table Callouts v0.9.exe` (the selected table-and-lightning icon A).
 3. Click **Scan active draft**. Each native table opens in its own window, labeled with its **Title text**. The main window lists those titles so you can return to any table. Table numbers disambiguate duplicate or blank titles.
 4. Review rows in natural hole order (A.2 before A.10). **Already Set** rows are green; **Hole type found** rows are yellow; unmatched/review rows are red, including selected cells. Uncheck any proposed changes you do not want, then click **Apply selected formats** in that table's window. Only that table is changed. Successfully applied rows turn green. The Format column identifies separate expressions as **Linked F2 fit**, **Linked spring pin**, **Linked #6**, or **Linked #8**.
 5. After splitting mixed hole-letter groups or editing the draft in Solid Edge, click **Refresh** in any table window or the main window. It scans the same open draft, including unsaved changes, and updates all open previews in place. Hole letters, titles, statuses, red outlines, and warnings are recalculated. Review the fresh checkbox selections before applying; old selections are not transferred to renamed rows. Use **Scan active draft** to switch to a different drawing.
@@ -34,9 +34,9 @@ SAE thread identification is 5/16-24 for #2, 7/16-20 for #4, 9/16-18 for #6, and
 
 The `.052`-inch face-seal recess is for a 1/16-inch O-ring cross section. An unthreaded counterbore must also match one of the saved `Face Seal-` recess diameters (.375, .440, or .500 in the supplied XML). Its inlet drilling may be blind or through. The existing F3 counterbore definition is used only when it retains linked diameters and the saved .054/.050 depth limits. A .052 recess with an unknown diameter stays red for review; a known SAE spotface diameter can still identify a port at .052 depth. Depth alone does not identify either family.
 
-The configured Solid Edge **Custom Settings File** supplies the live dowel, spring-pin, face-seal, port, SHCS, and Koenig presets. It is read through application parameter 63. No preset names are used to classify model features; the preset names identify the approved source families, and matching uses native dimensions. **CV/Koenig seat depths and SAE-port counterbore/entrance depths may differ from the saved preset.** Only a positive modeled recess depth is required for those families, not an exact depth match. Passage length and diameter may also vary. Dowel and supported spring-pin recognition require an exact saved-preset or chart diameter/depth combination. Native callout fields retain the actual model dimensions.
+The executable includes the approved dowel, spring-pin, face-seal, port, SHCS, and Koenig presets. Each workstation uses the same definitions for scanning and refreshing tables. No preset names are used to classify model features; the preset names identify the approved source families, and matching uses native dimensions. **CV/Koenig seat depths and SAE-port counterbore/entrance depths may differ from the saved preset.** Only a positive modeled recess depth is required for those families, not an exact depth match. Passage length and diameter may also vary. Dowel and supported spring-pin recognition require an exact saved-preset or chart diameter/depth combination. Native callout fields retain the actual model dimensions.
 
-The supplied `Custom.xml` is retained as a regression fixture. Its 110 saved holes match the configured file when supplied; the executable continues reading the configured live file. All 25 saved dowel-pin presets (12 SF/slip fit and 13 PF/press fit) and all three face-seal presets are covered by tests. Categories display **Dowel pin (slip fit)** or **Dowel pin (press fit)** explicitly. Only families listed above have format-selection rules; other saved types remain for review.
+The build embeds the supplied `Custom.xml` with its 110 saved hole entries. To install on another workstation, extract the release ZIP and point the macro shortcut at `Turbo Hole Table Callouts v0.9.exe`. The presets, saved callouts, and dowel chart travel inside the EXE. Rebuild and distribute a new release when the approved presets change. All 25 saved dowel-pin presets (12 SF/slip fit and 13 PF/press fit) and all three face-seal presets are covered by tests. Categories display **Dowel pin (slip fit)** or **Dowel pin (press fit)** explicitly. Only families listed above have format-selection rules; other saved types remain for review.
 
 Greg supplied `DraftCallout.txt`, the UTF-16 Solid Edge saved-callout library containing 79 entries. It is embedded unchanged. The approved separate #6 fallback reads its `SAE Port #6` entry and uses native hole/pocket depth fields with inch precision. Saved display metadata is excluded. The other shared `%F1`–`%F4` definitions remain unchanged. Rebuild after updating the packaged reference file.
 
@@ -72,7 +72,7 @@ v0.5 validation: 168 recognition/template checks and 38 UI behavior checks passe
 For a read-only machine-readable scan:
 
 ```text
-"Turbo Hole Table Callouts v0.8.exe" --scan "absolute path to an open draft.dft" "absolute report path.xml"
+"Turbo Hole Table Callouts v0.9.exe" --scan "absolute path to an open draft.dft" "absolute report path.xml"
 ```
 
 COM work stays on the STA thread, releases acquired references, uses the SDK's bounded busy-message filter pattern, and preflights all selected cells before writing. A changed source row or format definition requires another scan. Failed writes attempt to restore the original native column expressions.
